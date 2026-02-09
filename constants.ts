@@ -1,0 +1,91 @@
+
+import { User, UserRole, Machine, WorkLog, EntryType } from './types';
+
+export const INITIAL_USERS: User[] = [
+  { id: '1', name: 'Иван Иванов', role: UserRole.EMPLOYEE, department: 'Цех №1', position: 'Токарь', pin: '0000' },
+  { id: '2', name: 'Анна Сидорова', role: UserRole.EMPLOYEE, department: 'Дизайн', position: 'Проектировщик', pin: '0000' },
+  { id: '3', name: 'Петр Петров', role: UserRole.EMPLOYEE, department: 'Цех №1', position: 'Токарь', pin: '0000' },
+  { id: '4', name: 'Сергей Волков', role: UserRole.EMPLOYEE, department: 'КБ', position: 'Инженер', pin: '0000' },
+  { id: 'admin', name: 'Александр Сергеевич', role: UserRole.EMPLOYER, position: 'Менеджер', pin: '0000' }
+];
+
+export const INITIAL_MACHINES: Machine[] = [
+  { id: 'm1', name: 'Пила Bosch' },
+  { id: 'm2', name: 'Станок 502' },
+  { id: 'm3', name: 'Токарный ЧПУ' },
+  { id: 'm4', name: 'Пресс гидравлический' }
+];
+
+export const INITIAL_POSITIONS: string[] = [
+  'Токарь',
+  'Инженер',
+  'Проектировщик',
+  'Менеджер',
+  'Бухгалтер',
+  'Другое'
+];
+
+// Генерация демо-данных за январь 2024
+const generateDemoLogs = (): WorkLog[] => {
+  const demoLogs: WorkLog[] = [];
+  const users = ['1', '2', '3', '4'];
+  
+  users.forEach(userId => {
+    for (let d = 1; d <= 25; d++) {
+      const day = d.toString().padStart(2, '0');
+      const date = `2024-01-${day}`;
+      const dayOfWeek = new Date(date).getDay();
+      
+      if (dayOfWeek === 0 || dayOfWeek === 6) continue;
+
+      if (d === 10) {
+         demoLogs.push({
+           id: `demo-sick-${userId}-${d}`,
+           userId,
+           date,
+           entryType: EntryType.SICK,
+           durationMinutes: 0
+         });
+         continue;
+      }
+
+      if (d > 20 && userId === '2') {
+        demoLogs.push({
+           id: `demo-vac-${userId}-${d}`,
+           userId,
+           date,
+           entryType: EntryType.VACATION,
+           durationMinutes: 0
+         });
+         continue;
+      }
+
+      // Обычный рабочий день с РАЗНЫМИ минутами для теста
+      const randomMinutes = 480 + (d * 3) % 60; // 8 часов + переменные минуты
+      demoLogs.push({
+        id: `demo-work-${userId}-${d}`,
+        userId,
+        date,
+        entryType: EntryType.WORK,
+        checkIn: `${date}T08:00:00Z`,
+        checkOut: `${date}T16:00:00Z`, // Условно, расчет идет по durationMinutes
+        durationMinutes: randomMinutes,
+        machineId: userId === '1' || userId === '3' ? (d % 2 === 0 ? 'm1' : 'm2') : undefined
+      });
+    }
+  });
+
+  return demoLogs;
+};
+
+export const STORAGE_KEYS = {
+  WORK_LOGS: 'timesheet_work_logs',
+  CURRENT_USER: 'timesheet_current_user',
+  USERS_LIST: 'timesheet_users_list',
+  MACHINES_LIST: 'timesheet_machines_list',
+  POSITIONS_LIST: 'timesheet_positions_list',
+  ACTIVE_SHIFTS: 'timesheet_active_shifts'
+};
+
+const savedLogs = localStorage.getItem(STORAGE_KEYS.WORK_LOGS);
+export const INITIAL_LOGS: WorkLog[] = savedLogs ? JSON.parse(savedLogs) : generateDemoLogs();

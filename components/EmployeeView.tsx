@@ -1,0 +1,628 @@
+
+import React, { useState, useEffect, useMemo, useRef } from 'react';
+import { WorkLog, User, EntryType, FIXED_POSITION_TURNER, Machine } from '../types';
+import { formatTime, formatDate, formatDuration, calculateMinutes, getDaysInMonthArray, formatDurationShort } from '../utils';
+import { STORAGE_KEYS } from '../constants';
+import { format, isAfter, endOfMonth, eachDayOfInterval, getDay, addMonths } from 'date-fns';
+import { startOfDay } from 'date-fns/startOfDay';
+import { startOfMonth } from 'date-fns/startOfMonth';
+import { subMonths } from 'date-fns/subMonths';
+import { ru } from 'date-fns/locale/ru';
+import { db } from '../lib/supabase';
+
+interface EmployeeViewProps {
+  user: User;
+  logs: WorkLog[];
+  onLogUpdate: (newLogs: WorkLog[]) => void;
+  machines: Machine[];
+}
+
+const EmployeeView: React.FC<EmployeeViewProps> = ({ user, logs, onLogUpdate, machines }) => {
+  const [activeShifts, setActiveShifts] = useState<Record<number, WorkLog | null>>({ 1: null, 2: null, 3: null });
+  const [slotMachineIds, setSlotMachineIds] = useState<Record<number, string>>({ 
+    1: machines[0]?.id || '', 
+    2: machines[1]?.id || machines[0]?.id || '', 
+    3: machines[2]?.id || machines[0]?.id || '' 
+  });
+  const [filterMonth, setFilterMonth] = useState(new Date().toISOString().substring(0, 7));
+  const [viewMode, setViewMode] = useState<'control' | 'matrix'>('control');
+  const [showCamera, setShowCamera] = useState<{ slot: number; type: 'start' | 'stop' } | null>(null);
+  const videoRef = useRef<HTMLVideoElement>(null);
+
+  const isTurner = user.position === FIXED_POSITION_TURNER;
+
+  const busyMachineIds = useMemo(() => {
+    return logs
+      .filter(l => l.entryType === EntryType.WORK && !l.checkOut)
+      .map(l => l.machineId)
+      .filter((id): id is string => !!id);
+  }, [logs]);
+
+  const todayStr = format(new Date(), 'yyyy-MM-dd');
+  const isAbsentToday = useMemo(() => {
+    return logs.some(l => l.userId === user.id && l.date === todayStr && l.entryType !== EntryType.WORK);
+  }, [logs, user.id, todayStr]);
+
+  const todayLogs = useMemo(() => {
+    return logs.filter(l => l.userId === user.id && l.date === todayStr).sort((a, b) => {
+      const timeA = a.checkIn ? new Date(a.checkIn).getTime() : 0;
+      const timeB = b.checkIn ? new Date(b.checkIn).getTime() : 0;
+      return timeB - timeA;
+    });
+  }, [logs, user.id, todayStr]);
+
+  useEffect(() => {
+    const loadShifts = async () => {
+      // Пытаемся загрузить из LocalStorage
+      const saved = localStorage.getItem(`${STORAGE_KEYS.ACTIVE_SHIFTS}_${user.id}`);
+      if (saved) {
+        try {
+          setActiveShifts(JSON.parse(saved));
+        } catch (e) {}
+      }
+      
+      // Параллельно запрашиваем из Supabase
+      try {
+        const dbShifts = await db.getActiveShifts(user.id);
+        if (dbShifts) {
+          setActiveShifts(dbShifts);
+          localStorage.setItem(`${STORAGE_KEYS.ACTIVE_SHIFTS}_${user.id}`, JSON.stringify(dbShifts));
+        }
+      } catch (err) {
+        console.warn("DB Shift fetch failed");
+      }
+    };
+    
+    loadShifts();
+  }, [user.id]);
+
+  useEffect(() => {
+    if (showCamera) {
+      navigator.mediaDevices.getUserMedia({ video: { facingMode: 'user' } })
+        .then(stream => {
+          if (videoRef.current) videoRef.current.srcObject = stream;
+        })
+        .catch(err => {
+          console.error("Camera error:", err);
+          alert("Камера недоступна. Проверьте разрешения.");
+          setShowCamera(null);
+        });
+    }
+    return () => {
+      if (videoRef.current?.srcObject) {
+        const stream = videoRef.current.srcObject as MediaStream;
+        stream.getTracks().forEach(track => track.stop());
+      }
+    };
+  }, [showCamera]);
+
+  const saveActiveShifts = (shifts: Record<number, WorkLog | null>) => {
+    setActiveShifts(shifts);
+    localStorage.setItem(`${STORAGE_KEYS.ACTIVE_SHIFTS}_${user.id}`, JSON.stringify(shifts));
+    db.saveActiveShifts(user.id, shifts); // Синхронизируем с БД
+  };
+
+  const capturePhoto = (): string => {
+    if (!videoRef.current) return '';
+    const canvas = document.createElement('canvas');
+    canvas.width = videoRef.current.videoWidth;
+    canvas.height = videoRef.current.videoHeight;
+    const ctx = canvas.getContext('2d');
+    ctx?.drawImage(videoRef.current, 0, 0);
+    return canvas.toDataURL('image/jpeg', 0.5);
+  };
+
+  const processAction = (slot: number, type: 'start' | 'stop') => {
+    if (type === 'start' && isTurner) {
+      const selectedMachineId = slotMachineIds[slot];
+      if (busyMachineIds.includes(selectedMachineId)) {
+        alert("Это оборудование уже занято другим сотрудником!");
+        return;
+      }
+    }
+
+    const activeCount = Object.values(activeShifts).filter(s => s !== null).length;
+    
+    if (user.requirePhoto) {
+      if (type === 'start') {
+        if (activeCount === 0) {
+          setShowCamera({ slot, type });
+        } else {
+          handleStartWork(slot);
+        }
+      } else {
+        if (activeCount === 1) {
+          setShowCamera({ slot, type });
+        } else {
+          handleStopWork(slot);
+        }
+      }
+    } else {
+      type === 'start' ? handleStartWork(slot) : handleStopWork(slot);
+    }
+  };
+
+  const handleStartWork = (slot: number, photo?: string) => {
+    const selectedMachineId = isTurner ? slotMachineIds[slot] : undefined;
+    if (selectedMachineId && busyMachineIds.includes(selectedMachineId)) {
+       alert("Ошибка: Оборудование уже было занято кем-то другим!");
+       return;
+    }
+
+    const now = new Date();
+    const dateStr = format(now, 'yyyy-MM-dd');
+    const newShift: WorkLog = {
+      id: Math.random().toString(36).substr(2, 9),
+      userId: user.id,
+      date: dateStr,
+      entryType: EntryType.WORK,
+      machineId: selectedMachineId,
+      checkIn: now.toISOString(),
+      durationMinutes: 0,
+      photoIn: photo
+    };
+    saveActiveShifts({ ...activeShifts, [slot]: newShift });
+    onLogUpdate([newShift, ...logs]);
+    setShowCamera(null);
+  };
+
+  const handleStopWork = (slot: number, photo?: string) => {
+    const currentShift = activeShifts[slot];
+    if (!currentShift) return;
+    const now = new Date();
+    const duration = calculateMinutes(currentShift.checkIn!, now.toISOString());
+    const completed: WorkLog = { 
+      ...currentShift, 
+      checkOut: now.toISOString(), 
+      durationMinutes: duration,
+      photoOut: photo
+    };
+    
+    const newLogs = logs.map(l => l.id === currentShift.id ? completed : l);
+    if (!logs.some(l => l.id === currentShift.id)) {
+      newLogs.unshift(completed);
+    }
+    onLogUpdate(newLogs);
+    saveActiveShifts({ ...activeShifts, [slot]: null });
+    setShowCamera(null);
+  };
+
+  const handleMarkAbsence = (type: EntryType) => {
+    const dateStr = format(new Date(), 'yyyy-MM-dd');
+    const exists = logs.find(l => l.date === dateStr && l.userId === user.id);
+    if (exists) {
+      alert("На этот день уже есть записи!");
+      return;
+    }
+    if (Object.values(activeShifts).some(s => s !== null)) {
+      alert("Сначала завершите все активные рабочие сессии!");
+      return;
+    }
+    const log: WorkLog = {
+      id: Math.random().toString(36).substr(2, 9),
+      userId: user.id,
+      date: dateStr,
+      entryType: type,
+      durationMinutes: 0
+    };
+    onLogUpdate([log, ...logs]);
+  };
+
+  const myLogs = logs.filter(l => l.userId === user.id);
+  const filteredLogs = myLogs.filter(l => l.date.startsWith(filterMonth));
+  const daysInMonth = getDaysInMonthArray(filterMonth);
+  const today = startOfDay(new Date());
+
+  const stats = useMemo(() => {
+    const workSessions = filteredLogs.filter(l => l.entryType === EntryType.WORK && l.checkOut);
+    const workDaysCount = new Set(workSessions.map(l => l.date)).size;
+    const totalWorkMinutes = workSessions.reduce((sum, l) => sum + l.durationMinutes, 0);
+    const sickDays = filteredLogs.filter(l => l.entryType === EntryType.SICK).length;
+    const vacationDays = filteredLogs.filter(l => l.entryType === EntryType.VACATION).length;
+    const explicitDayOffs = filteredLogs.filter(l => l.entryType === EntryType.DAY_OFF).length;
+    const allLoggedDates = new Set(filteredLogs.map(l => l.date));
+    
+    const pastDaysInMonth = daysInMonth.filter(d => !isAfter(d, today));
+    const autoDayOffs = pastDaysInMonth.filter(d => !allLoggedDates.has(format(d, 'yyyy-MM-dd'))).length;
+
+    return {
+      workDays: workDaysCount,
+      workTime: totalWorkMinutes,
+      sick: sickDays,
+      vacation: vacationDays,
+      off: explicitDayOffs + autoDayOffs
+    };
+  }, [filteredLogs, daysInMonth, today]);
+
+  const getMachineName = (id?: string) => machines.find(m => m.id === id)?.name || 'Работа';
+
+  const usedMachines = useMemo(() => {
+    return machines.filter(m => filteredLogs.some(l => l.machineId === m.id));
+  }, [machines, filteredLogs]);
+
+  const getAvailableMachines = (currentSlot: number) => {
+    const usedIdsInOtherSlots = Object.entries(slotMachineIds)
+      .filter(([slotNum]) => parseInt(slotNum) !== currentSlot)
+      .map(([, id]) => id);
+    return machines.filter(m => !usedIdsInOtherSlots.includes(m.id));
+  };
+
+  const downloadCalendarPDF = () => {
+    const element = document.getElementById('employee-calendar-print');
+    if (!element) return;
+    const opt = {
+      margin: 10,
+      filename: `tabel_${user.name}_${filterMonth}.pdf`,
+      image: { type: 'jpeg', quality: 0.98 },
+      html2canvas: { scale: 2, useCORS: true },
+      jsPDF: { unit: 'mm', format: 'a4', orientation: 'landscape' }
+    };
+    // @ts-ignore
+    window.html2pdf().from(element).set(opt).save();
+  };
+
+  const renderTurnerSlot = (slot: number) => {
+    const active = activeShifts[slot];
+    const availableMachines = getAvailableMachines(slot);
+    
+    return (
+      <div key={slot} className={`bg-slate-50 border-2 p-6 rounded-3xl flex flex-col items-center gap-4 transition-all ${isAbsentToday ? 'opacity-50 grayscale pointer-events-none' : 'hover:bg-white hover:border-blue-100 hover:shadow-xl'} ${active ? 'border-blue-500' : 'border-slate-100'}`}>
+        <div className="flex items-center gap-2">
+           <span className={`w-2 h-2 rounded-full ${active ? 'bg-blue-500 animate-pulse' : 'bg-slate-300'}`}></span>
+           <h4 className="text-[10px] font-black text-slate-400 uppercase tracking-[0.2em]">Оборудование №{slot}</h4>
+        </div>
+        
+        {active ? (
+          <div className="text-center space-y-4 w-full">
+            <div className="bg-blue-600 p-3 rounded-2xl shadow-lg shadow-blue-100">
+              <p className="text-xs font-bold text-blue-100 uppercase mb-1">В работе</p>
+              <p className="text-sm font-black text-white truncate px-2">{getMachineName(active.machineId)}</p>
+            </div>
+            <p className="text-3xl font-mono font-black text-slate-900 tabular-nums">{formatTime(active.checkIn)}</p>
+            <button onClick={() => processAction(slot, 'stop')} className="w-full py-4 bg-red-500 hover:bg-red-600 text-white rounded-2xl font-black text-sm shadow-lg shadow-red-100 transition-all active:scale-95 uppercase">Завершить</button>
+          </div>
+        ) : (
+          <div className="w-full space-y-4">
+            <div className="space-y-1">
+              <label className="text-[9px] font-bold text-slate-400 uppercase px-1">Выберите станок</label>
+              <select 
+                disabled={isAbsentToday}
+                value={slotMachineIds[slot]} 
+                onChange={e => setSlotMachineIds({ ...slotMachineIds, [slot]: e.target.value })}
+                className="w-full border-2 border-slate-200 rounded-2xl px-4 py-3 text-xs font-bold bg-white text-slate-700 outline-none focus:border-blue-500 transition-colors cursor-pointer disabled:bg-slate-100"
+              >
+                {availableMachines.map(m => {
+                  const isBusy = busyMachineIds.includes(m.id);
+                  return (
+                    <option key={m.id} value={m.id} disabled={isBusy} className={isBusy ? 'text-red-300' : ''}>
+                      {m.name} {isBusy ? '(ЗАНЯТ)' : ''}
+                    </option>
+                  );
+                })}
+              </select>
+            </div>
+            <button 
+              disabled={isAbsentToday || busyMachineIds.includes(slotMachineIds[slot])}
+              onClick={() => processAction(slot, 'start')} 
+              className="w-full py-4 bg-blue-600 hover:bg-blue-700 text-white rounded-2xl font-black text-sm shadow-lg shadow-blue-100 transition-all active:scale-95 uppercase disabled:bg-slate-300 disabled:shadow-none"
+            >
+              Начать работу
+            </button>
+          </div>
+        )}
+      </div>
+    );
+  };
+
+  const calendarData = useMemo(() => {
+    const current = startOfMonth(new Date(`${filterMonth}-01`));
+    const days = eachDayOfInterval({ start: current, end: endOfMonth(current) });
+    const prevMonth = subMonths(current, 1);
+    const nextMonth = addMonths(current, 1);
+    const prevDays = eachDayOfInterval({ start: startOfMonth(prevMonth), end: endOfMonth(prevMonth) });
+    const nextDays = eachDayOfInterval({ start: startOfMonth(nextMonth), end: endOfMonth(nextMonth) });
+    const startOffset = (getDay(current) + 6) % 7;
+    
+    return {
+      current,
+      monthName: format(current, 'LLLL', { locale: ru }).toUpperCase(),
+      year: format(current, 'yyyy'),
+      days,
+      startOffset,
+      prevMonth: { name: format(prevMonth, 'LLLL', { locale: ru }), year: format(prevMonth, 'yyyy'), days: prevDays, startOffset: (getDay(startOfMonth(prevMonth)) + 6) % 7 },
+      nextMonth: { name: format(nextMonth, 'LLLL', { locale: ru }), year: format(nextMonth, 'yyyy'), days: nextDays, startOffset: (getDay(startOfMonth(nextMonth)) + 6) % 7 }
+    };
+  }, [filterMonth]);
+
+  return (
+    <div className="space-y-6 animate-fadeIn">
+      {/* Hidden Print Template */}
+      <div id="employee-calendar-print" className="hidden print:block bg-white text-black p-4" style={{ width: '280mm', height: '190mm', fontFamily: 'serif' }}>
+        <div className="flex justify-between items-start mb-6">
+          <div className="w-32 opacity-80">
+            <div className="text-[8px] font-bold mb-1">{calendarData.prevMonth.name} {calendarData.prevMonth.year}</div>
+            <div className="grid grid-cols-7 gap-0.5 text-[6px]">
+              {['Пн','Вт','Ср','Чт','Пт','Сб','Вс'].map(d => <div key={d} className="font-bold">{d}</div>)}
+              {Array.from({ length: calendarData.prevMonth.startOffset }).map((_, i) => <div key={i}></div>)}
+              {calendarData.prevMonth.days.map(d => <div key={d.toString()}>{format(d, 'd')}</div>)}
+            </div>
+          </div>
+          <div className="text-center flex-1">
+            <h1 className="text-6xl font-black tracking-tight leading-none mb-1" style={{ fontFamily: 'serif' }}>{calendarData.monthName} {calendarData.year}</h1>
+            <p className="text-[10px] font-bold uppercase tracking-widest text-slate-500">Рабочий табель сотрудника: {user.name}</p>
+          </div>
+          <div className="w-32 opacity-80 text-right">
+            <div className="text-[8px] font-bold mb-1">{calendarData.nextMonth.name} {calendarData.nextMonth.year}</div>
+            <div className="grid grid-cols-7 gap-0.5 text-[6px] text-left">
+              {['Пн','Вт','Ср','Чт','Пт','Сб','Вс'].map(d => <div key={d} className="font-bold">{d}</div>)}
+              {Array.from({ length: calendarData.nextMonth.startOffset }).map((_, i) => <div key={i}></div>)}
+              {calendarData.nextMonth.days.map(d => <div key={d.toString()}>{format(d, 'd')}</div>)}
+            </div>
+          </div>
+        </div>
+
+        <table className="w-full border-collapse border-2 border-black">
+          <thead>
+            <tr>
+              {['Понедельник', 'Вторник', 'Среда', 'Четверг', 'Пятница', 'Суббота', 'Воскресенье'].map(d => (
+                <th key={d} className="border border-black p-2 text-xs font-bold uppercase tracking-widest bg-slate-50">{d}</th>
+              ))}
+            </tr>
+          </thead>
+          <tbody>
+            {Array.from({ length: 6 }).map((_, rowIdx) => {
+              const weekDays = Array.from({ length: 7 }).map((_, colIdx) => {
+                const dayIdx = rowIdx * 7 + colIdx - calendarData.startOffset;
+                const date = calendarData.days[dayIdx];
+                if (!date) return <td key={colIdx} className="border border-black bg-slate-50/20"></td>;
+
+                const dateStr = format(date, 'yyyy-MM-dd');
+                const dayLogs = filteredLogs.filter(l => l.date === dateStr);
+                const workMins = dayLogs.filter(l => l.entryType === EntryType.WORK).reduce((s, l) => s + l.durationMinutes, 0);
+                const absence = dayLogs.find(l => l.entryType !== EntryType.WORK);
+
+                return (
+                  <td key={colIdx} className="border border-black h-24 p-2 relative vertical-align-top">
+                    <span className="text-2xl font-black absolute top-1 left-2">{format(date, 'd')}</span>
+                    <div className="h-full flex flex-col justify-end items-center text-center pb-2">
+                       {absence ? (
+                         <div className="bg-slate-900 text-white px-3 py-1 rounded-md text-xs font-black uppercase">
+                           {absence.entryType === EntryType.SICK ? 'БОЛЬНИЧНЫЙ' : absence.entryType === EntryType.VACATION ? 'ОТПУСК' : 'ВЫХОДНОЙ'}
+                         </div>
+                       ) : workMins > 0 ? (
+                         <div className="flex flex-col items-center">
+                            <span className="text-xl font-black tabular-nums">{formatDurationShort(workMins)}</span>
+                            <span className="text-[7px] font-bold text-slate-500 uppercase tracking-tighter">ОТРАБОТАНО</span>
+                         </div>
+                       ) : (
+                         <span className="text-[10px] text-slate-200 font-bold italic">--:--</span>
+                       )}
+                    </div>
+                  </td>
+                );
+              });
+              if (rowIdx === 5 && !calendarData.days[rowIdx * 7 - calendarData.startOffset]) return null;
+              return <tr key={rowIdx}>{weekDays}</tr>;
+            })}
+          </tbody>
+        </table>
+      </div>
+
+      {showCamera && (
+        <div className="fixed inset-0 z-[100] bg-slate-900/95 flex flex-col items-center justify-center p-6 backdrop-blur-sm">
+           <div className="bg-white p-2 rounded-[2.5rem] shadow-2xl overflow-hidden mb-8 border-4 border-blue-600">
+             <video ref={videoRef} autoPlay playsInline className="w-full max-sm rounded-[2rem] aspect-square object-cover" />
+           </div>
+           <h3 className="text-white text-xl font-black uppercase tracking-widest mb-2">Фотофиксация</h3>
+           <p className="text-slate-400 text-sm font-bold uppercase tracking-wider mb-8">{showCamera.type === 'start' ? 'Начало смены' : 'Завершение смены'}</p>
+           <div className="flex gap-4">
+              <button 
+                onClick={() => setShowCamera(null)}
+                className="px-8 py-4 bg-white/10 text-white rounded-2xl font-black uppercase text-xs tracking-widest border border-white/20"
+              >
+                Отмена
+              </button>
+              <button 
+                onClick={() => {
+                  const photo = capturePhoto();
+                  showCamera.type === 'start' ? handleStartWork(showCamera.slot, photo) : handleStopWork(showCamera.slot, photo);
+                }}
+                className="px-12 py-4 bg-blue-600 text-white rounded-2xl font-black uppercase text-xs tracking-widest shadow-xl shadow-blue-500/20"
+              >
+                Сфотографировать
+              </button>
+           </div>
+        </div>
+      )}
+
+      <div className="bg-white p-6 rounded-2xl border border-slate-200 shadow-sm flex flex-col md:flex-row justify-between items-center gap-4 no-print">
+        <div>
+          <h2 className="text-xl font-bold text-slate-900">{user.name}</h2>
+          <div className="flex items-center gap-2">
+            <p className="text-sm text-blue-600 font-semibold uppercase tracking-wider">{user.position}</p>
+            {isAbsentToday && <span className="bg-amber-100 text-amber-700 text-[10px] font-bold px-2 py-0.5 rounded-full uppercase">На выходном сегодня</span>}
+          </div>
+        </div>
+        <div className="flex bg-slate-100 p-1 rounded-xl">
+          <button onClick={() => setViewMode('control')} className={`px-6 py-2 rounded-lg text-sm font-medium transition-all ${viewMode === 'control' ? 'bg-white shadow-sm text-blue-600' : 'text-slate-500 hover:text-slate-900'}`}>Управление</button>
+          <button onClick={() => setViewMode('matrix')} className={`px-6 py-2 rounded-lg text-sm font-medium transition-all ${viewMode === 'matrix' ? 'bg-white shadow-sm text-blue-600' : 'text-slate-500 hover:text-slate-900'}`}>Мой Табель</button>
+        </div>
+      </div>
+
+      {viewMode === 'control' ? (
+        <>
+          <section className="bg-white p-8 rounded-3xl border shadow-sm border-slate-200 no-print">
+            <h3 className="text-[10px] font-black text-slate-400 uppercase tracking-[0.2em] mb-8 text-center">Контроль рабочего времени</h3>
+            {isTurner ? (
+              <div className="grid grid-cols-1 md:grid-cols-3 gap-8">
+                {[1, 2, 3].map(renderTurnerSlot)}
+              </div>
+            ) : (
+              <div className="max-w-md mx-auto">
+                 {activeShifts[1] ? (
+                    <div className="text-center space-y-6 bg-blue-50 p-10 rounded-3xl border-2 border-blue-100">
+                      <div className="space-y-2">
+                        <p className="text-xs font-black text-blue-400 uppercase tracking-widest">Вы сейчас на работе</p>
+                        <p className="text-5xl font-mono font-black text-slate-900">{formatTime(activeShifts[1].checkIn)}</p>
+                      </div>
+                      <button onClick={() => processAction(1, 'stop')} className="w-full py-5 bg-red-500 hover:bg-red-600 text-white rounded-2xl font-black text-lg shadow-xl shadow-red-100 transition-all active:scale-95 uppercase">Завершить смену</button>
+                    </div>
+                 ) : (
+                    <div className={`text-center space-y-6 p-10 ${isAbsentToday ? 'opacity-50 grayscale' : ''}`}>
+                      <div className="w-20 h-20 bg-blue-100 text-blue-600 rounded-3xl flex items-center justify-center mx-auto mb-4">
+                        <svg className="w-10 h-10" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2.5} d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z" /></svg>
+                      </div>
+                      <p className="text-slate-500 font-medium">{isAbsentToday ? 'Сегодня вы отметили отсутствие' : 'Ваш рабочий день еще не начат'}</p>
+                      <button 
+                        disabled={isAbsentToday}
+                        onClick={() => processAction(1, 'start')} 
+                        className="w-full py-5 bg-blue-600 hover:bg-blue-700 text-white rounded-2xl font-black text-lg shadow-xl shadow-blue-100 transition-all active:scale-95 uppercase disabled:bg-slate-300"
+                      >
+                        Начать работу
+                      </button>
+                    </div>
+                 )}
+              </div>
+            )}
+          </section>
+
+          <section className="bg-white p-6 rounded-3xl border border-slate-200 shadow-sm no-print">
+            <h3 className="text-[10px] font-black text-slate-400 uppercase tracking-[0.2em] mb-6">Журнал сессий за сегодня</h3>
+            <div className="overflow-hidden border border-slate-100 rounded-2xl">
+               <table className="w-full text-left text-sm border-collapse">
+                  <thead>
+                    <tr className="bg-slate-50 border-b border-slate-100">
+                      <th className="px-4 py-3 text-[10px] font-black text-slate-400 uppercase tracking-widest">Объект / Статус</th>
+                      <th className="px-4 py-3 text-[10px] font-black text-slate-400 uppercase tracking-widest">Начало</th>
+                      <th className="px-4 py-3 text-[10px] font-black text-slate-400 uppercase tracking-widest">Конец</th>
+                      <th className="px-4 py-3 text-[10px] font-black text-slate-400 uppercase tracking-widest text-right">Время</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {todayLogs.length > 0 ? todayLogs.map(log => (
+                      <tr key={log.id} className="border-b border-slate-50 hover:bg-slate-50/50 transition-colors">
+                        <td className="px-4 py-3">
+                          <span className={`px-2 py-1 rounded-lg text-[10px] font-black uppercase tracking-tight ${log.entryType === EntryType.WORK ? 'bg-blue-50 text-blue-600' : 'bg-amber-50 text-amber-600'}`}>
+                            {log.entryType === EntryType.WORK ? getMachineName(log.machineId) : 'Отсутствие'}
+                          </span>
+                        </td>
+                        <td className="px-4 py-3 font-mono font-bold text-slate-600">{log.checkIn ? formatTime(log.checkIn) : '--:--'}</td>
+                        <td className="px-4 py-3 font-mono font-bold text-slate-600">{log.checkOut ? formatTime(log.checkOut) : '--:--'}</td>
+                        <td className="px-4 py-3 font-black text-slate-900 text-right">{log.durationMinutes > 0 ? formatDurationShort(log.durationMinutes) : '--:--'}</td>
+                      </tr>
+                    )) : (
+                      <tr>
+                        <td colSpan={4} className="px-4 py-8 text-center text-slate-300 italic text-xs font-medium">Записей пока нет</td>
+                      </tr>
+                    )}
+                  </tbody>
+               </table>
+            </div>
+          </section>
+
+          <section className="bg-white p-6 rounded-3xl border border-slate-200 shadow-sm no-print">
+            <h3 className="text-[10px] font-black text-slate-400 uppercase tracking-[0.2em] mb-6">Отметить особый статус дня</h3>
+            <div className="grid grid-cols-1 sm:grid-cols-3 gap-6">
+              <button disabled={isAbsentToday} onClick={() => handleMarkAbsence(EntryType.DAY_OFF)} className="py-5 bg-blue-50 border-2 border-blue-100 rounded-2xl text-xs font-black text-blue-700 hover:bg-blue-600 hover:text-white hover:border-blue-600 transition-all shadow-sm uppercase tracking-wider disabled:opacity-30 disabled:cursor-not-allowed">Выходной (В)</button>
+              <button disabled={isAbsentToday} onClick={() => handleMarkAbsence(EntryType.SICK)} className="py-5 bg-red-50 border-2 border-red-100 rounded-2xl text-xs font-black text-red-700 hover:bg-red-600 hover:text-white hover:border-red-600 transition-all shadow-sm uppercase tracking-wider disabled:opacity-30 disabled:cursor-not-allowed">Больничный (Б)</button>
+              <button disabled={isAbsentToday} onClick={() => handleMarkAbsence(EntryType.VACATION)} className="py-5 bg-purple-50 border-2 border-purple-100 rounded-2xl text-xs font-black text-purple-700 hover:bg-purple-600 hover:text-white hover:border-purple-600 transition-all shadow-sm uppercase tracking-wider disabled:opacity-30 disabled:cursor-not-allowed">Отпуск (О)</button>
+            </div>
+          </section>
+        </>
+      ) : (
+        <div id="print-area">
+          <section className="grid grid-cols-2 md:grid-cols-5 gap-4 mb-6 no-print">
+             <div className="bg-white p-4 rounded-2xl border border-slate-200 shadow-sm">
+                <p className="text-[10px] font-bold text-slate-400 uppercase mb-1">Отработано дней</p>
+                <p className="text-2xl font-black text-slate-900">{stats.workDays}</p>
+             </div>
+             <div className="bg-white p-4 rounded-2xl border border-slate-200 shadow-sm">
+                <p className="text-[10px] font-bold text-slate-400 uppercase mb-1">Всего времени</p>
+                <p className="text-2xl font-black text-blue-600">{formatDuration(stats.workTime)}</p>
+             </div>
+             <div className="bg-white p-4 rounded-2xl border border-slate-200 shadow-sm">
+                <p className="text-[10px] font-bold text-slate-400 uppercase mb-1">Болезни</p>
+                <p className="text-2xl font-black text-red-500">{stats.sick}</p>
+             </div>
+             <div className="bg-white p-4 rounded-2xl border border-slate-200 shadow-sm">
+                <p className="text-[10px] font-bold text-slate-400 uppercase mb-1">Отпуска</p>
+                <p className="text-2xl font-black text-purple-600">{stats.vacation}</p>
+             </div>
+             <div className="bg-white p-4 rounded-2xl border border-slate-200 shadow-sm">
+                <p className="text-[10px] font-bold text-slate-400 uppercase mb-1">Выходные</p>
+                <p className="text-2xl font-black text-slate-400">{stats.off}</p>
+             </div>
+          </section>
+
+          <section className="bg-white rounded-3xl shadow-sm border border-slate-200 overflow-hidden print-monochrome">
+            <div className="p-6 border-b border-slate-100 flex justify-between items-center bg-slate-50/50 no-print">
+              <div className="flex items-center gap-4">
+                <h3 className="font-bold text-slate-900">Мой Табель</h3>
+                <div className="flex gap-2">
+                   <button onClick={() => window.print()} className="flex items-center gap-2 px-4 py-2 bg-slate-100 text-slate-600 border border-slate-200 rounded-xl text-xs font-bold hover:bg-white transition-colors">
+                     <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M17 17h2a2 2 0 002-2v-4a2 2 0 00-2-2H5a2 2 0 00-2 2v4a2 2 0 002 2h2m2 4h6a2 2 0 002-2v-4a2 2 0 00-2-2H9a2 2 0 00-2 2v4a2 2 0 002 2zm8-12V5a2 2 0 00-2-2H9a2 2 0 00-2 2v4h10z" /></svg>
+                     Обычная печать
+                   </button>
+                   <button onClick={downloadCalendarPDF} className="flex items-center gap-2 px-4 py-2 bg-slate-900 text-white rounded-xl text-xs font-bold hover:bg-slate-800 transition-colors">
+                     <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z" /></svg>
+                     Печать календаря
+                   </button>
+                </div>
+              </div>
+              <input type="month" value={filterMonth} onChange={(e) => setFilterMonth(e.target.value)} className="border border-slate-200 rounded-xl p-2 text-sm font-bold" />
+            </div>
+            
+            <div className="overflow-x-auto">
+              <table className="w-full border-collapse">
+                <thead>
+                  <tr className="bg-slate-50 border-b border-slate-200">
+                    <th className="sticky left-0 z-20 bg-slate-50 px-4 py-4 text-left text-[10px] font-bold text-slate-600 uppercase border-r min-w-[160px]">Ресурс</th>
+                    {daysInMonth.map(day => (
+                      <th key={day.toString()} className={`px-1 py-2 text-center text-[9px] font-bold border-r min-w-[40px] ${[0, 6].includes(day.getDay()) ? 'text-red-500 bg-red-50/20' : 'text-slate-500'}`}>
+                        <div className="flex flex-col items-center">
+                          <span>{format(day, 'd')}</span>
+                          <span className="text-[7px] uppercase opacity-60 font-medium">{format(day, 'eeeeee', { locale: ru })}</span>
+                        </div>
+                      </th>
+                    ))}
+                  </tr>
+                </thead>
+                <tbody>
+                  {isTurner ? (
+                    usedMachines.map(m => (
+                      <tr key={m.id} className="border-b border-slate-100">
+                        <td className="sticky left-0 z-10 bg-white border-r px-4 py-3 text-[11px] font-bold text-slate-700">{m.name}</td>
+                        {daysInMonth.map(day => {
+                          const dateStr = format(day, 'yyyy-MM-dd');
+                          if (isAfter(day, today)) return <td key={dateStr} className="border-r p-1 h-12"></td>;
+                          const mins = filteredLogs.filter(l => l.date === dateStr && l.entryType === EntryType.WORK && l.machineId === m.id).reduce((sum, l) => sum + l.durationMinutes, 0);
+                          const absence = filteredLogs.find(l => l.date === dateStr && l.entryType !== EntryType.WORK);
+                          let content = absence ? <span className="font-black text-blue-600">{absence.entryType === EntryType.SICK ? 'Б' : absence.entryType === EntryType.VACATION ? 'О' : 'В'}</span> : (mins > 0 ? <span className="text-[11px] font-black text-slate-900">{formatDurationShort(mins)}</span> : <span className="text-[10px] font-bold text-slate-300">В</span>);
+                          return <td key={dateStr} className="border-r p-1 text-center h-12 tabular-nums">{content}</td>;
+                        })}
+                      </tr>
+                    ))
+                  ) : (
+                    <tr className="border-b border-slate-100">
+                      <td className="sticky left-0 z-10 bg-white border-r px-4 py-3 text-[11px] font-bold text-slate-700">Отработано</td>
+                      {daysInMonth.map(day => {
+                        const dateStr = format(day, 'yyyy-MM-dd');
+                        if (isAfter(day, today)) return <td key={dateStr} className="border-r p-1 h-12"></td>;
+                        const mins = filteredLogs.filter(l => l.date === dateStr && l.entryType === EntryType.WORK).reduce((sum, l) => sum + l.durationMinutes, 0);
+                        const absence = filteredLogs.find(l => l.date === dateStr && l.entryType !== EntryType.WORK);
+                        let content = absence ? <span className="font-black text-blue-600">{absence.entryType === EntryType.SICK ? 'Б' : absence.entryType === EntryType.VACATION ? 'О' : 'В'}</span> : (mins > 0 ? <span className="text-[11px] font-black text-slate-900">{formatDurationShort(mins)}</span> : <span className="text-[10px] font-bold text-slate-300">В</span>);
+                        return <td key={dateStr} className="border-r p-1 text-center h-12 tabular-nums">{content}</td>;
+                      })}
+                    </tr>
+                  )}
+                </tbody>
+              </table>
+            </div>
+          </section>
+        </div>
+      )}
+    </div>
+  );
+};
+
+export default EmployeeView;
