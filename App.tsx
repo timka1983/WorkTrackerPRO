@@ -7,7 +7,7 @@ import EmployeeView from './components/EmployeeView';
 import EmployerView from './components/EmployerView';
 import { db } from './lib/supabase';
 
-const APP_VERSION = 'v1.7.2';
+const APP_VERSION = 'v1.7.5-PRO';
 
 const App: React.FC = () => {
   const [currentUser, setCurrentUser] = useState<User | null>(null);
@@ -23,7 +23,7 @@ const App: React.FC = () => {
 
   useEffect(() => {
     const initData = async () => {
-      // 1. Сначала загружаем из LocalStorage для быстрого старта (кэш)
+      // 1. Сначала загружаем из LocalStorage для мгновенного появления интерфейса
       const cachedLogs = localStorage.getItem(STORAGE_KEYS.WORK_LOGS);
       const cachedUsers = localStorage.getItem(STORAGE_KEYS.USERS_LIST);
       const cachedMachines = localStorage.getItem(STORAGE_KEYS.MACHINES_LIST);
@@ -36,7 +36,7 @@ const App: React.FC = () => {
       if (cachedPositions) setPositions(JSON.parse(cachedPositions));
       if (cachedCurrentUser) setCurrentUser(JSON.parse(cachedCurrentUser));
 
-      // 2. Асинхронно подтягиваем актуальные данные из Supabase
+      // 2. Асинхронно синхронизируем с облаком (Vercel/GitHub -> Supabase)
       try {
         const [dbLogs, dbUsers, dbMachines, dbPositions] = await Promise.all([
           db.getLogs(),
@@ -49,12 +49,13 @@ const App: React.FC = () => {
           setLogs(dbLogs);
           localStorage.setItem(STORAGE_KEYS.WORK_LOGS, JSON.stringify(dbLogs));
         }
+        
         if (dbUsers && dbUsers.length > 0) {
           setUsers(dbUsers);
           localStorage.setItem(STORAGE_KEYS.USERS_LIST, JSON.stringify(dbUsers));
         } else if (!cachedUsers) {
           setUsers(INITIAL_USERS);
-          INITIAL_USERS.forEach(u => db.upsertUser(u));
+          for (const u of INITIAL_USERS) await db.upsertUser(u);
         }
 
         if (dbMachines && dbMachines.length > 0) {
@@ -62,7 +63,7 @@ const App: React.FC = () => {
           localStorage.setItem(STORAGE_KEYS.MACHINES_LIST, JSON.stringify(dbMachines));
         } else if (!cachedMachines) {
           setMachines(INITIAL_MACHINES);
-          db.saveMachines(INITIAL_MACHINES);
+          await db.saveMachines(INITIAL_MACHINES);
         }
 
         if (dbPositions && dbPositions.length > 0) {
@@ -70,10 +71,10 @@ const App: React.FC = () => {
           localStorage.setItem(STORAGE_KEYS.POSITIONS_LIST, JSON.stringify(dbPositions));
         } else if (!cachedPositions) {
           setPositions(INITIAL_POSITIONS);
-          db.savePositions(INITIAL_POSITIONS);
+          await db.savePositions(INITIAL_POSITIONS);
         }
       } catch (err) {
-        console.warn("Supabase connection failed, using local storage", err);
+        console.warn("Cloud sync deferred: working in offline/cache mode.");
       }
 
       setIsInitialized(true);
@@ -114,7 +115,7 @@ const App: React.FC = () => {
   const handleLogsUpdate = (newLogs: WorkLog[]) => {
     setLogs(newLogs);
     localStorage.setItem(STORAGE_KEYS.WORK_LOGS, JSON.stringify(newLogs));
-    // Апсертим все логи (новые или измененные)
+    // Синхронизируем изменения с БД
     newLogs.forEach(log => db.upsertLog(log));
   };
 
