@@ -1,7 +1,4 @@
-
 import { createClient } from '@supabase/supabase-js';
-import { PositionConfig } from '../types';
-import { DEFAULT_PERMISSIONS } from '../constants';
 
 /**
  * Helper to get environment variables from either process.env (Node/some platforms)
@@ -143,26 +140,16 @@ export const db = {
       await supabase.from('machines').insert(machines);
     }
   },
-  getPositions: async (): Promise<PositionConfig[] | null> => {
+  getPositions: async () => {
     if (!isConfigured()) return null;
-    // We assume the Supabase table has a JSONB column named 'permissions'
-    const { data } = await supabase.from('positions').select('*').order('name');
-    if (!data) return null;
-    return data.map(p => ({
-      name: p.name,
-      permissions: p.permissions || DEFAULT_PERMISSIONS
-    }));
+    const { data } = await supabase.from('positions').select('name').order('name');
+    return data?.map(p => p.name) || null;
   },
-  savePositions: async (positions: PositionConfig[]) => {
+  savePositions: async (positions: string[]) => {
     if (!isConfigured()) return;
     await supabase.from('positions').delete().neq('name', 'dummy_position');
     if (positions.length > 0) {
-      await supabase.from('positions').insert(
-        positions.map(p => ({ 
-          name: p.name, 
-          permissions: p.permissions 
-        }))
-      );
+      await supabase.from('positions').insert(positions.map(p => ({ name: p })));
     }
   },
   getActiveShifts: async (userId: string) => {

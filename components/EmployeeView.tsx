@@ -16,10 +16,10 @@ interface EmployeeViewProps {
   onLogUpdate: (newLogs: WorkLog[]) => void;
   machines: Machine[];
   positions: PositionConfig[];
+  onUpdateUser: (user: User) => void;
 }
 
-const EmployeeView: React.FC<EmployeeViewProps> = ({ user, logs, onLogUpdate, machines, positions }) => {
-  // NEW: Logic to extract permissions from user position config
+const EmployeeView: React.FC<EmployeeViewProps> = ({ user, logs, onLogUpdate, machines, positions, onUpdateUser }) => {
   const perms = useMemo(() => {
     const config = positions.find(p => p.name === user.position);
     return config?.permissions || DEFAULT_PERMISSIONS;
@@ -34,6 +34,12 @@ const EmployeeView: React.FC<EmployeeViewProps> = ({ user, logs, onLogUpdate, ma
   const [filterMonth, setFilterMonth] = useState(new Date().toISOString().substring(0, 7));
   const [viewMode, setViewMode] = useState<'control' | 'matrix'>('control');
   const [showCamera, setShowCamera] = useState<{ slot: number; type: 'start' | 'stop' } | null>(null);
+  
+  // States for PIN Change
+  const [showPinChange, setShowPinChange] = useState(false);
+  const [pinState, setPinState] = useState({ old: '', new: '', confirm: '' });
+  const [pinError, setPinError] = useState('');
+
   const videoRef = useRef<HTMLVideoElement>(null);
 
   const busyMachineIds = useMemo(() => {
@@ -212,6 +218,27 @@ const EmployeeView: React.FC<EmployeeViewProps> = ({ user, logs, onLogUpdate, ma
     onLogUpdate([log, ...logs]);
   };
 
+  const handlePinChangeSubmit = (e: React.FormEvent) => {
+    e.preventDefault();
+    setPinError('');
+    if (pinState.old !== user.pin) {
+      setPinError('Текущий PIN-код неверен');
+      return;
+    }
+    if (pinState.new.length !== 4) {
+      setPinError('PIN должен состоять из 4 цифр');
+      return;
+    }
+    if (pinState.new !== pinState.confirm) {
+      setPinError('Новые PIN-коды не совпадают');
+      return;
+    }
+    onUpdateUser({ ...user, pin: pinState.new });
+    alert('PIN-код успешно изменен');
+    setShowPinChange(false);
+    setPinState({ old: '', new: '', confirm: '' });
+  };
+
   const myLogs = logs.filter(l => l.userId === user.id);
   const filteredLogs = myLogs.filter(l => l.date.startsWith(filterMonth));
   const daysInMonth = getDaysInMonthArray(filterMonth);
@@ -342,6 +369,61 @@ const EmployeeView: React.FC<EmployeeViewProps> = ({ user, logs, onLogUpdate, ma
 
   return (
     <div className="space-y-6 animate-fadeIn">
+      {/* PIN Change Modal */}
+      {showPinChange && (
+        <div className="fixed inset-0 z-[150] bg-slate-900/80 backdrop-blur-md flex items-center justify-center p-4">
+          <div className="bg-white rounded-[2.5rem] w-full max-w-sm shadow-2xl p-8 border border-slate-200">
+             <div className="flex justify-between items-center mb-6">
+                <h3 className="text-lg font-black text-slate-900 uppercase tracking-tight">Смена PIN-кода</h3>
+                <button onClick={() => setShowPinChange(false)} className="text-slate-400 text-2xl">&times;</button>
+             </div>
+             <form onSubmit={handlePinChangeSubmit} className="space-y-4">
+                <div className="space-y-1">
+                   <label className="text-[10px] font-black text-slate-400 uppercase ml-1">Текущий PIN</label>
+                   <input 
+                      type="password" 
+                      inputMode="numeric"
+                      pattern="[0-9]*"
+                      maxLength={4}
+                      required
+                      value={pinState.old}
+                      onChange={e => setPinState({...pinState, old: e.target.value.replace(/[^0-9]/g, '')})}
+                      className="w-full bg-slate-50 border-2 border-slate-100 rounded-2xl px-5 py-3 text-lg font-black tracking-[0.5em] text-center"
+                   />
+                </div>
+                <div className="space-y-1">
+                   <label className="text-[10px] font-black text-slate-400 uppercase ml-1">Новый PIN (4 цифры)</label>
+                   <input 
+                      type="password" 
+                      inputMode="numeric"
+                      pattern="[0-9]*"
+                      maxLength={4}
+                      required
+                      value={pinState.new}
+                      onChange={e => setPinState({...pinState, new: e.target.value.replace(/[^0-9]/g, '')})}
+                      className="w-full bg-slate-50 border-2 border-slate-100 rounded-2xl px-5 py-3 text-lg font-black tracking-[0.5em] text-center text-blue-600"
+                   />
+                </div>
+                <div className="space-y-1">
+                   <label className="text-[10px] font-black text-slate-400 uppercase ml-1">Повторите новый PIN</label>
+                   <input 
+                      type="password" 
+                      inputMode="numeric"
+                      pattern="[0-9]*"
+                      maxLength={4}
+                      required
+                      value={pinState.confirm}
+                      onChange={e => setPinState({...pinState, confirm: e.target.value.replace(/[^0-9]/g, '')})}
+                      className="w-full bg-slate-50 border-2 border-slate-100 rounded-2xl px-5 py-3 text-lg font-black tracking-[0.5em] text-center text-blue-600"
+                   />
+                </div>
+                {pinError && <p className="text-red-500 text-[10px] font-black text-center uppercase">{pinError}</p>}
+                <button type="submit" className="w-full py-4 bg-blue-600 text-white rounded-2xl font-black uppercase tracking-widest text-xs shadow-xl shadow-blue-100 mt-4 active:scale-95 transition-all">Обновить PIN</button>
+             </form>
+          </div>
+        </div>
+      )}
+
       {/* Hidden Print Template */}
       <div id="employee-calendar-print" className="hidden print:block bg-white text-black p-4" style={{ width: '280mm', height: '190mm', fontFamily: 'serif' }}>
         <div className="flex justify-between items-start mb-6">
@@ -442,18 +524,28 @@ const EmployeeView: React.FC<EmployeeViewProps> = ({ user, logs, onLogUpdate, ma
       )}
 
       <div className="bg-white p-6 rounded-2xl border border-slate-200 shadow-sm flex flex-col md:flex-row justify-between items-center gap-4 no-print">
-        <div>
-          <h2 className="text-xl font-bold text-slate-900">{user.name}</h2>
-          <div className="flex items-center gap-2">
-            <p className="text-sm text-blue-600 font-semibold uppercase tracking-wider">{user.position}</p>
-            {isAbsentToday && <span className="bg-amber-100 text-amber-700 text-[10px] font-bold px-2 py-0.5 rounded-full uppercase">На выходном сегодня</span>}
-          </div>
+        <div className="flex items-center gap-4">
+           <div className="w-12 h-12 bg-blue-100 text-blue-600 rounded-2xl flex items-center justify-center font-black text-2xl">
+              {user.name.charAt(0)}
+           </div>
+           <div>
+             <h2 className="text-xl font-bold text-slate-900">{user.name}</h2>
+             <div className="flex items-center gap-2">
+               <p className="text-sm text-blue-600 font-semibold uppercase tracking-wider">{user.position}</p>
+               {isAbsentToday && <span className="bg-amber-100 text-amber-700 text-[10px] font-bold px-2 py-0.5 rounded-full uppercase">На выходном сегодня</span>}
+             </div>
+           </div>
         </div>
-        <div className="flex bg-slate-100 p-1 rounded-xl">
-          <button onClick={() => setViewMode('control')} className={`px-6 py-2 rounded-lg text-sm font-medium transition-all ${viewMode === 'control' ? 'bg-white shadow-sm text-blue-600' : 'text-slate-500 hover:text-slate-900'}`}>Управление</button>
-          {perms.viewSelfMatrix && (
-            <button onClick={() => setViewMode('matrix')} className={`px-6 py-2 rounded-lg text-sm font-medium transition-all ${viewMode === 'matrix' ? 'bg-white shadow-sm text-blue-600' : 'text-slate-500 hover:text-slate-900'}`}>Мой Табель</button>
-          )}
+        <div className="flex items-center gap-4">
+          <button onClick={() => setShowPinChange(true)} className="p-3 bg-slate-100 text-slate-500 rounded-xl hover:bg-slate-200 transition-colors" title="Сменить PIN">
+             <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 7a2 2 0 012 2m4 0a6 6 0 01-7.743 5.743L11 17H9v2H7v2H4a1 1 0 01-1-1v-2.586a1 1 0 01.293-.707l5.964-5.964A6 6 0 1121 9z" /></svg>
+          </button>
+          <div className="flex bg-slate-100 p-1 rounded-xl">
+            <button onClick={() => setViewMode('control')} className={`px-6 py-2 rounded-lg text-sm font-medium transition-all ${viewMode === 'control' ? 'bg-white shadow-sm text-blue-600' : 'text-slate-500 hover:text-slate-900'}`}>Управление</button>
+            {perms.viewSelfMatrix && (
+              <button onClick={() => setViewMode('matrix')} className={`px-6 py-2 rounded-lg text-sm font-medium transition-all ${viewMode === 'matrix' ? 'bg-white shadow-sm text-blue-600' : 'text-slate-500 hover:text-slate-900'}`}>Мой Табель</button>
+            )}
+          </div>
         </div>
       </div>
 

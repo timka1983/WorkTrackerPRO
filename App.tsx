@@ -7,7 +7,7 @@ import EmployeeView from './components/EmployeeView';
 import EmployerView from './components/EmployerView';
 import { db } from './lib/supabase';
 
-const APP_VERSION = 'v1.7.5-PRO';
+const APP_VERSION = 'v1.8.0-PRO';
 
 const App: React.FC = () => {
   const [currentUser, setCurrentUser] = useState<User | null>(null);
@@ -71,8 +71,13 @@ const App: React.FC = () => {
         }
 
         if (dbPositions && dbPositions.length > 0) {
-          setPositions(dbPositions);
-          localStorage.setItem(STORAGE_KEYS.POSITIONS_LIST, JSON.stringify(dbPositions));
+          const normalized = dbPositions.map((p: any) => 
+            typeof p === 'string' 
+              ? (INITIAL_POSITIONS.find(ip => ip.name === p) || { name: p, permissions: INITIAL_POSITIONS[0].permissions }) 
+              : p
+          );
+          setPositions(normalized);
+          localStorage.setItem(STORAGE_KEYS.POSITIONS_LIST, JSON.stringify(normalized));
         }
       } catch (err) {
         console.warn("Cloud sync deferred: working in offline/cache mode.");
@@ -163,7 +168,7 @@ const App: React.FC = () => {
   const persistPositions = (newPositions: PositionConfig[]) => {
     setPositions(newPositions);
     localStorage.setItem(STORAGE_KEYS.POSITIONS_LIST, JSON.stringify(newPositions));
-    db.savePositions(newPositions); // We now pass full objects to Supabase
+    db.savePositions(newPositions.map(p => p.name));
   };
 
   const handleImportData = async (jsonStr: string) => {
@@ -187,7 +192,7 @@ const App: React.FC = () => {
       if (data.positions) {
         setPositions(data.positions);
         localStorage.setItem(STORAGE_KEYS.POSITIONS_LIST, JSON.stringify(data.positions));
-        await db.savePositions(data.positions);
+        await db.savePositions(data.positions.map((p: any) => typeof p === 'string' ? p : p.name));
       }
       alert('Данные успешно импортированы и синхронизированы!');
       window.location.reload(); 
@@ -260,12 +265,13 @@ const App: React.FC = () => {
                 </div>
                 <input 
                   type="password"
-                  inputMode="numeric"
+                  inputMode="none" // КРИТИЧЕСКОЕ ИЗМЕНЕНИЕ: Отключает системную клавиатуру на мобильных
                   maxLength={4}
-                  autoFocus
                   value={pinInput}
                   onChange={e => setPinInput(e.target.value.replace(/[^0-9]/g, '').slice(0, 4))}
                   className="absolute opacity-0 pointer-events-none"
+                  tabIndex={-1}
+                  autoComplete="off"
                 />
                 {loginError && <p className="text-red-500 text-[11px] text-center mt-2 font-black uppercase tracking-widest">{loginError}</p>}
               </div>
@@ -278,7 +284,7 @@ const App: React.FC = () => {
                       if (n === 'del') setPinInput(prev => prev.slice(0, -1));
                       else if (typeof n === 'number' && pinInput.length < 4) setPinInput(prev => prev + n);
                     }}
-                    className={`h-16 rounded-[1.5rem] font-black flex items-center justify-center transition-all ${n === '' ? 'pointer-events-none' : 'bg-slate-50 hover:bg-white border-2 border-slate-100 text-slate-800 text-xl'}`}
+                    className={`h-16 rounded-[1.5rem] font-black flex items-center justify-center transition-all active:scale-95 ${n === '' ? 'pointer-events-none' : 'bg-slate-50 hover:bg-white border-2 border-slate-100 text-slate-800 text-xl'}`}
                   >
                     {n === 'del' ? '←' : n}
                   </button>
@@ -287,7 +293,7 @@ const App: React.FC = () => {
               <button 
                 type="submit"
                 disabled={pinInput.length !== 4}
-                className="w-full py-5 bg-blue-600 disabled:opacity-50 text-white rounded-3xl font-black text-sm uppercase tracking-widest"
+                className="w-full py-5 bg-blue-600 disabled:opacity-50 text-white rounded-3xl font-black text-sm uppercase tracking-widest transition-all active:scale-95"
               >
                 Войти
               </button>
@@ -301,7 +307,14 @@ const App: React.FC = () => {
   return (
     <Layout user={currentUser} onLogout={handleLogout} onSwitchRole={handleSwitchRole} version={APP_VERSION}>
       {currentUser.role === UserRole.EMPLOYEE ? (
-        <EmployeeView user={currentUser} logs={logs} onLogUpdate={handleLogsUpdate} machines={machines} positions={positions} />
+        <EmployeeView 
+          user={currentUser} 
+          logs={logs} 
+          onLogUpdate={handleLogsUpdate} 
+          machines={machines} 
+          positions={positions} 
+          onUpdateUser={handleUpdateUser} 
+        />
       ) : (
         <EmployerView 
           logs={logs} 
