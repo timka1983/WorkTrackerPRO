@@ -28,9 +28,24 @@ const App: React.FC = () => {
       const cachedMachines = localStorage.getItem(STORAGE_KEYS.MACHINES_LIST);
       const cachedPositions = localStorage.getItem(STORAGE_KEYS.POSITIONS_LIST);
       const cachedCurrentUser = localStorage.getItem(STORAGE_KEYS.CURRENT_USER);
+      const lastUserId = localStorage.getItem(STORAGE_KEYS.LAST_USER_ID);
 
       if (cachedLogs) setLogs(JSON.parse(cachedLogs));
-      if (cachedUsers) setUsers(JSON.parse(cachedUsers));
+      
+      let loadedUsers = INITIAL_USERS;
+      if (cachedUsers) {
+        loadedUsers = JSON.parse(cachedUsers);
+        setUsers(loadedUsers);
+      } else {
+        setUsers(INITIAL_USERS);
+      }
+
+      // Запоминание последнего пользователя
+      if (lastUserId && !cachedCurrentUser) {
+        const lastUser = loadedUsers.find(u => u.id === lastUserId);
+        if (lastUser) setSelectedLoginUser(lastUser);
+      }
+
       if (cachedMachines) setMachines(JSON.parse(cachedMachines));
       
       if (cachedPositions) {
@@ -57,8 +72,15 @@ const App: React.FC = () => {
         if (dbUsers && dbUsers.length > 0) {
           setUsers(dbUsers);
           localStorage.setItem(STORAGE_KEYS.USERS_LIST, JSON.stringify(dbUsers));
+          // Если пользователь не был выбран из кэша, пробуем выбрать из свежих данных
+          if (!lastUserId) {
+            const recheckLastId = localStorage.getItem(STORAGE_KEYS.LAST_USER_ID);
+            if (recheckLastId) {
+               const lastUser = dbUsers.find(u => u.id === recheckLastId);
+               if (lastUser) setSelectedLoginUser(lastUser);
+            }
+          }
         } else if (!cachedUsers) {
-          setUsers(INITIAL_USERS);
           for (const u of INITIAL_USERS) await db.upsertUser(u);
         }
 
@@ -89,16 +111,18 @@ const App: React.FC = () => {
     initData();
   }, []);
 
-  const handleLogin = (e: React.FormEvent) => {
-    e.preventDefault();
-    if (selectedLoginUser && pinInput === selectedLoginUser.pin) {
-      setCurrentUser(selectedLoginUser);
-      localStorage.setItem(STORAGE_KEYS.CURRENT_USER, JSON.stringify(selectedLoginUser));
+  // Функция валидации PIN и входа
+  const validateAndLogin = (pin: string, user: User) => {
+    if (pin === user.pin) {
+      setCurrentUser(user);
+      localStorage.setItem(STORAGE_KEYS.CURRENT_USER, JSON.stringify(user));
+      localStorage.setItem(STORAGE_KEYS.LAST_USER_ID, user.id);
       setPinInput('');
       setLoginError('');
     } else {
       setLoginError('Неверный PIN-код');
-      setPinInput('');
+      // Очистка через небольшую паузу для наглядности
+      setTimeout(() => setPinInput(''), 500);
     }
   };
 
@@ -228,7 +252,10 @@ const App: React.FC = () => {
                 <select 
                   onChange={(e) => {
                     const user = users.find(u => u.id === e.target.value);
-                    if (user) setSelectedLoginUser(user);
+                    if (user) {
+                      setSelectedLoginUser(user);
+                      localStorage.setItem(STORAGE_KEYS.LAST_USER_ID, user.id);
+                    }
                   }}
                   className="w-full bg-slate-50 border-2 border-slate-100 rounded-3xl px-6 py-4 text-sm font-bold text-slate-700 outline-none focus:border-blue-500 transition-all appearance-none cursor-pointer"
                   defaultValue=""
@@ -242,19 +269,19 @@ const App: React.FC = () => {
               <div className="p-5 bg-blue-50 rounded-[2rem] border border-blue-100">
                 <p className="text-[11px] text-blue-800 font-semibold leading-relaxed">
                    <span className="font-black uppercase block mb-1">Важно:</span> 
-                   Используйте PIN-код <span className="underline">0000</span>.
+                   Используйте ваш PIN-код. Для новых сотрудников по умолчанию <span className="underline">0000</span>.
                 </p>
               </div>
             </div>
           ) : (
-            <form onSubmit={handleLogin} className="space-y-6 animate-fadeIn">
+            <div className="space-y-6 animate-fadeIn">
               <div className="flex items-center gap-4 p-4 bg-blue-50 rounded-[2rem] mb-4 border border-blue-100">
                 <div className="w-12 h-12 bg-blue-600 text-white rounded-2xl flex items-center justify-center font-black text-xl">
                   {selectedLoginUser.name.charAt(0)}
                 </div>
                 <div className="flex-1">
                   <p className="text-sm font-black text-slate-900">{selectedLoginUser.name}</p>
-                  <button type="button" onClick={() => setSelectedLoginUser(null)} className="text-[10px] text-blue-600 uppercase underline font-black">Сменить профиль</button>
+                  <button type="button" onClick={() => { setSelectedLoginUser(null); setPinInput(''); }} className="text-[10px] text-blue-600 uppercase underline font-black">Сменить профиль</button>
                 </div>
               </div>
               <div>
@@ -265,13 +292,12 @@ const App: React.FC = () => {
                 </div>
                 <input 
                   type="password"
-                  inputMode="none" // КРИТИЧЕСКОЕ ИЗМЕНЕНИЕ: Отключает системную клавиатуру на мобильных
+                  inputMode="none"
                   maxLength={4}
                   value={pinInput}
-                  onChange={e => setPinInput(e.target.value.replace(/[^0-9]/g, '').slice(0, 4))}
+                  readOnly
                   className="absolute opacity-0 pointer-events-none"
                   tabIndex={-1}
-                  autoComplete="off"
                 />
                 {loginError && <p className="text-red-500 text-[11px] text-center mt-2 font-black uppercase tracking-widest">{loginError}</p>}
               </div>
@@ -281,8 +307,18 @@ const App: React.FC = () => {
                     key={i}
                     type="button"
                     onClick={() => {
-                      if (n === 'del') setPinInput(prev => prev.slice(0, -1));
-                      else if (typeof n === 'number' && pinInput.length < 4) setPinInput(prev => prev + n);
+                      if (n === 'del') {
+                        setPinInput(prev => prev.slice(0, -1));
+                        setLoginError('');
+                      }
+                      else if (typeof n === 'number' && pinInput.length < 4) {
+                        const newPin = pinInput + n;
+                        setPinInput(newPin);
+                        if (newPin.length === 4) {
+                          // Автоматическая проверка при вводе 4-й цифры
+                          validateAndLogin(newPin, selectedLoginUser);
+                        }
+                      }
                     }}
                     className={`h-16 rounded-[1.5rem] font-black flex items-center justify-center transition-all active:scale-95 ${n === '' ? 'pointer-events-none' : 'bg-slate-50 hover:bg-white border-2 border-slate-100 text-slate-800 text-xl'}`}
                   >
@@ -290,14 +326,8 @@ const App: React.FC = () => {
                   </button>
                 ))}
               </div>
-              <button 
-                type="submit"
-                disabled={pinInput.length !== 4}
-                className="w-full py-5 bg-blue-600 disabled:opacity-50 text-white rounded-3xl font-black text-sm uppercase tracking-widest transition-all active:scale-95"
-              >
-                Войти
-              </button>
-            </form>
+              <p className="text-center text-[10px] font-bold text-slate-400 uppercase tracking-widest mt-4">Введите 4 цифры для входа</p>
+            </div>
           )}
         </div>
       </div>

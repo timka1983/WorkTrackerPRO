@@ -57,7 +57,8 @@ export const STORAGE_KEYS = {
   USERS_LIST: 'timesheet_users_list',
   MACHINES_LIST: 'timesheet_machines_list',
   POSITIONS_LIST: 'timesheet_positions_list',
-  ACTIVE_SHIFTS: 'timesheet_active_shifts'
+  ACTIVE_SHIFTS: 'timesheet_active_shifts',
+  LAST_USER_ID: 'timesheet_last_user_id'
 };
 
 const savedLogs = localStorage.getItem(STORAGE_KEYS.WORK_LOGS);
