@@ -1,3 +1,4 @@
+
 import { createClient } from '@supabase/supabase-js';
 
 /**
@@ -79,8 +80,8 @@ export const db = {
       check_in: log.checkIn,
       check_out: log.checkOut,
       duration_minutes: log.durationMinutes,
-      photo_in: log.photo_in,
-      photo_out: log.photoOut,
+      photo_in: log.photoIn, // ИСПРАВЛЕНО: было log.photo_in
+      photo_out: log.photoOut, // ИСПРАВЛЕНО: было log.photo_out
       is_corrected: log.isCorrected,
       correction_note: log.correctionNote,
       correction_timestamp: log.correctionTimestamp
@@ -106,7 +107,9 @@ export const db = {
         department: u.department,
         position: u.position,
         pin: u.pin,
-        requirePhoto: u.require_photo
+        requirePhoto: u.require_photo,
+        isAdmin: u.is_admin,
+        forcePinChange: u.force_pin_change
       }));
     } catch (e) {
       return null;
@@ -121,7 +124,9 @@ export const db = {
       department: user.department,
       position: user.position,
       pin: user.pin,
-      require_photo: user.requirePhoto
+      require_photo: user.requirePhoto,
+      is_admin: user.isAdmin,
+      force_pin_change: user.forcePinChange
     });
   },
   deleteUser: async (id: string) => {

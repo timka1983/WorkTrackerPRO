@@ -40,6 +40,7 @@ export interface User {
   pin: string; // 4-digit pin
   requirePhoto?: boolean; // Mandatory photo capture
   isAdmin?: boolean; // Admin privileges
+  forcePinChange?: boolean; // Mandatory PIN change on next login
 }
 
 export interface WorkLog {
