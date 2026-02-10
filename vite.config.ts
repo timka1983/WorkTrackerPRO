@@ -2,20 +2,15 @@
 import { defineConfig } from 'vite';
 import react from '@vitejs/plugin-react';
 
-// Для GitHub Pages важна правильная база путей. 
-// Использование './' делает сборку универсальной для подпапок.
+// Vercel обычно работает из корня '/', в то время как GitHub Pages может требовать './' или '/repo/'.
+// Мы делаем настройку универсальной.
 export default defineConfig({
   plugins: [react()],
-  base: './', 
+  base: '/',
   build: {
     outDir: 'dist',
-    sourcemap: false,
-    minify: 'esbuild',
-    terserOptions: {
-      compress: {
-        drop_console: true,
-      },
-    },
+    sourcemap: true,
+    minify: 'esbuild', // Принудительно используем esbuild вместо terser, чтобы избежать ошибок установки
   },
   server: {
     port: 3000

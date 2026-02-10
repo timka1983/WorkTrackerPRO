@@ -1,6 +1,6 @@
 
 import React, { useState, useEffect } from 'react';
-import { User, UserRole, WorkLog, Machine } from './types';
+import { User, UserRole, WorkLog, Machine, PositionConfig } from './types';
 import { STORAGE_KEYS, INITIAL_USERS, INITIAL_MACHINES, INITIAL_POSITIONS, INITIAL_LOGS } from './constants';
 import Layout from './components/Layout';
 import EmployeeView from './components/EmployeeView';
@@ -14,7 +14,7 @@ const App: React.FC = () => {
   const [users, setUsers] = useState<User[]>([]);
   const [logs, setLogs] = useState<WorkLog[]>([]);
   const [machines, setMachines] = useState<Machine[]>([]);
-  const [positions, setPositions] = useState<string[]>([]);
+  const [positions, setPositions] = useState<PositionConfig[]>([]);
   
   const [selectedLoginUser, setSelectedLoginUser] = useState<User | null>(null);
   const [pinInput, setPinInput] = useState('');
@@ -23,7 +23,6 @@ const App: React.FC = () => {
 
   useEffect(() => {
     const initData = async () => {
-      // 1. Сначала загружаем из LocalStorage для мгновенного появления интерфейса
       const cachedLogs = localStorage.getItem(STORAGE_KEYS.WORK_LOGS);
       const cachedUsers = localStorage.getItem(STORAGE_KEYS.USERS_LIST);
       const cachedMachines = localStorage.getItem(STORAGE_KEYS.MACHINES_LIST);
@@ -33,10 +32,15 @@ const App: React.FC = () => {
       if (cachedLogs) setLogs(JSON.parse(cachedLogs));
       if (cachedUsers) setUsers(JSON.parse(cachedUsers));
       if (cachedMachines) setMachines(JSON.parse(cachedMachines));
-      if (cachedPositions) setPositions(JSON.parse(cachedPositions));
+      
+      if (cachedPositions) {
+        setPositions(JSON.parse(cachedPositions));
+      } else {
+        setPositions(INITIAL_POSITIONS);
+      }
+
       if (cachedCurrentUser) setCurrentUser(JSON.parse(cachedCurrentUser));
 
-      // 2. Асинхронно синхронизируем с облаком (Vercel/GitHub -> Supabase)
       try {
         const [dbLogs, dbUsers, dbMachines, dbPositions] = await Promise.all([
           db.getLogs(),
@@ -69,9 +73,6 @@ const App: React.FC = () => {
         if (dbPositions && dbPositions.length > 0) {
           setPositions(dbPositions);
           localStorage.setItem(STORAGE_KEYS.POSITIONS_LIST, JSON.stringify(dbPositions));
-        } else if (!cachedPositions) {
-          setPositions(INITIAL_POSITIONS);
-          await db.savePositions(INITIAL_POSITIONS);
         }
       } catch (err) {
         console.warn("Cloud sync deferred: working in offline/cache mode.");
@@ -115,7 +116,6 @@ const App: React.FC = () => {
   const handleLogsUpdate = (newLogs: WorkLog[]) => {
     setLogs(newLogs);
     localStorage.setItem(STORAGE_KEYS.WORK_LOGS, JSON.stringify(newLogs));
-    // Синхронизируем изменения с БД
     newLogs.forEach(log => db.upsertLog(log));
   };
 
@@ -160,10 +160,10 @@ const App: React.FC = () => {
     db.saveMachines(newMachines);
   };
 
-  const persistPositions = (newPositions: string[]) => {
+  const persistPositions = (newPositions: PositionConfig[]) => {
     setPositions(newPositions);
     localStorage.setItem(STORAGE_KEYS.POSITIONS_LIST, JSON.stringify(newPositions));
-    db.savePositions(newPositions);
+    db.savePositions(newPositions); // We now pass full objects to Supabase
   };
 
   const handleImportData = async (jsonStr: string) => {
@@ -301,7 +301,7 @@ const App: React.FC = () => {
   return (
     <Layout user={currentUser} onLogout={handleLogout} onSwitchRole={handleSwitchRole} version={APP_VERSION}>
       {currentUser.role === UserRole.EMPLOYEE ? (
-        <EmployeeView user={currentUser} logs={logs} onLogUpdate={handleLogsUpdate} machines={machines} />
+        <EmployeeView user={currentUser} logs={logs} onLogUpdate={handleLogsUpdate} machines={machines} positions={positions} />
       ) : (
         <EmployerView 
           logs={logs} 

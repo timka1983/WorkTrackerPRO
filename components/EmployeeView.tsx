@@ -1,8 +1,8 @@
 
 import React, { useState, useEffect, useMemo, useRef } from 'react';
-import { WorkLog, User, EntryType, FIXED_POSITION_TURNER, Machine } from '../types';
+import { WorkLog, User, EntryType, FIXED_POSITION_TURNER, Machine, PositionConfig } from '../types';
 import { formatTime, formatDate, formatDuration, calculateMinutes, getDaysInMonthArray, formatDurationShort } from '../utils';
-import { STORAGE_KEYS } from '../constants';
+import { STORAGE_KEYS, DEFAULT_PERMISSIONS } from '../constants';
 import { format, isAfter, endOfMonth, eachDayOfInterval, getDay, addMonths } from 'date-fns';
 import { startOfDay } from 'date-fns/startOfDay';
 import { startOfMonth } from 'date-fns/startOfMonth';
@@ -15,9 +15,16 @@ interface EmployeeViewProps {
   logs: WorkLog[];
   onLogUpdate: (newLogs: WorkLog[]) => void;
   machines: Machine[];
+  positions: PositionConfig[];
 }
 
-const EmployeeView: React.FC<EmployeeViewProps> = ({ user, logs, onLogUpdate, machines }) => {
+const EmployeeView: React.FC<EmployeeViewProps> = ({ user, logs, onLogUpdate, machines, positions }) => {
+  // NEW: Logic to extract permissions from user position config
+  const perms = useMemo(() => {
+    const config = positions.find(p => p.name === user.position);
+    return config?.permissions || DEFAULT_PERMISSIONS;
+  }, [user.position, positions]);
+
   const [activeShifts, setActiveShifts] = useState<Record<number, WorkLog | null>>({ 1: null, 2: null, 3: null });
   const [slotMachineIds, setSlotMachineIds] = useState<Record<number, string>>({ 
     1: machines[0]?.id || '', 
@@ -28,8 +35,6 @@ const EmployeeView: React.FC<EmployeeViewProps> = ({ user, logs, onLogUpdate, ma
   const [viewMode, setViewMode] = useState<'control' | 'matrix'>('control');
   const [showCamera, setShowCamera] = useState<{ slot: number; type: 'start' | 'stop' } | null>(null);
   const videoRef = useRef<HTMLVideoElement>(null);
-
-  const isTurner = user.position === FIXED_POSITION_TURNER;
 
   const busyMachineIds = useMemo(() => {
     return logs
@@ -53,7 +58,6 @@ const EmployeeView: React.FC<EmployeeViewProps> = ({ user, logs, onLogUpdate, ma
 
   useEffect(() => {
     const loadShifts = async () => {
-      // Пытаемся загрузить из LocalStorage
       const saved = localStorage.getItem(`${STORAGE_KEYS.ACTIVE_SHIFTS}_${user.id}`);
       if (saved) {
         try {
@@ -61,7 +65,6 @@ const EmployeeView: React.FC<EmployeeViewProps> = ({ user, logs, onLogUpdate, ma
         } catch (e) {}
       }
       
-      // Параллельно запрашиваем из Supabase
       try {
         const dbShifts = await db.getActiveShifts(user.id);
         if (dbShifts) {
@@ -99,7 +102,7 @@ const EmployeeView: React.FC<EmployeeViewProps> = ({ user, logs, onLogUpdate, ma
   const saveActiveShifts = (shifts: Record<number, WorkLog | null>) => {
     setActiveShifts(shifts);
     localStorage.setItem(`${STORAGE_KEYS.ACTIVE_SHIFTS}_${user.id}`, JSON.stringify(shifts));
-    db.saveActiveShifts(user.id, shifts); // Синхронизируем с БД
+    db.saveActiveShifts(user.id, shifts); 
   };
 
   const capturePhoto = (): string => {
@@ -113,7 +116,7 @@ const EmployeeView: React.FC<EmployeeViewProps> = ({ user, logs, onLogUpdate, ma
   };
 
   const processAction = (slot: number, type: 'start' | 'stop') => {
-    if (type === 'start' && isTurner) {
+    if (type === 'start' && perms.useMachines) {
       const selectedMachineId = slotMachineIds[slot];
       if (busyMachineIds.includes(selectedMachineId)) {
         alert("Это оборудование уже занято другим сотрудником!");
@@ -122,8 +125,9 @@ const EmployeeView: React.FC<EmployeeViewProps> = ({ user, logs, onLogUpdate, ma
     }
 
     const activeCount = Object.values(activeShifts).filter(s => s !== null).length;
+    const requirePhoto = user.requirePhoto || perms.defaultRequirePhoto;
     
-    if (user.requirePhoto) {
+    if (requirePhoto) {
       if (type === 'start') {
         if (activeCount === 0) {
           setShowCamera({ slot, type });
@@ -143,7 +147,7 @@ const EmployeeView: React.FC<EmployeeViewProps> = ({ user, logs, onLogUpdate, ma
   };
 
   const handleStartWork = (slot: number, photo?: string) => {
-    const selectedMachineId = isTurner ? slotMachineIds[slot] : undefined;
+    const selectedMachineId = perms.useMachines ? slotMachineIds[slot] : undefined;
     if (selectedMachineId && busyMachineIds.includes(selectedMachineId)) {
        alert("Ошибка: Оборудование уже было занято кем-то другим!");
        return;
@@ -261,7 +265,7 @@ const EmployeeView: React.FC<EmployeeViewProps> = ({ user, logs, onLogUpdate, ma
     window.html2pdf().from(element).set(opt).save();
   };
 
-  const renderTurnerSlot = (slot: number) => {
+  const renderSlot = (slot: number) => {
     const active = activeShifts[slot];
     const availableMachines = getAvailableMachines(slot);
     
@@ -269,13 +273,13 @@ const EmployeeView: React.FC<EmployeeViewProps> = ({ user, logs, onLogUpdate, ma
       <div key={slot} className={`bg-slate-50 border-2 p-6 rounded-3xl flex flex-col items-center gap-4 transition-all ${isAbsentToday ? 'opacity-50 grayscale pointer-events-none' : 'hover:bg-white hover:border-blue-100 hover:shadow-xl'} ${active ? 'border-blue-500' : 'border-slate-100'}`}>
         <div className="flex items-center gap-2">
            <span className={`w-2 h-2 rounded-full ${active ? 'bg-blue-500 animate-pulse' : 'bg-slate-300'}`}></span>
-           <h4 className="text-[10px] font-black text-slate-400 uppercase tracking-[0.2em]">Оборудование №{slot}</h4>
+           <h4 className="text-[10px] font-black text-slate-400 uppercase tracking-[0.2em]">Рабочее место №{slot}</h4>
         </div>
         
         {active ? (
           <div className="text-center space-y-4 w-full">
             <div className="bg-blue-600 p-3 rounded-2xl shadow-lg shadow-blue-100">
-              <p className="text-xs font-bold text-blue-100 uppercase mb-1">В работе</p>
+              <p className="text-xs font-bold text-blue-100 uppercase mb-1">В процессе</p>
               <p className="text-sm font-black text-white truncate px-2">{getMachineName(active.machineId)}</p>
             </div>
             <p className="text-3xl font-mono font-black text-slate-900 tabular-nums">{formatTime(active.checkIn)}</p>
@@ -283,30 +287,32 @@ const EmployeeView: React.FC<EmployeeViewProps> = ({ user, logs, onLogUpdate, ma
           </div>
         ) : (
           <div className="w-full space-y-4">
-            <div className="space-y-1">
-              <label className="text-[9px] font-bold text-slate-400 uppercase px-1">Выберите станок</label>
-              <select 
-                disabled={isAbsentToday}
-                value={slotMachineIds[slot]} 
-                onChange={e => setSlotMachineIds({ ...slotMachineIds, [slot]: e.target.value })}
-                className="w-full border-2 border-slate-200 rounded-2xl px-4 py-3 text-xs font-bold bg-white text-slate-700 outline-none focus:border-blue-500 transition-colors cursor-pointer disabled:bg-slate-100"
-              >
-                {availableMachines.map(m => {
-                  const isBusy = busyMachineIds.includes(m.id);
-                  return (
-                    <option key={m.id} value={m.id} disabled={isBusy} className={isBusy ? 'text-red-300' : ''}>
-                      {m.name} {isBusy ? '(ЗАНЯТ)' : ''}
-                    </option>
-                  );
-                })}
-              </select>
-            </div>
+            {perms.useMachines && (
+              <div className="space-y-1">
+                <label className="text-[9px] font-bold text-slate-400 uppercase px-1">Оборудование</label>
+                <select 
+                  disabled={isAbsentToday}
+                  value={slotMachineIds[slot]} 
+                  onChange={e => setSlotMachineIds({ ...slotMachineIds, [slot]: e.target.value })}
+                  className="w-full border-2 border-slate-200 rounded-2xl px-4 py-3 text-xs font-bold bg-white text-slate-700 outline-none focus:border-blue-500 transition-colors cursor-pointer disabled:bg-slate-100"
+                >
+                  {availableMachines.map(m => {
+                    const isBusy = busyMachineIds.includes(m.id);
+                    return (
+                      <option key={m.id} value={m.id} disabled={isBusy} className={isBusy ? 'text-red-300' : ''}>
+                        {m.name} {isBusy ? '(ЗАНЯТ)' : ''}
+                      </option>
+                    );
+                  })}
+                </select>
+              </div>
+            )}
             <button 
-              disabled={isAbsentToday || busyMachineIds.includes(slotMachineIds[slot])}
+              disabled={isAbsentToday || (perms.useMachines && busyMachineIds.includes(slotMachineIds[slot]))}
               onClick={() => processAction(slot, 'start')} 
               className="w-full py-4 bg-blue-600 hover:bg-blue-700 text-white rounded-2xl font-black text-sm shadow-lg shadow-blue-100 transition-all active:scale-95 uppercase disabled:bg-slate-300 disabled:shadow-none"
             >
-              Начать работу
+              Начать смену
             </button>
           </div>
         )}
@@ -445,7 +451,9 @@ const EmployeeView: React.FC<EmployeeViewProps> = ({ user, logs, onLogUpdate, ma
         </div>
         <div className="flex bg-slate-100 p-1 rounded-xl">
           <button onClick={() => setViewMode('control')} className={`px-6 py-2 rounded-lg text-sm font-medium transition-all ${viewMode === 'control' ? 'bg-white shadow-sm text-blue-600' : 'text-slate-500 hover:text-slate-900'}`}>Управление</button>
-          <button onClick={() => setViewMode('matrix')} className={`px-6 py-2 rounded-lg text-sm font-medium transition-all ${viewMode === 'matrix' ? 'bg-white shadow-sm text-blue-600' : 'text-slate-500 hover:text-slate-900'}`}>Мой Табель</button>
+          {perms.viewSelfMatrix && (
+            <button onClick={() => setViewMode('matrix')} className={`px-6 py-2 rounded-lg text-sm font-medium transition-all ${viewMode === 'matrix' ? 'bg-white shadow-sm text-blue-600' : 'text-slate-500 hover:text-slate-900'}`}>Мой Табель</button>
+          )}
         </div>
       </div>
 
@@ -453,37 +461,9 @@ const EmployeeView: React.FC<EmployeeViewProps> = ({ user, logs, onLogUpdate, ma
         <>
           <section className="bg-white p-8 rounded-3xl border shadow-sm border-slate-200 no-print">
             <h3 className="text-[10px] font-black text-slate-400 uppercase tracking-[0.2em] mb-8 text-center">Контроль рабочего времени</h3>
-            {isTurner ? (
-              <div className="grid grid-cols-1 md:grid-cols-3 gap-8">
-                {[1, 2, 3].map(renderTurnerSlot)}
-              </div>
-            ) : (
-              <div className="max-w-md mx-auto">
-                 {activeShifts[1] ? (
-                    <div className="text-center space-y-6 bg-blue-50 p-10 rounded-3xl border-2 border-blue-100">
-                      <div className="space-y-2">
-                        <p className="text-xs font-black text-blue-400 uppercase tracking-widest">Вы сейчас на работе</p>
-                        <p className="text-5xl font-mono font-black text-slate-900">{formatTime(activeShifts[1].checkIn)}</p>
-                      </div>
-                      <button onClick={() => processAction(1, 'stop')} className="w-full py-5 bg-red-500 hover:bg-red-600 text-white rounded-2xl font-black text-lg shadow-xl shadow-red-100 transition-all active:scale-95 uppercase">Завершить смену</button>
-                    </div>
-                 ) : (
-                    <div className={`text-center space-y-6 p-10 ${isAbsentToday ? 'opacity-50 grayscale' : ''}`}>
-                      <div className="w-20 h-20 bg-blue-100 text-blue-600 rounded-3xl flex items-center justify-center mx-auto mb-4">
-                        <svg className="w-10 h-10" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2.5} d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z" /></svg>
-                      </div>
-                      <p className="text-slate-500 font-medium">{isAbsentToday ? 'Сегодня вы отметили отсутствие' : 'Ваш рабочий день еще не начат'}</p>
-                      <button 
-                        disabled={isAbsentToday}
-                        onClick={() => processAction(1, 'start')} 
-                        className="w-full py-5 bg-blue-600 hover:bg-blue-700 text-white rounded-2xl font-black text-lg shadow-xl shadow-blue-100 transition-all active:scale-95 uppercase disabled:bg-slate-300"
-                      >
-                        Начать работу
-                      </button>
-                    </div>
-                 )}
-              </div>
-            )}
+            <div className={`grid grid-cols-1 ${perms.multiSlot ? 'md:grid-cols-3' : 'max-w-md mx-auto'} gap-8`}>
+               {perms.multiSlot ? [1, 2, 3].map(renderSlot) : [1].map(renderSlot)}
+            </div>
           </section>
 
           <section className="bg-white p-6 rounded-3xl border border-slate-200 shadow-sm no-print">
@@ -520,14 +500,16 @@ const EmployeeView: React.FC<EmployeeViewProps> = ({ user, logs, onLogUpdate, ma
             </div>
           </section>
 
-          <section className="bg-white p-6 rounded-3xl border border-slate-200 shadow-sm no-print">
-            <h3 className="text-[10px] font-black text-slate-400 uppercase tracking-[0.2em] mb-6">Отметить особый статус дня</h3>
-            <div className="grid grid-cols-1 sm:grid-cols-3 gap-6">
-              <button disabled={isAbsentToday} onClick={() => handleMarkAbsence(EntryType.DAY_OFF)} className="py-5 bg-blue-50 border-2 border-blue-100 rounded-2xl text-xs font-black text-blue-700 hover:bg-blue-600 hover:text-white hover:border-blue-600 transition-all shadow-sm uppercase tracking-wider disabled:opacity-30 disabled:cursor-not-allowed">Выходной (В)</button>
-              <button disabled={isAbsentToday} onClick={() => handleMarkAbsence(EntryType.SICK)} className="py-5 bg-red-50 border-2 border-red-100 rounded-2xl text-xs font-black text-red-700 hover:bg-red-600 hover:text-white hover:border-red-600 transition-all shadow-sm uppercase tracking-wider disabled:opacity-30 disabled:cursor-not-allowed">Больничный (Б)</button>
-              <button disabled={isAbsentToday} onClick={() => handleMarkAbsence(EntryType.VACATION)} className="py-5 bg-purple-50 border-2 border-purple-100 rounded-2xl text-xs font-black text-purple-700 hover:bg-purple-600 hover:text-white hover:border-purple-600 transition-all shadow-sm uppercase tracking-wider disabled:opacity-30 disabled:cursor-not-allowed">Отпуск (О)</button>
-            </div>
-          </section>
+          {perms.markAbsences && (
+            <section className="bg-white p-6 rounded-3xl border border-slate-200 shadow-sm no-print">
+              <h3 className="text-[10px] font-black text-slate-400 uppercase tracking-[0.2em] mb-6">Отметить особый статус дня</h3>
+              <div className="grid grid-cols-1 sm:grid-cols-3 gap-6">
+                <button disabled={isAbsentToday} onClick={() => handleMarkAbsence(EntryType.DAY_OFF)} className="py-5 bg-blue-50 border-2 border-blue-100 rounded-2xl text-xs font-black text-blue-700 hover:bg-blue-600 hover:text-white hover:border-blue-600 transition-all shadow-sm uppercase tracking-wider disabled:opacity-30 disabled:cursor-not-allowed">Выходной (В)</button>
+                <button disabled={isAbsentToday} onClick={() => handleMarkAbsence(EntryType.SICK)} className="py-5 bg-red-50 border-2 border-red-100 rounded-2xl text-xs font-black text-red-700 hover:bg-red-600 hover:text-white hover:border-red-600 transition-all shadow-sm uppercase tracking-wider disabled:opacity-30 disabled:cursor-not-allowed">Больничный (Б)</button>
+                <button disabled={isAbsentToday} onClick={() => handleMarkAbsence(EntryType.VACATION)} className="py-5 bg-purple-50 border-2 border-purple-100 rounded-2xl text-xs font-black text-purple-700 hover:bg-purple-600 hover:text-white hover:border-purple-600 transition-all shadow-sm uppercase tracking-wider disabled:opacity-30 disabled:cursor-not-allowed">Отпуск (О)</button>
+              </div>
+            </section>
+          )}
         </>
       ) : (
         <div id="print-area">
@@ -588,7 +570,7 @@ const EmployeeView: React.FC<EmployeeViewProps> = ({ user, logs, onLogUpdate, ma
                   </tr>
                 </thead>
                 <tbody>
-                  {isTurner ? (
+                  {perms.useMachines ? (
                     usedMachines.map(m => (
                       <tr key={m.id} className="border-b border-slate-100">
                         <td className="sticky left-0 z-10 bg-white border-r px-4 py-3 text-[11px] font-bold text-slate-700">{m.name}</td>

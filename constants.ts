@@ -1,5 +1,13 @@
 
-import { User, UserRole, Machine, WorkLog, EntryType } from './types';
+import { User, UserRole, Machine, WorkLog, EntryType, PositionConfig, PositionPermissions } from './types';
+
+export const DEFAULT_PERMISSIONS: PositionPermissions = {
+  useMachines: false,
+  multiSlot: false,
+  viewSelfMatrix: true,
+  markAbsences: true,
+  defaultRequirePhoto: false
+};
 
 export const INITIAL_USERS: User[] = [
   { id: '1', name: 'Иван Иванов', role: UserRole.EMPLOYEE, department: 'Цех №1', position: 'Токарь', pin: '0000' },
@@ -16,14 +24,43 @@ export const INITIAL_MACHINES: Machine[] = [
   { id: 'm4', name: 'Пресс гидравлический' }
 ];
 
-export const INITIAL_POSITIONS: string[] = [
-  'Токарь',
-  'Инженер',
-  'Проектировщик',
-  'Менеджер',
-  'Бухгалтер',
-  'Другое'
+export const INITIAL_POSITIONS: PositionConfig[] = [
+  { 
+    name: 'Токарь', 
+    permissions: { ...DEFAULT_PERMISSIONS, useMachines: true, multiSlot: true } 
+  },
+  { 
+    name: 'Инженер', 
+    permissions: { ...DEFAULT_PERMISSIONS, viewSelfMatrix: true } 
+  },
+  { 
+    name: 'Проектировщик', 
+    permissions: { ...DEFAULT_PERMISSIONS, viewSelfMatrix: true } 
+  },
+  { 
+    name: 'Менеджер', 
+    permissions: { ...DEFAULT_PERMISSIONS, markAbsences: true } 
+  },
+  { 
+    name: 'Бухгалтер', 
+    permissions: { ...DEFAULT_PERMISSIONS, markAbsences: false } 
+  },
+  { 
+    name: 'Другое', 
+    permissions: DEFAULT_PERMISSIONS 
+  }
 ];
+
+export const STORAGE_KEYS = {
+  WORK_LOGS: 'timesheet_work_logs',
+  CURRENT_USER: 'timesheet_current_user',
+  USERS_LIST: 'timesheet_users_list',
+  MACHINES_LIST: 'timesheet_machines_list',
+  POSITIONS_LIST: 'timesheet_positions_list',
+  ACTIVE_SHIFTS: 'timesheet_active_shifts'
+};
+
+const savedLogs = localStorage.getItem(STORAGE_KEYS.WORK_LOGS);
 
 // Генерация демо-данных за январь 2024
 const generateDemoLogs = (): WorkLog[] => {
@@ -60,15 +97,14 @@ const generateDemoLogs = (): WorkLog[] => {
          continue;
       }
 
-      // Обычный рабочий день с РАЗНЫМИ минутами для теста
-      const randomMinutes = 480 + (d * 3) % 60; // 8 часов + переменные минуты
+      const randomMinutes = 480 + (d * 3) % 60; 
       demoLogs.push({
         id: `demo-work-${userId}-${d}`,
         userId,
         date,
         entryType: EntryType.WORK,
         checkIn: `${date}T08:00:00Z`,
-        checkOut: `${date}T16:00:00Z`, // Условно, расчет идет по durationMinutes
+        checkOut: `${date}T16:00:00Z`,
         durationMinutes: randomMinutes,
         machineId: userId === '1' || userId === '3' ? (d % 2 === 0 ? 'm1' : 'm2') : undefined
       });
@@ -78,14 +114,4 @@ const generateDemoLogs = (): WorkLog[] => {
   return demoLogs;
 };
 
-export const STORAGE_KEYS = {
-  WORK_LOGS: 'timesheet_work_logs',
-  CURRENT_USER: 'timesheet_current_user',
-  USERS_LIST: 'timesheet_users_list',
-  MACHINES_LIST: 'timesheet_machines_list',
-  POSITIONS_LIST: 'timesheet_positions_list',
-  ACTIVE_SHIFTS: 'timesheet_active_shifts'
-};
-
-const savedLogs = localStorage.getItem(STORAGE_KEYS.WORK_LOGS);
 export const INITIAL_LOGS: WorkLog[] = savedLogs ? JSON.parse(savedLogs) : generateDemoLogs();

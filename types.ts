@@ -13,6 +13,19 @@ export enum EntryType {
 
 export const FIXED_POSITION_TURNER = 'Токарь';
 
+export interface PositionPermissions {
+  useMachines: boolean;
+  multiSlot: boolean;
+  viewSelfMatrix: boolean;
+  markAbsences: boolean;
+  defaultRequirePhoto: boolean;
+}
+
+export interface PositionConfig {
+  name: string;
+  permissions: PositionPermissions;
+}
+
 export interface Machine {
   id: string;
   name: string;

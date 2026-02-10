@@ -1,11 +1,12 @@
 
 import React, { useState, useMemo } from 'react';
-import { WorkLog, User, EntryType, UserRole, Machine, FIXED_POSITION_TURNER } from '../types';
+import { WorkLog, User, EntryType, UserRole, Machine, FIXED_POSITION_TURNER, PositionConfig, PositionPermissions } from '../types';
 import { formatDuration, getDaysInMonthArray, formatDurationShort, exportToCSV, formatTime } from '../utils';
 import { format, isAfter } from 'date-fns';
 import { startOfDay } from 'date-fns/startOfDay';
 import { subDays } from 'date-fns/subDays';
 import { ru } from 'date-fns/locale/ru';
+import { DEFAULT_PERMISSIONS } from '../constants';
 
 interface EmployerViewProps {
   logs: WorkLog[];
@@ -15,8 +16,8 @@ interface EmployerViewProps {
   onDeleteUser: (userId: string) => void;
   machines: Machine[];
   onUpdateMachines: (machines: Machine[]) => void;
-  positions: string[];
-  onUpdatePositions: (positions: string[]) => void;
+  positions: PositionConfig[];
+  onUpdatePositions: (positions: PositionConfig[]) => void;
   onImportData: (data: string) => void;
   onLogUpdate: (logs: WorkLog[]) => void;
   onDeleteLog: (logId: string) => void;
@@ -32,7 +33,16 @@ const EmployerView: React.FC<EmployerViewProps> = ({
   const [tempNotes, setTempNotes] = useState<Record<string, string>>({});
   const [previewPhoto, setPreviewPhoto] = useState<string | null>(null);
   
-  const [newUser, setNewUser] = useState({ name: '', position: positions[0] || '', department: '', pin: '0000', requirePhoto: false });
+  // States for editing entities
+  const [editingEmployee, setEditingEmployee] = useState<User | null>(null);
+  const [editingMachineId, setEditingMachineId] = useState<string | null>(null);
+  const [editingPositionName, setEditingPositionName] = useState<string | null>(null);
+  const [editValue, setEditValue] = useState('');
+
+  // NEW: Constructor State
+  const [configuringPosition, setConfiguringPosition] = useState<PositionConfig | null>(null);
+
+  const [newUser, setNewUser] = useState({ name: '', position: positions[0]?.name || '', department: '', pin: '0000', requirePhoto: false });
   const [newMachineName, setNewMachineName] = useState('');
   const [newPositionName, setNewPositionName] = useState('');
 
@@ -93,7 +103,7 @@ const EmployerView: React.FC<EmployerViewProps> = ({
       requirePhoto: newUser.requirePhoto
     };
     onAddUser(user);
-    setNewUser({ name: '', position: positions[0] || '', department: '', pin: '0000', requirePhoto: false });
+    setNewUser({ name: '', position: positions[0]?.name || '', department: '', pin: '0000', requirePhoto: false });
   };
 
   const deleteLogItem = (logId: string) => {
@@ -124,7 +134,21 @@ const EmployerView: React.FC<EmployerViewProps> = ({
   };
 
   const handleUpdateMachinesList = (newMachines: Machine[]) => onUpdateMachines(newMachines);
-  const handleUpdatePositionsList = (newPos: string[]) => onUpdatePositions(newPos);
+  
+  // NEW: Constructor Logic
+  const handlePermissionToggle = (key: keyof PositionPermissions) => {
+    if (!configuringPosition) return;
+    const updated = {
+      ...configuringPosition,
+      permissions: {
+        ...configuringPosition.permissions,
+        [key]: !configuringPosition.permissions[key]
+      }
+    };
+    setConfiguringPosition(updated);
+    const newPositions = positions.map(p => p.name === updated.name ? updated : p);
+    onUpdatePositions(newPositions);
+  };
 
   const handleExportAll = () => {
     const fullData = { logs, users, machines, positions };
@@ -148,6 +172,36 @@ const EmployerView: React.FC<EmployerViewProps> = ({
     reader.readAsText(file);
   };
 
+  const saveEmployeeEdit = (e: React.FormEvent) => {
+    e.preventDefault();
+    if (editingEmployee) {
+      onUpdateUser(editingEmployee);
+      setEditingEmployee(null);
+    }
+  };
+
+  const saveMachineEdit = (id: string) => {
+    if (!editValue.trim()) return;
+    const newMachines = machines.map(m => m.id === id ? { ...m, name: editValue } : m);
+    handleUpdateMachinesList(newMachines);
+    setEditingMachineId(null);
+    setEditValue('');
+  };
+
+  const savePositionEdit = (oldName: string) => {
+    if (!editValue.trim() || oldName === FIXED_POSITION_TURNER) return;
+    const newPositions = positions.map(p => p.name === oldName ? { ...p, name: editValue } : p);
+    onUpdatePositions(newPositions);
+    // Update all users with this position
+    users.forEach(u => {
+      if (u.position === oldName) {
+        onUpdateUser({ ...u, position: editValue });
+      }
+    });
+    setEditingPositionName(null);
+    setEditValue('');
+  };
+
   return (
     <div className="space-y-6 animate-fadeIn pb-20">
       {/* Full Size Photo Preview */}
@@ -158,6 +212,111 @@ const EmployerView: React.FC<EmployerViewProps> = ({
         >
           <img src={previewPhoto} className="max-w-full max-h-full rounded-2xl shadow-2xl animate-scaleIn" alt="Preview" />
           <button className="absolute top-8 right-8 text-white text-4xl font-light">&times;</button>
+        </div>
+      )}
+
+      {/* NEW: Position Permissions Configurator Modal */}
+      {configuringPosition && (
+        <div className="fixed inset-0 z-[130] bg-slate-900/60 backdrop-blur-sm flex items-center justify-center p-4">
+          <div className="bg-white rounded-[2.5rem] w-full max-w-md shadow-2xl border border-slate-200 overflow-hidden">
+             <div className="p-6 border-b border-slate-100 flex justify-between items-center bg-slate-50/50">
+                <div>
+                   <h3 className="font-black text-slate-900 uppercase tracking-tight">Конструктор функций</h3>
+                   <p className="text-[10px] font-black text-blue-600 uppercase tracking-widest">{configuringPosition.name}</p>
+                </div>
+                <button onClick={() => setConfiguringPosition(null)} className="text-slate-400 hover:text-slate-900 text-3xl font-light transition-colors">&times;</button>
+             </div>
+             <div className="p-8 space-y-3">
+                {[
+                  { key: 'useMachines', label: 'Работа на станках', desc: 'Возможность выбирать оборудование при начале смены' },
+                  { key: 'multiSlot', label: 'Мульти-слот (3 карточки)', desc: 'Одновременная работа на 3 станках (для токарей)' },
+                  { key: 'viewSelfMatrix', label: 'Вкладка «Мой Табель»', desc: 'Доступ сотрудника к своей статистике' },
+                  { key: 'markAbsences', label: 'Регистрация пропусков', desc: 'Возможность отмечать Б, О, В самостоятельно' },
+                  { key: 'defaultRequirePhoto', label: 'Обязательное фото', desc: 'Фотофиксация при каждом начале/конце смены' },
+                ].map((item) => (
+                  <label key={item.key} className="flex items-center justify-between p-4 bg-slate-50 rounded-2xl border border-slate-100 cursor-pointer hover:bg-white transition-all group">
+                    <div className="flex-1 pr-4">
+                       <p className="text-xs font-black text-slate-800 uppercase tracking-tight">{item.label}</p>
+                       <p className="text-[9px] font-bold text-slate-400 leading-tight mt-0.5">{item.desc}</p>
+                    </div>
+                    <div className="relative inline-flex items-center cursor-pointer">
+                      <input 
+                        type="checkbox" 
+                        className="sr-only peer" 
+                        checked={(configuringPosition.permissions as any)[item.key]} 
+                        onChange={() => handlePermissionToggle(item.key as any)}
+                      />
+                      <div className="w-11 h-6 bg-slate-200 peer-focus:outline-none rounded-full peer peer-checked:after:translate-x-full after:content-[''] after:absolute after:top-[2px] after:start-[2px] after:bg-white after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-blue-600 shadow-sm"></div>
+                    </div>
+                  </label>
+                ))}
+                <button 
+                  onClick={() => setConfiguringPosition(null)} 
+                  className="w-full py-4 bg-slate-900 text-white rounded-2xl font-black uppercase tracking-widest text-xs mt-4 shadow-xl hover:bg-slate-800 transition-all active:scale-95"
+                >
+                  Готово
+                </button>
+             </div>
+          </div>
+        </div>
+      )}
+
+      {/* Edit Employee Modal */}
+      {editingEmployee && (
+        <div className="fixed inset-0 z-[110] bg-slate-900/70 backdrop-blur-md flex items-center justify-center p-4">
+          <div className="bg-white rounded-[2.5rem] w-full max-w-md shadow-2xl border border-slate-200 overflow-hidden">
+             <div className="p-6 border-b border-slate-100 flex justify-between items-center bg-slate-50/50">
+                <h3 className="font-black text-slate-900 uppercase tracking-tight">Редактировать сотрудника</h3>
+                <button onClick={() => setEditingEmployee(null)} className="text-slate-400 hover:text-slate-900 text-2xl font-light">&times;</button>
+             </div>
+             <form onSubmit={saveEmployeeEdit} className="p-8 space-y-4">
+                <div className="space-y-1">
+                   <label className="text-[10px] font-black text-slate-400 uppercase ml-1">ФИО</label>
+                   <input 
+                     required 
+                     type="text" 
+                     value={editingEmployee.name} 
+                     onChange={e => setEditingEmployee({...editingEmployee, name: e.target.value})} 
+                     className="w-full border-2 border-slate-100 rounded-2xl px-4 py-3 text-sm font-bold outline-none focus:border-blue-500" 
+                   />
+                </div>
+                <div className="space-y-1">
+                   <label className="text-[10px] font-black text-slate-400 uppercase ml-1">Должность</label>
+                   <select 
+                     value={editingEmployee.position} 
+                     onChange={e => setEditingEmployee({...editingEmployee, position: e.target.value})} 
+                     className="w-full border-2 border-slate-100 rounded-2xl px-4 py-3 text-sm font-bold bg-white"
+                   >
+                     {positions.map(p => <option key={p.name} value={p.name}>{p.name}</option>)}
+                   </select>
+                </div>
+                <div className="grid grid-cols-2 gap-4">
+                   <div className="space-y-1">
+                      <label className="text-[10px] font-black text-slate-400 uppercase ml-1">PIN-код</label>
+                      <input 
+                        type="text" 
+                        maxLength={4} 
+                        value={editingEmployee.pin} 
+                        onChange={e => setEditingEmployee({...editingEmployee, pin: e.target.value.replace(/[^0-9]/g, '')})} 
+                        className="w-full border-2 border-slate-100 rounded-2xl px-4 py-3 text-sm font-mono font-black text-blue-600" 
+                      />
+                   </div>
+                   <div className="flex flex-col justify-end">
+                      <div className="flex items-center gap-3 p-3 bg-slate-50 rounded-2xl border-2 border-slate-100 h-[52px]">
+                         <input 
+                           type="checkbox" 
+                           checked={editingEmployee.requirePhoto} 
+                           onChange={e => setEditingEmployee({...editingEmployee, requirePhoto: e.target.checked})} 
+                           className="w-5 h-5 rounded accent-blue-600" 
+                           id="edit-req-photo" 
+                         />
+                         <label htmlFor="edit-req-photo" className="text-[9px] font-black text-slate-600 uppercase cursor-pointer">Фото</label>
+                      </div>
+                   </div>
+                </div>
+                <button type="submit" className="w-full py-4 bg-blue-600 text-white rounded-2xl font-black shadow-lg shadow-blue-100 uppercase text-xs tracking-widest mt-4">Сохранить изменения</button>
+             </form>
+          </div>
         </div>
       )}
 
@@ -494,7 +653,7 @@ const EmployerView: React.FC<EmployerViewProps> = ({
               <form onSubmit={handleAddUser} className="space-y-4">
                 <input required type="text" value={newUser.name} onChange={e => setNewUser({...newUser, name: e.target.value})} placeholder="ФИО сотрудника" className="w-full border-2 border-slate-100 rounded-2xl px-4 py-3 text-sm font-medium outline-none" />
                 <select value={newUser.position} onChange={e => setNewUser({...newUser, position: e.target.value})} className="w-full border-2 border-slate-100 rounded-2xl px-4 py-3 text-sm font-bold bg-white">
-                  {positions.map(p => <option key={p} value={p}>{p}</option>)}
+                  {positions.map(p => <option key={p.name} value={p.name}>{p.name}</option>)}
                 </select>
                 <input type="text" maxLength={4} value={newUser.pin} onChange={e => setNewUser({...newUser, pin: e.target.value.replace(/[^0-9]/g, '')})} placeholder="PIN (0000)" className="w-full border-2 border-slate-100 rounded-2xl px-4 py-3 text-sm font-mono" />
                 <div className="flex items-center gap-3 p-4 bg-slate-50 rounded-2xl border-2 border-slate-100">
@@ -515,22 +674,14 @@ const EmployerView: React.FC<EmployerViewProps> = ({
                       <p className="text-[10px] text-slate-400 font-black uppercase tracking-[0.1em]">{u.position}</p>
                     </div>
                   </div>
-                  <div className="flex items-center gap-4">
-                    <div className="flex flex-col items-end">
-                       <label className="text-[8px] font-black text-slate-400 uppercase mb-1">PIN-код</label>
-                       <input 
-                         type="text" 
-                         maxLength={4} 
-                         value={u.pin} 
-                         onChange={e => onUpdateUser({ ...u, pin: e.target.value.replace(/[^0-9]/g, '') })}
-                         className="w-20 border-2 border-slate-100 rounded-xl px-3 py-1.5 text-xs font-mono font-black text-center text-blue-600 focus:border-blue-500 outline-none bg-slate-50" 
-                       />
-                    </div>
+                  <div className="flex items-center gap-2">
+                    {/* Edit Employee Button */}
                     <button 
-                      onClick={() => toggleUserPhoto(u)}
-                      className={`px-3 py-1.5 rounded-xl text-[10px] font-black uppercase border-2 transition-all ${u.requirePhoto ? 'bg-amber-50 border-amber-500 text-amber-700' : 'bg-slate-50 border-slate-100 text-slate-400'}`}
+                      onClick={() => setEditingEmployee(u)}
+                      className="p-3 text-slate-300 hover:text-blue-600 transition-all hover:bg-blue-50 rounded-2xl"
+                      title="Редактировать"
                     >
-                      {u.requirePhoto ? '📷 ФОТО ВКЛ' : '📷 ФОТО ВЫКЛ'}
+                      <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15.232 5.232l3.536 3.536m-2.036-5.036a2.5 2.5 0 113.536 3.536L6.5 21.036H3v-3.572L16.732 3.732z" /></svg>
                     </button>
                     {u.id !== 'admin' && (
                       <button onClick={() => { if(confirm(`Удалить ${u.name}?`)) onDeleteUser(u.id); }} className="p-3 text-slate-300 hover:text-red-500 transition-all hover:bg-red-50 rounded-2xl">
@@ -577,30 +728,88 @@ const EmployerView: React.FC<EmployerViewProps> = ({
               <div className="space-y-2 max-h-[300px] overflow-y-auto pr-1 custom-scrollbar">
                 {machines.map(m => (
                   <div key={m.id} className="flex items-center justify-between p-4 bg-slate-50 rounded-2xl border border-slate-100 hover:bg-white transition-all">
-                    <span className="text-sm font-bold text-slate-700">{m.name}</span>
-                    <button onClick={() => { if(confirm('Удалить?')) handleUpdateMachinesList(machines.filter(x => x.id !== m.id)); }} className="text-slate-300 hover:text-red-500"><svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" /></svg></button>
+                    {editingMachineId === m.id ? (
+                      <div className="flex-1 flex gap-2">
+                         <input 
+                           autoFocus 
+                           className="flex-1 border-2 border-blue-200 rounded-xl px-3 py-1 text-sm outline-none" 
+                           value={editValue} 
+                           onChange={e => setEditValue(e.target.value)}
+                           onKeyDown={e => e.key === 'Enter' && saveMachineEdit(m.id)}
+                         />
+                         <button onClick={() => saveMachineEdit(m.id)} className="text-green-600 font-black">OK</button>
+                         <button onClick={() => setEditingMachineId(null)} className="text-slate-400 font-black">X</button>
+                      </div>
+                    ) : (
+                      <>
+                        <span className="text-sm font-bold text-slate-700">{m.name}</span>
+                        <div className="flex gap-2">
+                           <button onClick={() => { setEditingMachineId(m.id); setEditValue(m.name); }} className="text-slate-300 hover:text-blue-500">
+                             <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15.232 5.232l3.536 3.536m-2.036-5.036a2.5 2.5 0 113.536 3.536L6.5 21.036H3v-3.572L16.732 3.732z" /></svg>
+                           </button>
+                           <button onClick={() => { if(confirm('Удалить?')) handleUpdateMachinesList(machines.filter(x => x.id !== m.id)); }} className="text-slate-300 hover:text-red-500">
+                             <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" /></svg>
+                           </button>
+                        </div>
+                      </>
+                    )}
                   </div>
                 ))}
               </div>
             </div>
 
             <div className="bg-white p-8 rounded-[2.5rem] border border-slate-200 shadow-sm">
-              <h3 className="font-bold text-slate-900 mb-6 underline decoration-blue-500 decoration-4 underline-offset-8">Должности</h3>
+              <h3 className="font-bold text-slate-900 mb-6 underline decoration-blue-500 decoration-4 underline-offset-8">Должности и Функции</h3>
               <div className="flex gap-2 mb-6">
                 <input type="text" value={newPositionName} onChange={e => setNewPositionName(e.target.value)} placeholder="Новая роль" className="flex-1 border-2 border-slate-100 rounded-2xl px-4 py-3 text-sm outline-none focus:border-blue-500 transition-all" />
                 <button onClick={() => {
                   if (newPositionName.trim()) {
-                    handleUpdatePositionsList([...positions, newPositionName]);
+                    onUpdatePositions([...positions, { name: newPositionName, permissions: DEFAULT_PERMISSIONS }]);
                     setNewPositionName('');
                   }
                 }} className="px-6 py-3 bg-blue-600 text-white rounded-2xl font-black text-sm uppercase">Добавить</button>
               </div>
               <div className="space-y-2 max-h-[300px] overflow-y-auto pr-1 custom-scrollbar">
                 {positions.map(p => (
-                  <div key={p} className="flex items-center justify-between p-4 bg-slate-50 rounded-2xl border border-slate-100 hover:bg-white transition-all">
-                    <span className={`text-sm font-bold ${p === FIXED_POSITION_TURNER ? 'text-blue-600' : 'text-slate-700'}`}>{p}</span>
-                    {p !== FIXED_POSITION_TURNER && (
-                      <button onClick={() => { if(confirm('Удалить?')) handleUpdatePositionsList(positions.filter(x => x !== p)); }} className="text-slate-300 hover:text-red-500"><svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" /></svg></button>
+                  <div key={p.name} className="flex items-center justify-between p-4 bg-slate-50 rounded-2xl border border-slate-100 hover:bg-white transition-all group">
+                    {editingPositionName === p.name ? (
+                      <div className="flex-1 flex gap-2">
+                         <input 
+                           autoFocus 
+                           className="flex-1 border-2 border-blue-200 rounded-xl px-3 py-1 text-sm outline-none" 
+                           value={editValue} 
+                           onChange={e => setEditValue(e.target.value)}
+                           onKeyDown={e => e.key === 'Enter' && savePositionEdit(p.name)}
+                         />
+                         <button onClick={() => savePositionEdit(p.name)} className="text-green-600 font-black">OK</button>
+                         <button onClick={() => setEditingPositionName(null)} className="text-slate-400 font-black">X</button>
+                      </div>
+                    ) : (
+                      <>
+                        <div className="flex flex-col">
+                           <span className={`text-sm font-bold ${p.name === FIXED_POSITION_TURNER ? 'text-blue-600' : 'text-slate-700'}`}>{p.name}</span>
+                        </div>
+                        <div className="flex gap-1 opacity-40 group-hover:opacity-100 transition-opacity">
+                           {/* Surgical Addition: Constructor Gear Icon */}
+                           <button 
+                             onClick={() => setConfiguringPosition(p)} 
+                             className="p-2 text-slate-500 hover:text-blue-600"
+                             title="Конструктор функций"
+                           >
+                             <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2.5} d="M10.325 4.317c.426-1.756 2.924-1.756 3.35 0a1.724 1.724 0 002.573 1.066c1.543-.94 3.31.826 2.37 2.37a1.724 1.724 0 001.065 2.572c1.756.426 1.756 2.924 0 3.35a1.724 1.724 0 00-1.066 2.573c.94 1.543-.826 3.31-2.37 2.37a1.724 1.724 0 00-2.572 1.065c-.426 1.756-2.924 1.756-3.35 0a1.724 1.724 0 00-2.573-1.066c-1.543.94-3.31-.826-2.37-2.37a1.724 1.724 0 00-1.065-2.572c-1.756-.426-1.756-2.924 0-3.35a1.724 1.724 0 001.066-2.573c-.94-1.543.826-3.31 2.37-2.37.996.608 2.296.07 2.572-1.065z" /><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2.5} d="M15 12a3 3 0 11-6 0 3 3 0 016 0z" /></svg>
+                           </button>
+                           {p.name !== FIXED_POSITION_TURNER && (
+                             <>
+                               <button onClick={() => { setEditingPositionName(p.name); setEditValue(p.name); }} className="p-2 text-slate-300 hover:text-blue-500">
+                                 <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15.232 5.232l3.536 3.536m-2.036-5.036a2.5 2.5 0 113.536 3.536L6.5 21.036H3v-3.572L16.732 3.732z" /></svg>
+                               </button>
+                               <button onClick={() => { if(confirm('Удалить должность и обновить сотрудников?')) onUpdatePositions(positions.filter(x => x.name !== p.name)); }} className="text-slate-300 hover:text-red-500">
+                                 <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" /></svg>
+                               </button>
+                             </>
+                           )}
+                        </div>
+                      </>
                     )}
                   </div>
                 ))}
