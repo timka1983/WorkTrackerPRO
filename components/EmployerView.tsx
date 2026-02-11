@@ -1,12 +1,13 @@
 
 import React, { useState, useMemo } from 'react';
 import { WorkLog, User, EntryType, UserRole, Machine, FIXED_POSITION_TURNER, PositionConfig, PositionPermissions } from '../types';
-import { formatDuration, getDaysInMonthArray, formatDurationShort, exportToCSV, formatTime } from '../utils';
+import { formatDuration, getDaysInMonthArray, formatDurationShort, exportToCSV, formatTime, calculateMinutes } from '../utils';
 import { format, isAfter } from 'date-fns';
 import { startOfDay } from 'date-fns/startOfDay';
 import { subDays } from 'date-fns/subDays';
 import { ru } from 'date-fns/locale/ru';
 import { DEFAULT_PERMISSIONS } from '../constants';
+import { db } from '../lib/supabase';
 
 interface EmployerViewProps {
   logs: WorkLog[];
@@ -33,13 +34,11 @@ const EmployerView: React.FC<EmployerViewProps> = ({
   const [tempNotes, setTempNotes] = useState<Record<string, string>>({});
   const [previewPhoto, setPreviewPhoto] = useState<string | null>(null);
   
-  // States for editing entities
   const [editingEmployee, setEditingEmployee] = useState<User | null>(null);
   const [editingMachineId, setEditingMachineId] = useState<string | null>(null);
   const [editingPositionName, setEditingPositionName] = useState<string | null>(null);
   const [editValue, setEditValue] = useState('');
 
-  // NEW: Constructor State
   const [configuringPosition, setConfiguringPosition] = useState<PositionConfig | null>(null);
 
   const [newUser, setNewUser] = useState({ name: '', position: positions[0]?.name || '', department: '', pin: '0000', requirePhoto: false });
@@ -87,8 +86,50 @@ const EmployerView: React.FC<EmployerViewProps> = ({
       return { name: emp.name, count: absences };
     }).sort((a, b) => b.count - a.count).filter(a => a.count > 0).slice(0, 3);
 
-    return { activeShifts, finishedToday, avgWeeklyHours, absenceCounts };
+    const activeLogsMap: Record<string, WorkLog[]> = {};
+    activeShifts.forEach(log => {
+      if (!activeLogsMap[log.userId]) activeLogsMap[log.userId] = [];
+      activeLogsMap[log.userId].push(log);
+    });
+
+    return { activeShifts, finishedToday, avgWeeklyHours, absenceCounts, activeLogsMap };
   }, [logs, employees, filterMonth]);
+
+  const handleForceFinish = async (log: WorkLog) => {
+    const empName = users.find(u => u.id === log.userId)?.name || 'сотрудника';
+    const mName = machines.find(m => m.id === log.machineId)?.name || 'Работа';
+    if (!confirm(`Вы действительно хотите принудительно завершить смену (${mName}) для ${empName}? Таймер сотрудника будет остановлен.`)) return;
+
+    const now = new Date();
+    const duration = log.checkIn ? calculateMinutes(log.checkIn, now.toISOString()) : 0;
+    
+    const completedLog: WorkLog = {
+      ...log,
+      checkOut: now.toISOString(),
+      durationMinutes: Math.max(0, duration),
+      isCorrected: true,
+      correctionNote: `Смена (${mName}) завершена администратором принудительно`,
+      correctionTimestamp: now.toISOString()
+    };
+
+    const newLogs = logs.map(l => l.id === log.id ? completedLog : l);
+    onLogUpdate(newLogs);
+
+    try {
+      const currentActive = await db.getActiveShifts(log.userId);
+      if (currentActive) {
+        const updatedActive = { ...currentActive };
+        Object.keys(updatedActive).forEach(slotKey => {
+          if (updatedActive[slotKey]?.id === log.id) {
+            updatedActive[slotKey] = null;
+          }
+        });
+        await db.saveActiveShifts(log.userId, updatedActive);
+      }
+    } catch (e) {
+      console.warn("Не удалось очистить активную смену в облаке, но лог обновлен.");
+    }
+  };
 
   const handleAddUser = (e: React.FormEvent) => {
     e.preventDefault();
@@ -129,13 +170,8 @@ const EmployerView: React.FC<EmployerViewProps> = ({
     onLogUpdate(updated);
   };
 
-  const toggleUserPhoto = (u: User) => {
-    onUpdateUser({ ...u, requirePhoto: !u.requirePhoto });
-  };
-
   const handleUpdateMachinesList = (newMachines: Machine[]) => onUpdateMachines(newMachines);
   
-  // NEW: Constructor Logic
   const handlePermissionToggle = (key: keyof PositionPermissions) => {
     if (!configuringPosition) return;
     const updated = {
@@ -192,7 +228,6 @@ const EmployerView: React.FC<EmployerViewProps> = ({
     if (!editValue.trim() || oldName === FIXED_POSITION_TURNER) return;
     const newPositions = positions.map(p => p.name === oldName ? { ...p, name: editValue } : p);
     onUpdatePositions(newPositions);
-    // Update all users with this position
     users.forEach(u => {
       if (u.position === oldName) {
         onUpdateUser({ ...u, position: editValue });
@@ -204,7 +239,6 @@ const EmployerView: React.FC<EmployerViewProps> = ({
 
   return (
     <div className="space-y-6 animate-fadeIn pb-20">
-      {/* Full Size Photo Preview */}
       {previewPhoto && (
         <div 
           className="fixed inset-0 z-[120] bg-slate-900/90 flex items-center justify-center p-4 cursor-zoom-out"
@@ -215,7 +249,6 @@ const EmployerView: React.FC<EmployerViewProps> = ({
         </div>
       )}
 
-      {/* NEW: Position Permissions Configurator Modal */}
       {configuringPosition && (
         <div className="fixed inset-0 z-[130] bg-slate-900/60 backdrop-blur-sm flex items-center justify-center p-4">
           <div className="bg-white rounded-[2.5rem] w-full max-w-md shadow-2xl border border-slate-200 overflow-hidden">
@@ -261,7 +294,6 @@ const EmployerView: React.FC<EmployerViewProps> = ({
         </div>
       )}
 
-      {/* Edit Employee Modal */}
       {editingEmployee && (
         <div className="fixed inset-0 z-[110] bg-slate-900/70 backdrop-blur-md flex items-center justify-center p-4">
           <div className="bg-white rounded-[2.5rem] w-full max-w-md shadow-2xl border border-slate-200 overflow-hidden">
@@ -320,7 +352,6 @@ const EmployerView: React.FC<EmployerViewProps> = ({
         </div>
       )}
 
-      {/* Edit Log Modal */}
       {editingLog && (
         <div className="fixed inset-0 z-[100] bg-slate-900/70 backdrop-blur-md flex items-center justify-center p-4">
           <div className="bg-white rounded-[2.5rem] w-full max-w-2xl shadow-2xl border border-slate-200 overflow-hidden flex flex-col max-h-[90vh]">
@@ -480,18 +511,31 @@ const EmployerView: React.FC<EmployerViewProps> = ({
                    {dashboardStats.activeShifts.length > 0 ? dashboardStats.activeShifts.map(s => {
                       const emp = users.find(u => u.id === s.userId);
                       const machine = machines.find(m => m.id === s.machineId);
+                      const machineName = machine?.name || 'Работа';
                       return (
-                        <div key={s.id} className="flex justify-between items-center p-3 bg-blue-50 rounded-xl border border-blue-100">
+                        <div key={s.id} className="group/item flex justify-between items-center p-3 bg-blue-50 rounded-xl border border-blue-100 hover:bg-white transition-all">
                            <div className="flex flex-col">
                               <span className="text-xs font-bold text-slate-700">{emp?.name}</span>
-                              {machine && (
-                                <span className="text-[9px] font-black text-blue-500 uppercase tracking-tighter mt-1 flex items-center gap-1">
-                                  <svg className="w-2.5 h-2.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={3} d="M13 10V3L4 14h7v7l9-11h-7z" /></svg>
-                                  {machine.name}
-                                </span>
-                              )}
+                              <span className="text-[9px] font-black text-blue-500 uppercase tracking-tighter mt-1 flex items-center gap-1">
+                                <svg className="w-2.5 h-2.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={3} d="M13 10V3L4 14h7v7l9-11h-7z" /></svg>
+                                {machineName}
+                              </span>
                            </div>
-                           <span className="text-[10px] font-black text-blue-600 bg-white px-2 py-0.5 rounded-lg border border-blue-100">{formatTime(s.checkIn)}</span>
+                           <div className="flex items-center gap-2">
+                             <div className="flex flex-col items-end">
+                               <span className="text-[10px] font-black text-blue-600 bg-white px-2 py-0.5 rounded-lg border border-blue-100">{formatTime(s.checkIn)}</span>
+                             </div>
+                             <div className="flex flex-col items-center gap-1">
+                                <button 
+                                   onClick={() => handleForceFinish(s)}
+                                   className="hidden group-hover/item:flex items-center justify-center p-1.5 bg-red-500 text-white rounded-lg hover:bg-red-600 transition-colors shadow-sm"
+                                   title="Принудительно завершить"
+                                >
+                                   <svg className="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={3} d="M6 18L18 6M6 6l12 12" /></svg>
+                                </button>
+                                <span className="hidden group-hover/item:block text-[6px] font-black text-red-400 uppercase leading-none tracking-tighter">СТОП {machineName.split(' ')[0]}</span>
+                             </div>
+                           </div>
                         </div>
                       );
                    }) : <p className="text-xs text-slate-400 italic py-4 text-center">Все отдыхают</p>}
@@ -665,32 +709,63 @@ const EmployerView: React.FC<EmployerViewProps> = ({
             </div>
           </div>
           <div className="lg:col-span-2 space-y-4">
-             {users.map(u => (
-               <div key={u.id} className="bg-white p-5 rounded-3xl border border-slate-200 flex items-center justify-between group shadow-sm transition-all hover:border-blue-300">
-                  <div className="flex items-center gap-4">
-                    <div className="w-12 h-12 rounded-2xl bg-blue-100 text-blue-600 flex items-center justify-center font-black text-xl">{u.name.charAt(0)}</div>
-                    <div>
-                      <h4 className="font-bold text-slate-900">{u.name}</h4>
-                      <p className="text-[10px] text-slate-400 font-black uppercase tracking-[0.1em]">{u.position}</p>
+             {users.map(u => {
+               const activeLogs = dashboardStats.activeLogsMap[u.id] || [];
+               const isWorking = activeLogs.length > 0;
+               return (
+                 <div key={u.id} className="bg-white p-5 rounded-3xl border border-slate-200 flex items-center justify-between group shadow-sm transition-all hover:border-blue-300">
+                    <div className="flex items-center gap-4">
+                      <div className="relative">
+                        <div className="w-12 h-12 rounded-2xl bg-blue-100 text-blue-600 flex items-center justify-center font-black text-xl">{u.name.charAt(0)}</div>
+                        {isWorking && <span className="absolute -top-1 -right-1 w-3 h-3 bg-blue-600 border-2 border-white rounded-full animate-pulse"></span>}
+                      </div>
+                      <div>
+                        <div className="flex items-center gap-2">
+                          <h4 className="font-bold text-slate-900">{u.name}</h4>
+                          {isWorking && (
+                            <span className="text-[8px] font-black text-blue-600 uppercase bg-blue-50 px-1.5 py-0.5 rounded-md">В работе</span>
+                          )}
+                        </div>
+                        <p className="text-[10px] text-slate-400 font-black uppercase tracking-[0.1em]">{u.position}</p>
+                      </div>
                     </div>
-                  </div>
-                  <div className="flex items-center gap-2">
-                    {/* Edit Employee Button */}
-                    <button 
-                      onClick={() => setEditingEmployee(u)}
-                      className="p-3 text-slate-300 hover:text-blue-600 transition-all hover:bg-blue-50 rounded-2xl"
-                      title="Редактировать"
-                    >
-                      <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15.232 5.232l3.536 3.536m-2.036-5.036a2.5 2.5 0 113.536 3.536L6.5 21.036H3v-3.572L16.732 3.732z" /></svg>
-                    </button>
-                    {u.id !== 'admin' && (
-                      <button onClick={() => { if(confirm(`Удалить ${u.name}?`)) onDeleteUser(u.id); }} className="p-3 text-slate-300 hover:text-red-500 transition-all hover:bg-red-50 rounded-2xl">
-                        <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" /></svg>
+                    <div className="flex items-center gap-2">
+                      {isWorking && (
+                        <div className="flex gap-2 mr-2">
+                          {activeLogs.map(log => {
+                            const machineName = machines.find(m => m.id === log.machineId)?.name || 'Работа';
+                            return (
+                              <div key={log.id} className="flex flex-col items-center gap-1">
+                                <button 
+                                  onClick={() => handleForceFinish(log)}
+                                  className="flex items-center gap-1.5 px-3 py-2 bg-red-50 text-red-600 rounded-xl hover:bg-red-600 hover:text-white transition-all border border-red-100 group/stop shadow-sm"
+                                  title={`Принудительно остановить (${machineName})`}
+                                >
+                                   <svg className="w-3.5 h-3.5" fill="currentColor" viewBox="0 0 24 24"><path d="M6 6h12v12H6z"/></svg>
+                                   <span className="text-[10px] font-black uppercase tracking-tight hidden sm:block">Стоп</span>
+                                </button>
+                                <span className="text-[7px] font-black text-red-400 uppercase tracking-tighter leading-none text-center max-w-[50px] truncate">{machineName}</span>
+                              </div>
+                            );
+                          })}
+                        </div>
+                      )}
+                      <button 
+                        onClick={() => setEditingEmployee(u)}
+                        className="p-3 text-slate-300 hover:text-blue-600 transition-all hover:bg-blue-50 rounded-2xl"
+                        title="Редактировать"
+                      >
+                        <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15.232 5.232l3.536 3.536m-2.036-5.036a2.5 2.5 0 113.536 3.536L6.5 21.036H3v-3.572L16.732 3.732z" /></svg>
                       </button>
-                    )}
-                  </div>
-               </div>
-             ))}
+                      {u.id !== 'admin' && (
+                        <button onClick={() => { if(confirm(`Удалить ${u.name}?`)) onDeleteUser(u.id); }} className="p-3 text-slate-300 hover:text-red-500 transition-all hover:bg-red-50 rounded-2xl">
+                          <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" /></svg>
+                        </button>
+                      )}
+                    </div>
+                 </div>
+               );
+             })}
           </div>
         </section>
       )}
@@ -790,7 +865,6 @@ const EmployerView: React.FC<EmployerViewProps> = ({
                            <span className={`text-sm font-bold ${p.name === FIXED_POSITION_TURNER ? 'text-blue-600' : 'text-slate-700'}`}>{p.name}</span>
                         </div>
                         <div className="flex gap-1 opacity-40 group-hover:opacity-100 transition-opacity">
-                           {/* Surgical Addition: Constructor Gear Icon */}
                            <button 
                              onClick={() => setConfiguringPosition(p)} 
                              className="p-2 text-slate-500 hover:text-blue-600"
