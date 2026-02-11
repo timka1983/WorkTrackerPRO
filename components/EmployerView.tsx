@@ -72,7 +72,9 @@ const EmployerView: React.FC<EmployerViewProps> = ({
     const todayStr = format(new Date(), 'yyyy-MM-dd');
     const todayLogs = logs.filter(l => l.date === todayStr);
     
-    const activeShifts = todayLogs.filter(l => l.entryType === EntryType.WORK && !l.checkOut);
+    // ИСПРАВЛЕНИЕ: Ищем активные смены по ВСЕМ логам, а не только за сегодня.
+    // Это решает проблему «зависшего» оборудования с прошлых дней.
+    const activeShifts = logs.filter(l => l.entryType === EntryType.WORK && !l.checkOut);
     const finishedToday = todayLogs.filter(l => l.entryType === EntryType.WORK && l.checkOut);
     
     const last7Days = Array.from({ length: 7 }, (_, i) => format(subDays(new Date(), i), 'yyyy-MM-dd'));
@@ -98,7 +100,7 @@ const EmployerView: React.FC<EmployerViewProps> = ({
   const handleForceFinish = async (log: WorkLog) => {
     const empName = users.find(u => u.id === log.userId)?.name || 'сотрудника';
     const mName = machines.find(m => m.id === log.machineId)?.name || 'Работа';
-    if (!confirm(`Вы действительно хотите принудительно завершить смену (${mName}) для ${empName}? Таймер сотрудника будет остановлен.`)) return;
+    if (!confirm(`Вы действительно хотите принудительно завершить смену (${mName}) для ${empName}? Таймер сотрудника будет остановлен, оборудование станет свободным.`)) return;
 
     const now = new Date();
     const duration = log.checkIn ? calculateMinutes(log.checkIn, now.toISOString()) : 0;
