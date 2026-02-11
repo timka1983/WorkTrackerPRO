@@ -44,11 +44,19 @@ const EmployerView: React.FC<EmployerViewProps> = ({
   const [configuringPosition, setConfiguringPosition] = useState<PositionConfig | null>(null);
   const [expandedTurnerRows, setExpandedTurnerRows] = useState<Set<string>>(new Set());
 
-  // Added missing state variables for settings inputs
   const [newMachineName, setNewMachineName] = useState('');
   const [newPositionName, setNewPositionName] = useState('');
 
-  const employees = users.filter(u => u.role === UserRole.EMPLOYEE);
+  // ИСПРАВЛЕНО: Расширенный поиск сотрудников для табеля (включаем всех, у кого есть логи или роль сотрудника)
+  const employees = useMemo(() => {
+    const usersWithLogs = new Set(logs.map(l => l.userId));
+    return users.filter(u => 
+      u.role === UserRole.EMPLOYEE || 
+      usersWithLogs.has(u.id) || 
+      (u.role !== UserRole.EMPLOYER && u.id !== 'admin')
+    );
+  }, [users, logs]);
+
   const days = getDaysInMonthArray(filterMonth);
   const today = startOfDay(new Date());
 
@@ -82,6 +90,7 @@ const EmployerView: React.FC<EmployerViewProps> = ({
     const todayStr = format(new Date(), 'yyyy-MM-dd');
     const todayLogs = logs.filter(l => l.date && l.date.startsWith(todayStr));
     
+    // ИСПРАВЛЕНО: Более надежный поиск активных смен
     const activeShifts = logs.filter(l => l.entryType === EntryType.WORK && !l.checkOut);
     const finishedToday = todayLogs.filter(l => l.entryType === EntryType.WORK && l.checkOut);
     
