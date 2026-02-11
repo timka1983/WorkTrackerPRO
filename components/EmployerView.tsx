@@ -1,4 +1,3 @@
-
 import React, { useState, useMemo } from 'react';
 import { WorkLog, User, EntryType, UserRole, Machine, FIXED_POSITION_TURNER, PositionConfig, PositionPermissions } from '../types';
 import { formatDuration, getDaysInMonthArray, formatDurationShort, exportToCSV, formatTime, calculateMinutes } from '../utils';
@@ -22,11 +21,14 @@ interface EmployerViewProps {
   onImportData: (data: string) => void;
   onLogUpdate: (logs: WorkLog[]) => void;
   onDeleteLog: (logId: string) => void;
+  onRefresh?: () => Promise<void>;
+  isSyncing?: boolean;
 }
 
 const EmployerView: React.FC<EmployerViewProps> = ({ 
   logs, users, onAddUser, onUpdateUser, onDeleteUser, 
-  machines, onUpdateMachines, positions, onUpdatePositions, onImportData, onLogUpdate, onDeleteLog
+  machines, onUpdateMachines, positions, onUpdatePositions, onImportData, onLogUpdate, onDeleteLog,
+  onRefresh, isSyncing = false
 }) => {
   const [filterMonth, setFilterMonth] = useState(format(new Date(), 'yyyy-MM'));
   const [viewMode, setViewMode] = useState<'matrix' | 'team' | 'analytics' | 'settings'>('analytics');
@@ -40,6 +42,7 @@ const EmployerView: React.FC<EmployerViewProps> = ({
   const [editValue, setEditValue] = useState('');
 
   const [configuringPosition, setConfiguringPosition] = useState<PositionConfig | null>(null);
+  const [expandedTurnerRows, setExpandedTurnerRows] = useState<Set<string>>(new Set());
 
   const [newUser, setNewUser] = useState({ name: '', position: positions[0]?.name || '', department: '', pin: '0000', requirePhoto: false });
   const [newMachineName, setNewMachineName] = useState('');
@@ -48,6 +51,13 @@ const EmployerView: React.FC<EmployerViewProps> = ({
   const employees = users.filter(u => u.role === UserRole.EMPLOYEE);
   const days = getDaysInMonthArray(filterMonth);
   const today = startOfDay(new Date());
+
+  const toggleTurnerRow = (empId: string) => {
+    const newSet = new Set(expandedTurnerRows);
+    if (newSet.has(empId)) newSet.delete(empId);
+    else newSet.add(empId);
+    setExpandedTurnerRows(newSet);
+  };
 
   const downloadPDF = () => {
     const element = document.getElementById('employer-matrix-report');
@@ -493,6 +503,18 @@ const EmployerView: React.FC<EmployerViewProps> = ({
           ))}
         </div>
         <div className="flex items-center gap-2">
+           {onRefresh && (
+              <button 
+                onClick={() => onRefresh()} 
+                disabled={isSyncing}
+                className={`p-2.5 rounded-xl transition-all ${isSyncing ? 'bg-slate-100 text-slate-400' : 'bg-blue-50 text-blue-600 hover:bg-blue-100'}`} 
+                title="Обновить данные"
+              >
+                <svg className={`w-5 h-5 ${isSyncing ? 'animate-spin' : ''}`} fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15" />
+                </svg>
+              </button>
+           )}
            <input type="month" value={filterMonth} onChange={(e) => setFilterMonth(e.target.value)} className="border border-slate-200 rounded-xl px-4 py-2 text-sm font-bold outline-none focus:ring-2 focus:ring-blue-500" />
            <button onClick={downloadPDF} className="p-2.5 bg-slate-900 text-white rounded-xl hover:bg-slate-800 transition-colors" title="Скачать PDF">
               <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 10v6m0 0l-3-3m3 3l3-3m2 8H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" /></svg>
@@ -630,12 +652,23 @@ const EmployerView: React.FC<EmployerViewProps> = ({
                   const totalMinutes = empLogs.filter(l => l.checkOut || l.entryType !== EntryType.WORK).reduce((s, l) => s + l.durationMinutes, 0);
                   const isTurner = emp.position === FIXED_POSITION_TURNER;
                   const usedMachineIds = [...new Set(empLogs.filter(l => l.machineId).map(l => l.machineId!))];
+                  const isExpanded = expandedTurnerRows.has(emp.id);
 
                   return (
                     <React.Fragment key={emp.id}>
                       <tr className="border-b border-slate-200 group bg-slate-50/30">
                         <td className="sticky left-0 z-10 bg-white border-r px-3 py-3 font-black text-slate-900 text-[11px] truncate w-[140px] min-w-[140px] max-w-[140px]">
-                          {emp.name}
+                          <div className="flex items-center justify-between group/name">
+                            <span className="truncate pr-1">{emp.name}</span>
+                            {isTurner && usedMachineIds.length > 0 && (
+                              <button 
+                                onClick={() => toggleTurnerRow(emp.id)}
+                                className={`flex-shrink-0 p-1 rounded-md transition-all ${isExpanded ? 'bg-blue-600 text-white' : 'text-blue-500 hover:bg-blue-50'}`}
+                              >
+                                <svg className={`w-3 h-3 transition-transform ${isExpanded ? 'rotate-180' : ''}`} fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={3} d="M19 9l-7 7-7-7" /></svg>
+                              </button>
+                            )}
+                          </div>
                           <div className="text-[8px] text-blue-600 font-black uppercase mt-0.5">{emp.position}</div>
                         </td>
                         {days.map(day => {
@@ -643,16 +676,18 @@ const EmployerView: React.FC<EmployerViewProps> = ({
                           if (isAfter(day, today)) return <td key={dateStr} className="border-r p-1 h-12"></td>;
 
                           const dayLogs = empLogs.filter(l => l.date === dateStr);
-                          const workMins = dayLogs.filter(l => l.entryType === EntryType.WORK).reduce((s, l) => s + l.durationMinutes, 0);
+                          const workEntries = dayLogs.filter(l => l.entryType === EntryType.WORK);
+                          const workMins = workEntries.reduce((s, l) => s + l.durationMinutes, 0);
+                          const hasWork = workEntries.length > 0;
                           const absence = dayLogs.find(l => l.entryType !== EntryType.WORK);
                           const anyCorrected = dayLogs.some(l => l.isCorrected);
                           
                           let content: React.ReactNode = null;
                           if (absence) {
                              content = <span className="font-black text-blue-600">{absence.entryType === EntryType.SICK ? 'Б' : absence.entryType === EntryType.VACATION ? 'О' : 'В'}{anyCorrected && '*'}</span>;
-                          } else if (workMins > 0) {
-                             const isPending = dayLogs.some(l => l.entryType === EntryType.WORK && !l.checkOut);
-                             content = <span className={`text-[11px] font-black ${isPending ? 'text-blue-500 italic' : 'text-slate-900'}`}>{formatDurationShort(workMins)}{(isPending || anyCorrected) && '*'}</span>;
+                          } else if (hasWork) {
+                             const isPending = workEntries.some(l => !l.checkOut);
+                             content = <span className={`text-[11px] font-black ${isPending ? 'text-blue-500 italic' : 'text-slate-900'}`}>{workMins > 0 ? formatDurationShort(workMins) : (isPending ? '--:--' : '0:00')}{(isPending || anyCorrected) && '*'}</span>;
                           } else {
                              content = <span className="text-[10px] font-bold text-slate-300">В</span>;
                           }
@@ -666,11 +701,11 @@ const EmployerView: React.FC<EmployerViewProps> = ({
                         <td className="sticky right-0 z-10 px-4 py-3 text-center font-black text-slate-900 text-xs bg-slate-50 border-l border-slate-300">{formatDuration(totalMinutes)}</td>
                       </tr>
 
-                      {isTurner && usedMachineIds.map(mId => {
+                      {isTurner && isExpanded && usedMachineIds.map(mId => {
                          const machineName = machines.find(m => m.id === mId)?.name || 'Работа';
                          const mMinutes = empLogs.filter(l => l.machineId === mId).reduce((s, l) => s + l.durationMinutes, 0);
                          return (
-                           <tr key={`${emp.id}-${mId}`} className="border-b border-slate-100 bg-white/50 text-slate-500">
+                           <tr key={`${emp.id}-${mId}`} className="border-b border-slate-100 bg-white/50 text-slate-500 animate-fadeInShort">
                              <td className="sticky left-0 z-10 bg-white border-r px-4 py-2 font-bold text-[9px] uppercase italic text-slate-400 truncate w-[140px] min-w-[140px] max-w-[140px]">
                                 ↳ {machineName}
                              </td>
@@ -679,10 +714,12 @@ const EmployerView: React.FC<EmployerViewProps> = ({
                                if (isAfter(day, today)) return <td key={dateStr} className="border-r p-1 h-10"></td>;
                                const machineLogs = empLogs.filter(l => l.date === dateStr && l.machineId === mId);
                                const minsOnMachine = machineLogs.reduce((s, l) => s + l.durationMinutes, 0);
+                               const hasWorkOnMachine = machineLogs.length > 0;
+                               const isPendingOnMachine = machineLogs.some(l => !l.checkOut);
                                const isCorrectedOnMachine = machineLogs.some(l => l.isCorrected);
                                return (
                                  <td key={dateStr} className="border-r p-1 text-center h-10 tabular-nums text-[10px] font-medium italic">
-                                   {minsOnMachine > 0 ? (formatDurationShort(minsOnMachine) + (isCorrectedOnMachine ? '*' : '')) : '-'}
+                                   {hasWorkOnMachine ? (minsOnMachine > 0 ? formatDurationShort(minsOnMachine) : (isPendingOnMachine ? '--:--' : '0:00')) + (isCorrectedOnMachine ? '*' : '') : '-'}
                                  </td>
                                );
                              })}
@@ -732,9 +769,6 @@ const EmployerView: React.FC<EmployerViewProps> = ({
                       <div>
                         <div className="flex items-center gap-2">
                           <h4 className="font-bold text-slate-900">{u.name}</h4>
-                          {isWorking && (
-                            <span className="text-[8px] font-black text-blue-600 uppercase bg-blue-50 px-1.5 py-0.5 rounded-md">В работе</span>
-                          )}
                         </div>
                         <p className="text-[10px] text-slate-400 font-black uppercase tracking-[0.1em]">{u.position}</p>
                       </div>

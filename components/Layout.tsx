@@ -1,4 +1,3 @@
-
 import React from 'react';
 import { User, UserRole } from '../types';
 
@@ -26,7 +25,8 @@ const Layout: React.FC<LayoutProps> = ({ children, user, onLogout, onSwitchRole,
             </div>
 
             {user && (
-              <div className="flex items-center gap-6">
+              <div className="flex items-center gap-3 sm:gap-6">
+                {/* Desktop Switcher */}
                 <div className="hidden md:flex items-center gap-4 text-sm font-medium">
                    <button 
                     onClick={() => onSwitchRole(UserRole.EMPLOYEE)}
@@ -41,8 +41,18 @@ const Layout: React.FC<LayoutProps> = ({ children, user, onLogout, onSwitchRole,
                     Работодатель
                   </button>
                 </div>
+
+                {/* Mobile Switcher (Visible only on small screens) */}
+                <div className="md:hidden flex items-center">
+                  <button 
+                    onClick={() => onSwitchRole(user.role === UserRole.EMPLOYEE ? UserRole.EMPLOYER : UserRole.EMPLOYEE)}
+                    className="px-3 py-1.5 bg-slate-100 text-blue-600 rounded-xl text-[10px] font-black uppercase tracking-tight border border-slate-200 active:bg-blue-600 active:text-white transition-all"
+                  >
+                    {user.role === UserRole.EMPLOYEE ? 'В Админ' : 'В Табель'}
+                  </button>
+                </div>
                 
-                <div className="flex items-center gap-3 border-l pl-6 border-slate-200">
+                <div className="flex items-center gap-3 border-l pl-3 sm:pl-6 border-slate-200">
                   <div className="text-right hidden sm:block">
                     <p className="text-sm font-semibold text-slate-900">{user.name}</p>
                     <p className="text-xs text-slate-500">{user.role === UserRole.EMPLOYER ? 'Администратор' : 'Сотрудник'}</p>

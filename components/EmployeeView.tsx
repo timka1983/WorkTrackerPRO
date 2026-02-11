@@ -1,4 +1,3 @@
-
 import React, { useState, useEffect, useMemo, useRef } from 'react';
 import { WorkLog, User, EntryType, FIXED_POSITION_TURNER, Machine, PositionConfig } from '../types';
 import { formatTime, formatDate, formatDuration, calculateMinutes, getDaysInMonthArray, formatDurationShort } from '../utils';
@@ -472,7 +471,9 @@ const EmployeeView: React.FC<EmployeeViewProps> = ({ user, logs, onLogUpdate, ma
 
                 const dateStr = format(date, 'yyyy-MM-dd');
                 const dayLogs = filteredLogs.filter(l => l.date === dateStr);
-                const workMins = dayLogs.filter(l => l.entryType === EntryType.WORK).reduce((s, l) => s + l.durationMinutes, 0);
+                const workEntries = dayLogs.filter(l => l.entryType === EntryType.WORK);
+                const workMins = workEntries.reduce((s, l) => s + l.durationMinutes, 0);
+                const hasWork = workEntries.length > 0;
                 const absence = dayLogs.find(l => l.entryType !== EntryType.WORK);
 
                 return (
@@ -483,9 +484,11 @@ const EmployeeView: React.FC<EmployeeViewProps> = ({ user, logs, onLogUpdate, ma
                          <div className="bg-slate-900 text-white px-3 py-1 rounded-md text-xs font-black uppercase">
                            {absence.entryType === EntryType.SICK ? 'БОЛЬНИЧНЫЙ' : absence.entryType === EntryType.VACATION ? 'ОТПУСК' : 'ВЫХОДНОЙ'}
                          </div>
-                       ) : workMins > 0 ? (
+                       ) : hasWork ? (
                          <div className="flex flex-col items-center">
-                            <span className="text-xl font-black tabular-nums">{formatDurationShort(workMins)}</span>
+                            <span className={`text-xl font-black tabular-nums ${workEntries.some(l => !l.checkOut) ? 'text-blue-600 italic' : ''}`}>
+                              {workMins > 0 ? formatDurationShort(workMins) : (workEntries.some(l => !l.checkOut) ? '--:--' : '0:00')}
+                            </span>
                             <span className="text-[7px] font-bold text-slate-500 uppercase tracking-tighter">ОТРАБОТАНО</span>
                          </div>
                        ) : (
@@ -586,7 +589,7 @@ const EmployeeView: React.FC<EmployeeViewProps> = ({ user, logs, onLogUpdate, ma
                         </td>
                         <td className="px-4 py-3 font-mono font-bold text-slate-600">{log.checkIn ? formatTime(log.checkIn) : '--:--'}</td>
                         <td className="px-4 py-3 font-mono font-bold text-slate-600">{log.checkOut ? formatTime(log.checkOut) : '--:--'}</td>
-                        <td className="px-4 py-3 font-black text-slate-900 text-right">{log.durationMinutes > 0 ? formatDurationShort(log.durationMinutes) : '--:--'}</td>
+                        <td className="px-4 py-3 font-black text-slate-900 text-right">{log.durationMinutes > 0 ? formatDurationShort(log.durationMinutes) : (log.entryType === EntryType.WORK && !log.checkOut ? '--:--' : '0:00')}</td>
                       </tr>
                     )) : (
                       <tr>
@@ -675,9 +678,18 @@ const EmployeeView: React.FC<EmployeeViewProps> = ({ user, logs, onLogUpdate, ma
                         {daysInMonth.map(day => {
                           const dateStr = format(day, 'yyyy-MM-dd');
                           if (isAfter(day, today)) return <td key={dateStr} className="border-r p-1 h-12"></td>;
-                          const mins = filteredLogs.filter(l => l.date === dateStr && l.entryType === EntryType.WORK && l.machineId === m.id).reduce((sum, l) => sum + l.durationMinutes, 0);
+                          const workEntries = filteredLogs.filter(l => l.date === dateStr && l.entryType === EntryType.WORK && l.machineId === m.id);
+                          const mins = workEntries.reduce((sum, l) => sum + l.durationMinutes, 0);
+                          const hasWork = workEntries.length > 0;
                           const absence = filteredLogs.find(l => l.date === dateStr && l.entryType !== EntryType.WORK);
-                          let content = absence ? <span className="font-black text-blue-600">{absence.entryType === EntryType.SICK ? 'Б' : absence.entryType === EntryType.VACATION ? 'О' : 'В'}</span> : (mins > 0 ? <span className="text-[11px] font-black text-slate-900">{formatDurationShort(mins)}</span> : <span className="text-[10px] font-bold text-slate-300">В</span>);
+                          let content = absence ? 
+                            <span className="font-black text-blue-600">{absence.entryType === EntryType.SICK ? 'Б' : absence.entryType === EntryType.VACATION ? 'О' : 'В'}</span> : 
+                            (hasWork ? 
+                              <span className={`text-[11px] font-black ${workEntries.some(l => !l.checkOut) ? 'text-blue-500 italic' : 'text-slate-900'}`}>
+                                {mins > 0 ? formatDurationShort(mins) : (workEntries.some(l => !l.checkOut) ? '--:--' : '0:00')}
+                              </span> : 
+                              <span className="text-[10px] font-bold text-slate-300">В</span>
+                            );
                           return <td key={dateStr} className="border-r p-1 text-center h-12 tabular-nums">{content}</td>;
                         })}
                       </tr>
@@ -688,9 +700,18 @@ const EmployeeView: React.FC<EmployeeViewProps> = ({ user, logs, onLogUpdate, ma
                       {daysInMonth.map(day => {
                         const dateStr = format(day, 'yyyy-MM-dd');
                         if (isAfter(day, today)) return <td key={dateStr} className="border-r p-1 h-12"></td>;
-                        const mins = filteredLogs.filter(l => l.date === dateStr && l.entryType === EntryType.WORK).reduce((sum, l) => sum + l.durationMinutes, 0);
+                        const workEntries = filteredLogs.filter(l => l.date === dateStr && l.entryType === EntryType.WORK);
+                        const mins = workEntries.reduce((sum, l) => sum + l.durationMinutes, 0);
+                        const hasWork = workEntries.length > 0;
                         const absence = filteredLogs.find(l => l.date === dateStr && l.entryType !== EntryType.WORK);
-                        let content = absence ? <span className="font-black text-blue-600">{absence.entryType === EntryType.SICK ? 'Б' : absence.entryType === EntryType.VACATION ? 'О' : 'В'}</span> : (mins > 0 ? <span className="text-[11px] font-black text-slate-900">{formatDurationShort(mins)}</span> : <span className="text-[10px] font-bold text-slate-300">В</span>);
+                        let content = absence ? 
+                          <span className="font-black text-blue-600">{absence.entryType === EntryType.SICK ? 'Б' : absence.entryType === EntryType.VACATION ? 'О' : 'В'}</span> : 
+                          (hasWork ? 
+                            <span className={`text-[11px] font-black ${workEntries.some(l => !l.checkOut) ? 'text-blue-500 italic' : 'text-slate-900'}`}>
+                              {mins > 0 ? formatDurationShort(mins) : (workEntries.some(l => !l.checkOut) ? '--:--' : '0:00')}
+                            </span> : 
+                            <span className="text-[10px] font-bold text-slate-300">В</span>
+                          );
                         return <td key={dateStr} className="border-r p-1 text-center h-12 tabular-nums">{content}</td>;
                       })}
                     </tr>

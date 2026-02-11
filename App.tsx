@@ -1,4 +1,3 @@
-
 import React, { useState, useEffect, useCallback } from 'react';
 import { User, UserRole, WorkLog, Machine, PositionConfig } from './types';
 import { STORAGE_KEYS, INITIAL_USERS, INITIAL_MACHINES, INITIAL_POSITIONS, INITIAL_LOGS } from './constants';
@@ -20,16 +19,19 @@ const App: React.FC = () => {
   const [pinInput, setPinInput] = useState('');
   const [loginError, setLoginError] = useState('');
   const [isInitialized, setIsInitialized] = useState(false);
+  const [isSyncing, setIsSyncing] = useState(false);
 
-  useEffect(() => {
-    const initData = async () => {
-      const cachedLogs = localStorage.getItem(STORAGE_KEYS.WORK_LOGS);
-      const cachedUsers = localStorage.getItem(STORAGE_KEYS.USERS_LIST);
-      const cachedMachines = localStorage.getItem(STORAGE_KEYS.MACHINES_LIST);
-      const cachedPositions = localStorage.getItem(STORAGE_KEYS.POSITIONS_LIST);
-      const cachedCurrentUser = localStorage.getItem(STORAGE_KEYS.CURRENT_USER);
-      const lastUserId = localStorage.getItem(STORAGE_KEYS.LAST_USER_ID);
+  const initData = useCallback(async (isRefresh = false) => {
+    if (isRefresh) setIsSyncing(true);
+    
+    const cachedLogs = localStorage.getItem(STORAGE_KEYS.WORK_LOGS);
+    const cachedUsers = localStorage.getItem(STORAGE_KEYS.USERS_LIST);
+    const cachedMachines = localStorage.getItem(STORAGE_KEYS.MACHINES_LIST);
+    const cachedPositions = localStorage.getItem(STORAGE_KEYS.POSITIONS_LIST);
+    const cachedCurrentUser = localStorage.getItem(STORAGE_KEYS.CURRENT_USER);
+    const lastUserId = localStorage.getItem(STORAGE_KEYS.LAST_USER_ID);
 
+    if (!isRefresh) {
       if (cachedLogs) setLogs(JSON.parse(cachedLogs));
       
       let loadedUsers = INITIAL_USERS;
@@ -54,60 +56,67 @@ const App: React.FC = () => {
       }
 
       if (cachedCurrentUser) setCurrentUser(JSON.parse(cachedCurrentUser));
+    }
 
-      try {
-        const [dbLogs, dbUsers, dbMachines, dbPositions] = await Promise.all([
-          db.getLogs(),
-          db.getUsers(),
-          db.getMachines(),
-          db.getPositions()
-        ]);
+    try {
+      const [dbLogs, dbUsers, dbMachines, dbPositions] = await Promise.all([
+        db.getLogs(),
+        db.getUsers(),
+        db.getMachines(),
+        db.getPositions()
+      ]);
 
-        if (dbLogs) {
-          setLogs(dbLogs);
-          localStorage.setItem(STORAGE_KEYS.WORK_LOGS, JSON.stringify(dbLogs));
-        }
-        
-        if (dbUsers && dbUsers.length > 0) {
-          setUsers(dbUsers);
-          localStorage.setItem(STORAGE_KEYS.USERS_LIST, JSON.stringify(dbUsers));
-          if (!lastUserId) {
-            const recheckLastId = localStorage.getItem(STORAGE_KEYS.LAST_USER_ID);
-            if (recheckLastId) {
-               const lastUser = dbUsers.find(u => u.id === recheckLastId);
-               if (lastUser) setSelectedLoginUser(lastUser);
-            }
+      if (dbLogs) {
+        setLogs(dbLogs);
+        localStorage.setItem(STORAGE_KEYS.WORK_LOGS, JSON.stringify(dbLogs));
+      }
+      
+      if (dbUsers && dbUsers.length > 0) {
+        setUsers(dbUsers);
+        localStorage.setItem(STORAGE_KEYS.USERS_LIST, JSON.stringify(dbUsers));
+        if (!lastUserId) {
+          const recheckLastId = localStorage.getItem(STORAGE_KEYS.LAST_USER_ID);
+          if (recheckLastId) {
+             const lastUser = dbUsers.find(u => u.id === recheckLastId);
+             if (lastUser) setSelectedLoginUser(lastUser);
           }
-        } else if (!cachedUsers) {
-          for (const u of INITIAL_USERS) await db.upsertUser(u);
         }
-
-        if (dbMachines && dbMachines.length > 0) {
-          setMachines(dbMachines);
-          localStorage.setItem(STORAGE_KEYS.MACHINES_LIST, JSON.stringify(dbMachines));
-        } else if (!cachedMachines) {
-          setMachines(INITIAL_MACHINES);
-          await db.saveMachines(INITIAL_MACHINES);
-        }
-
-        if (dbPositions && dbPositions.length > 0) {
-          const normalized = dbPositions.map((p: any) => 
-            typeof p === 'string' 
-              ? (INITIAL_POSITIONS.find(ip => ip.name === p) || { name: p, permissions: INITIAL_POSITIONS[0].permissions }) 
-              : p
-          );
-          setPositions(normalized);
-          localStorage.setItem(STORAGE_KEYS.POSITIONS_LIST, JSON.stringify(normalized));
-        }
-      } catch (err) {
-        console.warn("Cloud sync deferred: working in offline/cache mode.");
+      } else if (!cachedUsers && !isRefresh) {
+        for (const u of INITIAL_USERS) await db.upsertUser(u);
       }
 
-      setIsInitialized(true);
-    };
+      if (dbMachines && dbMachines.length > 0) {
+        setMachines(dbMachines);
+        localStorage.setItem(STORAGE_KEYS.MACHINES_LIST, JSON.stringify(dbMachines));
+      } else if (!cachedMachines && !isRefresh) {
+        setMachines(INITIAL_MACHINES);
+        await db.saveMachines(INITIAL_MACHINES);
+      }
 
-    initData();
+      if (dbPositions && dbPositions.length > 0) {
+        const normalized = dbPositions.map((p: any) => 
+          typeof p === 'string' 
+            ? (INITIAL_POSITIONS.find(ip => ip.name === p) || { name: p, permissions: INITIAL_POSITIONS[0].permissions }) 
+            : p
+        );
+        setPositions(normalized);
+        localStorage.setItem(STORAGE_KEYS.POSITIONS_LIST, JSON.stringify(normalized));
+      }
+    } catch (err) {
+      console.warn("Cloud sync deferred: working in offline/cache mode.");
+    } finally {
+      if (!isRefresh) setIsInitialized(true);
+      if (isRefresh) setIsSyncing(false);
+    }
   }, []);
+
+  useEffect(() => {
+    initData();
+  }, [initData]);
+
+  const handleRefresh = async () => {
+    await initData(true);
+  };
 
   const validateAndLogin = (pin: string, user: User) => {
     if (pin === user.pin) {
@@ -360,6 +369,8 @@ const App: React.FC = () => {
           onImportData={handleImportData}
           onLogUpdate={handleLogsUpdate}
           onDeleteLog={handleDeleteLog}
+          onRefresh={handleRefresh}
+          isSyncing={isSyncing}
         />
       )}
     </Layout>
