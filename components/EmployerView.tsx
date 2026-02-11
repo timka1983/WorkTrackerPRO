@@ -72,8 +72,7 @@ const EmployerView: React.FC<EmployerViewProps> = ({
     const todayStr = format(new Date(), 'yyyy-MM-dd');
     const todayLogs = logs.filter(l => l.date === todayStr);
     
-    // ИСПРАВЛЕНИЕ: Ищем активные смены по ВСЕМ логам, а не только за сегодня.
-    // Это решает проблему «зависшего» оборудования с прошлых дней.
+    // Ищем активные смены по ВСЕМ логам.
     const activeShifts = logs.filter(l => l.entryType === EntryType.WORK && !l.checkOut);
     const finishedToday = todayLogs.filter(l => l.entryType === EntryType.WORK && l.checkOut);
     
@@ -94,7 +93,7 @@ const EmployerView: React.FC<EmployerViewProps> = ({
       activeLogsMap[log.userId].push(log);
     });
 
-    return { activeShifts, finishedToday, avgWeeklyHours, absenceCounts, activeLogsMap };
+    return { activeShifts, finishedToday, avgWeeklyHours, absenceCounts, activeLogsMap, todayStr };
   }, [logs, employees, filterMonth]);
 
   const handleForceFinish = async (log: WorkLog) => {
@@ -514,28 +513,37 @@ const EmployerView: React.FC<EmployerViewProps> = ({
                       const emp = users.find(u => u.id === s.userId);
                       const machine = machines.find(m => m.id === s.machineId);
                       const machineName = machine?.name || 'Работа';
+                      const isOld = s.date !== dashboardStats.todayStr;
+                      
                       return (
-                        <div key={s.id} className="group/item flex justify-between items-center p-3 bg-blue-50 rounded-xl border border-blue-100 hover:bg-white transition-all">
+                        <div key={s.id} className={`group/item flex justify-between items-center p-3 rounded-xl border transition-all ${isOld ? 'bg-red-50 border-red-200 hover:bg-white shadow-sm' : 'bg-blue-50 border-blue-100 hover:bg-white'}`}>
                            <div className="flex flex-col">
-                              <span className="text-xs font-bold text-slate-700">{emp?.name}</span>
-                              <span className="text-[9px] font-black text-blue-500 uppercase tracking-tighter mt-1 flex items-center gap-1">
+                              <span className={`text-xs font-bold ${isOld ? 'text-red-900' : 'text-slate-700'}`}>{emp?.name}</span>
+                              <span className={`text-[9px] font-black uppercase tracking-tighter mt-1 flex items-center gap-1 ${isOld ? 'text-red-500' : 'text-blue-500'}`}>
                                 <svg className="w-2.5 h-2.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={3} d="M13 10V3L4 14h7v7l9-11h-7z" /></svg>
                                 {machineName}
                               </span>
                            </div>
                            <div className="flex items-center gap-2">
                              <div className="flex flex-col items-end">
-                               <span className="text-[10px] font-black text-blue-600 bg-white px-2 py-0.5 rounded-lg border border-blue-100">{formatTime(s.checkIn)}</span>
+                               {isOld && (
+                                 <span className="text-[8px] font-black text-red-600 uppercase mb-0.5 tracking-tighter">
+                                   Начало: {format(new Date(s.date), 'dd.MM')}
+                                 </span>
+                               )}
+                               <span className={`text-[10px] font-black bg-white px-2 py-0.5 rounded-lg border ${isOld ? 'text-red-600 border-red-200' : 'text-blue-600 border-blue-100'}`}>
+                                 {formatTime(s.checkIn)}
+                               </span>
                              </div>
                              <div className="flex flex-col items-center gap-1">
                                 <button 
                                    onClick={() => handleForceFinish(s)}
-                                   className="hidden group-hover/item:flex items-center justify-center p-1.5 bg-red-500 text-white rounded-lg hover:bg-red-600 transition-colors shadow-sm"
+                                   className={`hidden group-hover/item:flex items-center justify-center p-1.5 text-white rounded-lg transition-colors shadow-sm ${isOld ? 'bg-red-600 hover:bg-red-700' : 'bg-red-500 hover:bg-red-600'}`}
                                    title="Принудительно завершить"
                                 >
                                    <svg className="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={3} d="M6 18L18 6M6 6l12 12" /></svg>
                                 </button>
-                                <span className="hidden group-hover/item:block text-[6px] font-black text-red-400 uppercase leading-none tracking-tighter">СТОП {machineName.split(' ')[0]}</span>
+                                <span className={`hidden group-hover/item:block text-[6px] font-black uppercase leading-none tracking-tighter ${isOld ? 'text-red-600' : 'text-red-400'}`}>СТОП {machineName.split(' ')[0]}</span>
                              </div>
                            </div>
                         </div>
@@ -543,7 +551,7 @@ const EmployerView: React.FC<EmployerViewProps> = ({
                    }) : <p className="text-xs text-slate-400 italic py-4 text-center">Все отдыхают</p>}
                 </div>
              </div>
-
+             
              <div className="bg-white p-6 rounded-[2rem] border border-slate-200 shadow-sm">
                 <h3 className="text-xs font-black text-slate-400 uppercase tracking-widest mb-6">Смена (Сегодня)</h3>
                 <div className="space-y-3 max-h-[250px] overflow-y-auto pr-2 custom-scrollbar">
