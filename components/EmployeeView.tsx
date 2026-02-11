@@ -35,7 +35,6 @@ const EmployeeView: React.FC<EmployeeViewProps> = ({ user, logs, onLogUpdate, ma
   const [viewMode, setViewMode] = useState<'control' | 'matrix'>('control');
   const [showCamera, setShowCamera] = useState<{ slot: number; type: 'start' | 'stop' } | null>(null);
   
-  // States for PIN Change
   const [showPinChange, setShowPinChange] = useState(false);
   const [pinState, setPinState] = useState({ old: '', new: '', confirm: '' });
   const [pinError, setPinError] = useState('');
@@ -43,8 +42,11 @@ const EmployeeView: React.FC<EmployeeViewProps> = ({ user, logs, onLogUpdate, ma
   const videoRef = useRef<HTMLVideoElement>(null);
 
   const busyMachineIds = useMemo(() => {
+    // Более строгий расчет: только те станки, у которых нет checkOut в последней записи
+    // Исключаем записи старше 24 часов для предотвращения вечного блокирования при сбоях
+    const dayAgo = new Date(Date.now() - 24 * 60 * 60 * 1000).toISOString();
     return logs
-      .filter(l => l.entryType === EntryType.WORK && !l.checkOut)
+      .filter(l => l.entryType === EntryType.WORK && !l.checkOut && l.checkIn && l.checkIn > dayAgo)
       .map(l => l.machineId)
       .filter((id): id is string => !!id);
   }, [logs]);
@@ -162,7 +164,7 @@ const EmployeeView: React.FC<EmployeeViewProps> = ({ user, logs, onLogUpdate, ma
     const now = new Date();
     const dateStr = format(now, 'yyyy-MM-dd');
     const newShift: WorkLog = {
-      id: Math.random().toString(36).substr(2, 9),
+      id: `shift-${user.id}-${Date.now()}-${slot}`, // Более надежный ID
       userId: user.id,
       date: dateStr,
       entryType: EntryType.WORK,
@@ -171,7 +173,9 @@ const EmployeeView: React.FC<EmployeeViewProps> = ({ user, logs, onLogUpdate, ma
       durationMinutes: 0,
       photoIn: photo
     };
-    saveActiveShifts({ ...activeShifts, [slot]: newShift });
+    
+    const nextShifts = { ...activeShifts, [slot]: newShift };
+    saveActiveShifts(nextShifts);
     onLogUpdate([newShift, ...logs]);
     setShowCamera(null);
   };
@@ -179,21 +183,25 @@ const EmployeeView: React.FC<EmployeeViewProps> = ({ user, logs, onLogUpdate, ma
   const handleStopWork = (slot: number, photo?: string) => {
     const currentShift = activeShifts[slot];
     if (!currentShift) return;
+    
     const now = new Date();
     const duration = calculateMinutes(currentShift.checkIn!, now.toISOString());
     const completed: WorkLog = { 
       ...currentShift, 
       checkOut: now.toISOString(), 
-      durationMinutes: duration,
+      durationMinutes: Math.max(0, duration),
       photoOut: photo
     };
     
+    // Принудительно очищаем состояние активной смены ПЕРЕД обновлением основного лога
+    const nextShifts = { ...activeShifts, [slot]: null };
+    saveActiveShifts(nextShifts);
+
     const newLogs = logs.map(l => l.id === currentShift.id ? completed : l);
     if (!logs.some(l => l.id === currentShift.id)) {
       newLogs.unshift(completed);
     }
     onLogUpdate(newLogs);
-    saveActiveShifts({ ...activeShifts, [slot]: null });
     setShowCamera(null);
   };
 
@@ -209,7 +217,7 @@ const EmployeeView: React.FC<EmployeeViewProps> = ({ user, logs, onLogUpdate, ma
       return;
     }
     const log: WorkLog = {
-      id: Math.random().toString(36).substr(2, 9),
+      id: `abs-${user.id}-${Date.now()}`,
       userId: user.id,
       date: dateStr,
       entryType: type,
@@ -369,7 +377,6 @@ const EmployeeView: React.FC<EmployeeViewProps> = ({ user, logs, onLogUpdate, ma
 
   return (
     <div className="space-y-6 animate-fadeIn">
-      {/* PIN Change Modal */}
       {showPinChange && (
         <div className="fixed inset-0 z-[150] bg-slate-900/80 backdrop-blur-md flex items-center justify-center p-4">
           <div className="bg-white rounded-[2.5rem] w-full max-w-sm shadow-2xl p-8 border border-slate-200">
@@ -424,7 +431,6 @@ const EmployeeView: React.FC<EmployeeViewProps> = ({ user, logs, onLogUpdate, ma
         </div>
       )}
 
-      {/* Hidden Print Template */}
       <div id="employee-calendar-print" className="hidden print:block bg-white text-black p-4" style={{ width: '280mm', height: '190mm', fontFamily: 'serif' }}>
         <div className="flex justify-between items-start mb-6">
           <div className="w-32 opacity-80">

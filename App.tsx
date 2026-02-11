@@ -1,5 +1,5 @@
 
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useCallback } from 'react';
 import { User, UserRole, WorkLog, Machine, PositionConfig } from './types';
 import { STORAGE_KEYS, INITIAL_USERS, INITIAL_MACHINES, INITIAL_POSITIONS, INITIAL_LOGS } from './constants';
 import Layout from './components/Layout';
@@ -40,7 +40,6 @@ const App: React.FC = () => {
         setUsers(INITIAL_USERS);
       }
 
-      // Запоминание последнего пользователя
       if (lastUserId && !cachedCurrentUser) {
         const lastUser = loadedUsers.find(u => u.id === lastUserId);
         if (lastUser) setSelectedLoginUser(lastUser);
@@ -72,7 +71,6 @@ const App: React.FC = () => {
         if (dbUsers && dbUsers.length > 0) {
           setUsers(dbUsers);
           localStorage.setItem(STORAGE_KEYS.USERS_LIST, JSON.stringify(dbUsers));
-          // Если пользователь не был выбран из кэша, пробуем выбрать из свежих данных
           if (!lastUserId) {
             const recheckLastId = localStorage.getItem(STORAGE_KEYS.LAST_USER_ID);
             if (recheckLastId) {
@@ -111,7 +109,6 @@ const App: React.FC = () => {
     initData();
   }, []);
 
-  // Функция валидации PIN и входа
   const validateAndLogin = (pin: string, user: User) => {
     if (pin === user.pin) {
       setCurrentUser(user);
@@ -121,7 +118,6 @@ const App: React.FC = () => {
       setLoginError('');
     } else {
       setLoginError('Неверный PIN-код');
-      // Очистка через небольшую паузу для наглядности
       setTimeout(() => setPinInput(''), 500);
     }
   };
@@ -142,11 +138,17 @@ const App: React.FC = () => {
     }
   };
 
-  const handleLogsUpdate = (newLogs: WorkLog[]) => {
+  const handleLogsUpdate = useCallback((newLogs: WorkLog[]) => {
+    // Вычисляем только реально изменившиеся или новые записи для точечного апсерта
+    const currentLogsMap = new Map(logs.map(l => [l.id, JSON.stringify(l)]));
+    const changedOrNew = newLogs.filter(nl => currentLogsMap.get(nl.id) !== JSON.stringify(nl));
+
     setLogs(newLogs);
     localStorage.setItem(STORAGE_KEYS.WORK_LOGS, JSON.stringify(newLogs));
-    newLogs.forEach(log => db.upsertLog(log));
-  };
+    
+    // Точечная синхронизация каждой измененной записи
+    changedOrNew.forEach(log => db.upsertLog(log));
+  }, [logs]);
 
   const handleDeleteLog = (logId: string) => {
     const newLogs = logs.filter(l => l.id !== logId);
@@ -315,7 +317,6 @@ const App: React.FC = () => {
                         const newPin = pinInput + n;
                         setPinInput(newPin);
                         if (newPin.length === 4) {
-                          // Автоматическая проверка при вводе 4-й цифры
                           validateAndLogin(newPin, selectedLoginUser);
                         }
                       }
