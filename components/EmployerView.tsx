@@ -44,7 +44,7 @@ const EmployerView: React.FC<EmployerViewProps> = ({
   const [configuringPosition, setConfiguringPosition] = useState<PositionConfig | null>(null);
   const [expandedTurnerRows, setExpandedTurnerRows] = useState<Set<string>>(new Set());
 
-  const [newUser, setNewUser] = useState({ name: '', position: positions[0]?.name || '', department: '', pin: '0000', requirePhoto: false });
+  // Added missing state variables for settings inputs
   const [newMachineName, setNewMachineName] = useState('');
   const [newPositionName, setNewPositionName] = useState('');
 
@@ -80,18 +80,17 @@ const EmployerView: React.FC<EmployerViewProps> = ({
 
   const dashboardStats = useMemo(() => {
     const todayStr = format(new Date(), 'yyyy-MM-dd');
-    const todayLogs = logs.filter(l => l.date === todayStr);
+    const todayLogs = logs.filter(l => l.date && l.date.startsWith(todayStr));
     
-    // Ищем активные смены по ВСЕМ логам.
     const activeShifts = logs.filter(l => l.entryType === EntryType.WORK && !l.checkOut);
     const finishedToday = todayLogs.filter(l => l.entryType === EntryType.WORK && l.checkOut);
     
     const last7Days = Array.from({ length: 7 }, (_, i) => format(subDays(new Date(), i), 'yyyy-MM-dd'));
-    const weekLogs = logs.filter(l => last7Days.includes(l.date) && l.entryType === EntryType.WORK);
+    const weekLogs = logs.filter(l => l.date && last7Days.some(d => l.date.startsWith(d)) && l.entryType === EntryType.WORK);
     const totalWeeklyMinutes = weekLogs.reduce((s, l) => s + l.durationMinutes, 0);
     const avgWeeklyHours = (totalWeeklyMinutes / 60) / 7;
 
-    const monthLogs = logs.filter(l => l.date.startsWith(filterMonth));
+    const monthLogs = logs.filter(l => l.date && l.date.startsWith(filterMonth));
     const absenceCounts = employees.map(emp => {
       const absences = monthLogs.filter(l => l.userId === emp.id && (l.entryType === EntryType.SICK || l.entryType === EntryType.VACATION)).length;
       return { name: emp.name, count: absences };
@@ -144,18 +143,23 @@ const EmployerView: React.FC<EmployerViewProps> = ({
 
   const handleAddUser = (e: React.FormEvent) => {
     e.preventDefault();
-    if (!newUser.name.trim()) return;
+    const newUserForm = (e.target as any);
+    const name = newUserForm.elements[0].value;
+    const position = newUserForm.elements[1].value;
+    const pin = newUserForm.elements[2].value;
+    const requirePhoto = newUserForm.elements[3].checked;
+
+    if (!name.trim()) return;
     const user: User = {
       id: Math.random().toString(36).substring(2, 11),
-      name: newUser.name,
-      position: newUser.position,
-      department: newUser.department,
-      pin: newUser.pin,
+      name,
+      position,
+      pin: pin || '0000',
       role: UserRole.EMPLOYEE,
-      requirePhoto: newUser.requirePhoto
+      requirePhoto
     };
     onAddUser(user);
-    setNewUser({ name: '', position: positions[0]?.name || '', department: '', pin: '0000', requirePhoto: false });
+    newUserForm.reset();
   };
 
   const deleteLogItem = (logId: string) => {
@@ -375,7 +379,7 @@ const EmployerView: React.FC<EmployerViewProps> = ({
              </div>
              
              <div className="flex-1 overflow-y-auto p-6 space-y-4 custom-scrollbar bg-slate-50/30">
-                {logs.filter(l => l.userId === editingLog.userId && l.date === editingLog.date).map(log => (
+                {logs.filter(l => l.userId === editingLog.userId && l.date && l.date.startsWith(editingLog.date)).map(log => (
                   <div key={log.id} className="bg-white rounded-[1.5rem] border border-slate-200 shadow-sm p-5 space-y-4 relative group">
                     <div className="flex flex-wrap items-center justify-between gap-3 border-b border-slate-100 pb-3">
                        <div className="flex items-center gap-3">
@@ -535,7 +539,7 @@ const EmployerView: React.FC<EmployerViewProps> = ({
                       const emp = users.find(u => u.id === s.userId);
                       const machine = machines.find(m => m.id === s.machineId);
                       const machineName = machine?.name || 'Работа';
-                      const isOld = s.date !== dashboardStats.todayStr;
+                      const isOld = s.date && !s.date.startsWith(dashboardStats.todayStr);
                       
                       return (
                         <div key={s.id} className={`group/item flex justify-between items-center p-3 rounded-xl border transition-all ${isOld ? 'bg-red-50 border-red-200 hover:bg-white shadow-sm' : 'bg-blue-50 border-blue-100 hover:bg-white'}`}>
@@ -548,7 +552,7 @@ const EmployerView: React.FC<EmployerViewProps> = ({
                            </div>
                            <div className="flex items-center gap-2">
                              <div className="flex flex-col items-end">
-                               {isOld && (
+                               {isOld && s.date && (
                                  <span className="text-[8px] font-black text-red-600 uppercase mb-0.5 tracking-tighter">
                                    Начало: {format(new Date(s.date), 'dd.MM')}
                                  </span>
@@ -557,7 +561,7 @@ const EmployerView: React.FC<EmployerViewProps> = ({
                                  {formatTime(s.checkIn)}
                                </span>
                              </div>
-                             <div className="flex flex-col items-center gap-1">
+                             <div className="flex items-center gap-1">
                                 <button 
                                    onClick={() => handleForceFinish(s)}
                                    className={`hidden group-hover/item:flex items-center justify-center p-1.5 text-white rounded-lg transition-colors shadow-sm ${isOld ? 'bg-red-600 hover:bg-red-700' : 'bg-red-500 hover:bg-red-600'}`}
@@ -648,7 +652,7 @@ const EmployerView: React.FC<EmployerViewProps> = ({
               </thead>
               <tbody>
                 {employees.map(emp => {
-                  const empLogs = logs.filter(l => l.userId === emp.id && l.date.startsWith(filterMonth));
+                  const empLogs = logs.filter(l => l.userId === emp.id && l.date && l.date.startsWith(filterMonth));
                   const totalMinutes = empLogs.filter(l => l.checkOut || l.entryType !== EntryType.WORK).reduce((s, l) => s + l.durationMinutes, 0);
                   const isTurner = emp.position === FIXED_POSITION_TURNER;
                   const usedMachineIds = [...new Set(empLogs.filter(l => l.machineId).map(l => l.machineId!))];
@@ -675,7 +679,7 @@ const EmployerView: React.FC<EmployerViewProps> = ({
                           const dateStr = format(day, 'yyyy-MM-dd');
                           if (isAfter(day, today)) return <td key={dateStr} className="border-r p-1 h-12"></td>;
 
-                          const dayLogs = empLogs.filter(l => l.date === dateStr);
+                          const dayLogs = empLogs.filter(l => l.date && l.date.startsWith(dateStr));
                           const workEntries = dayLogs.filter(l => l.entryType === EntryType.WORK);
                           const workMins = workEntries.reduce((s, l) => s + l.durationMinutes, 0);
                           const hasWork = workEntries.length > 0;
@@ -712,7 +716,7 @@ const EmployerView: React.FC<EmployerViewProps> = ({
                              {days.map(day => {
                                const dateStr = format(day, 'yyyy-MM-dd');
                                if (isAfter(day, today)) return <td key={dateStr} className="border-r p-1 h-10"></td>;
-                               const machineLogs = empLogs.filter(l => l.date === dateStr && l.machineId === mId);
+                               const machineLogs = empLogs.filter(l => l.date && l.date.startsWith(dateStr) && l.machineId === mId);
                                const minsOnMachine = machineLogs.reduce((s, l) => s + l.durationMinutes, 0);
                                const hasWorkOnMachine = machineLogs.length > 0;
                                const isPendingOnMachine = machineLogs.some(l => !l.checkOut);
@@ -742,13 +746,13 @@ const EmployerView: React.FC<EmployerViewProps> = ({
             <div className="bg-white p-6 rounded-3xl border border-slate-200 shadow-sm sticky top-24">
               <h3 className="font-bold text-slate-900 mb-6 uppercase text-xs tracking-widest underline decoration-blue-500 decoration-4 underline-offset-8">Новый сотрудник</h3>
               <form onSubmit={handleAddUser} className="space-y-4">
-                <input required type="text" value={newUser.name} onChange={e => setNewUser({...newUser, name: e.target.value})} placeholder="ФИО сотрудника" className="w-full border-2 border-slate-100 rounded-2xl px-4 py-3 text-sm font-medium outline-none" />
-                <select value={newUser.position} onChange={e => setNewUser({...newUser, position: e.target.value})} className="w-full border-2 border-slate-100 rounded-2xl px-4 py-3 text-sm font-bold bg-white">
+                <input required type="text" placeholder="ФИО сотрудника" className="w-full border-2 border-slate-100 rounded-2xl px-4 py-3 text-sm font-medium outline-none" />
+                <select className="w-full border-2 border-slate-100 rounded-2xl px-4 py-3 text-sm font-bold bg-white">
                   {positions.map(p => <option key={p.name} value={p.name}>{p.name}</option>)}
                 </select>
-                <input type="text" maxLength={4} value={newUser.pin} onChange={e => setNewUser({...newUser, pin: e.target.value.replace(/[^0-9]/g, '')})} placeholder="PIN (0000)" className="w-full border-2 border-slate-100 rounded-2xl px-4 py-3 text-sm font-mono" />
+                <input type="text" maxLength={4} placeholder="PIN (0000)" className="w-full border-2 border-slate-100 rounded-2xl px-4 py-3 text-sm font-mono" />
                 <div className="flex items-center gap-3 p-4 bg-slate-50 rounded-2xl border-2 border-slate-100">
-                   <input type="checkbox" checked={newUser.requirePhoto} onChange={e => setNewUser({...newUser, requirePhoto: e.target.checked})} className="w-5 h-5 rounded accent-blue-600" id="req-photo" />
+                   <input type="checkbox" className="w-5 h-5 rounded accent-blue-600" id="req-photo" />
                    <label htmlFor="req-photo" className="text-xs font-black text-slate-600 uppercase cursor-pointer">Обязательное фото</label>
                 </div>
                 <button type="submit" className="w-full py-4 bg-blue-600 text-white rounded-2xl font-black shadow-lg shadow-blue-100 uppercase text-xs tracking-widest">Создать</button>

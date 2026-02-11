@@ -41,8 +41,6 @@ const EmployeeView: React.FC<EmployeeViewProps> = ({ user, logs, onLogUpdate, ma
   const videoRef = useRef<HTMLVideoElement>(null);
 
   const busyMachineIds = useMemo(() => {
-    // Более строгий расчет: только те станки, у которых нет checkOut в последней записи
-    // Исключаем записи старше 24 часов для предотвращения вечного блокирования при сбоях
     const dayAgo = new Date(Date.now() - 24 * 60 * 60 * 1000).toISOString();
     return logs
       .filter(l => l.entryType === EntryType.WORK && !l.checkOut && l.checkIn && l.checkIn > dayAgo)
@@ -52,11 +50,11 @@ const EmployeeView: React.FC<EmployeeViewProps> = ({ user, logs, onLogUpdate, ma
 
   const todayStr = format(new Date(), 'yyyy-MM-dd');
   const isAbsentToday = useMemo(() => {
-    return logs.some(l => l.userId === user.id && l.date === todayStr && l.entryType !== EntryType.WORK);
+    return logs.some(l => l.userId === user.id && l.date && l.date.startsWith(todayStr) && l.entryType !== EntryType.WORK);
   }, [logs, user.id, todayStr]);
 
   const todayLogs = useMemo(() => {
-    return logs.filter(l => l.userId === user.id && l.date === todayStr).sort((a, b) => {
+    return logs.filter(l => l.userId === user.id && l.date && l.date.startsWith(todayStr)).sort((a, b) => {
       const timeA = a.checkIn ? new Date(a.checkIn).getTime() : 0;
       const timeB = b.checkIn ? new Date(b.checkIn).getTime() : 0;
       return timeB - timeA;
@@ -163,7 +161,7 @@ const EmployeeView: React.FC<EmployeeViewProps> = ({ user, logs, onLogUpdate, ma
     const now = new Date();
     const dateStr = format(now, 'yyyy-MM-dd');
     const newShift: WorkLog = {
-      id: `shift-${user.id}-${Date.now()}-${slot}`, // Более надежный ID
+      id: `shift-${user.id}-${Date.now()}-${slot}`,
       userId: user.id,
       date: dateStr,
       entryType: EntryType.WORK,
@@ -192,7 +190,6 @@ const EmployeeView: React.FC<EmployeeViewProps> = ({ user, logs, onLogUpdate, ma
       photoOut: photo
     };
     
-    // Принудительно очищаем состояние активной смены ПЕРЕД обновлением основного лога
     const nextShifts = { ...activeShifts, [slot]: null };
     saveActiveShifts(nextShifts);
 
@@ -206,7 +203,7 @@ const EmployeeView: React.FC<EmployeeViewProps> = ({ user, logs, onLogUpdate, ma
 
   const handleMarkAbsence = (type: EntryType) => {
     const dateStr = format(new Date(), 'yyyy-MM-dd');
-    const exists = logs.find(l => l.date === dateStr && l.userId === user.id);
+    const exists = logs.find(l => l.date && l.date.startsWith(dateStr) && l.userId === user.id);
     if (exists) {
       alert("На этот день уже есть записи!");
       return;
@@ -247,18 +244,18 @@ const EmployeeView: React.FC<EmployeeViewProps> = ({ user, logs, onLogUpdate, ma
   };
 
   const myLogs = logs.filter(l => l.userId === user.id);
-  const filteredLogs = myLogs.filter(l => l.date.startsWith(filterMonth));
+  const filteredLogs = myLogs.filter(l => l.date && l.date.startsWith(filterMonth));
   const daysInMonth = getDaysInMonthArray(filterMonth);
   const today = startOfDay(new Date());
 
   const stats = useMemo(() => {
     const workSessions = filteredLogs.filter(l => l.entryType === EntryType.WORK && l.checkOut);
-    const workDaysCount = new Set(workSessions.map(l => l.date)).size;
+    const workDaysCount = new Set(workSessions.map(l => l.date?.substring(0, 10))).size;
     const totalWorkMinutes = workSessions.reduce((sum, l) => sum + l.durationMinutes, 0);
     const sickDays = filteredLogs.filter(l => l.entryType === EntryType.SICK).length;
     const vacationDays = filteredLogs.filter(l => l.entryType === EntryType.VACATION).length;
     const explicitDayOffs = filteredLogs.filter(l => l.entryType === EntryType.DAY_OFF).length;
-    const allLoggedDates = new Set(filteredLogs.map(l => l.date));
+    const allLoggedDates = new Set(filteredLogs.map(l => l.date?.substring(0, 10)));
     
     const pastDaysInMonth = daysInMonth.filter(d => !isAfter(d, today));
     const autoDayOffs = pastDaysInMonth.filter(d => !allLoggedDates.has(format(d, 'yyyy-MM-dd'))).length;
@@ -470,7 +467,7 @@ const EmployeeView: React.FC<EmployeeViewProps> = ({ user, logs, onLogUpdate, ma
                 if (!date) return <td key={colIdx} className="border border-black bg-slate-50/20"></td>;
 
                 const dateStr = format(date, 'yyyy-MM-dd');
-                const dayLogs = filteredLogs.filter(l => l.date === dateStr);
+                const dayLogs = filteredLogs.filter(l => l.date && l.date.startsWith(dateStr));
                 const workEntries = dayLogs.filter(l => l.entryType === EntryType.WORK);
                 const workMins = workEntries.reduce((s, l) => s + l.durationMinutes, 0);
                 const hasWork = workEntries.length > 0;
@@ -678,10 +675,10 @@ const EmployeeView: React.FC<EmployeeViewProps> = ({ user, logs, onLogUpdate, ma
                         {daysInMonth.map(day => {
                           const dateStr = format(day, 'yyyy-MM-dd');
                           if (isAfter(day, today)) return <td key={dateStr} className="border-r p-1 h-12"></td>;
-                          const workEntries = filteredLogs.filter(l => l.date === dateStr && l.entryType === EntryType.WORK && l.machineId === m.id);
+                          const workEntries = filteredLogs.filter(l => l.date && l.date.startsWith(dateStr) && l.entryType === EntryType.WORK && l.machineId === m.id);
                           const mins = workEntries.reduce((sum, l) => sum + l.durationMinutes, 0);
                           const hasWork = workEntries.length > 0;
-                          const absence = filteredLogs.find(l => l.date === dateStr && l.entryType !== EntryType.WORK);
+                          const absence = filteredLogs.find(l => l.date && l.date.startsWith(dateStr) && l.entryType !== EntryType.WORK);
                           let content = absence ? 
                             <span className="font-black text-blue-600">{absence.entryType === EntryType.SICK ? 'Б' : absence.entryType === EntryType.VACATION ? 'О' : 'В'}</span> : 
                             (hasWork ? 
@@ -700,10 +697,10 @@ const EmployeeView: React.FC<EmployeeViewProps> = ({ user, logs, onLogUpdate, ma
                       {daysInMonth.map(day => {
                         const dateStr = format(day, 'yyyy-MM-dd');
                         if (isAfter(day, today)) return <td key={dateStr} className="border-r p-1 h-12"></td>;
-                        const workEntries = filteredLogs.filter(l => l.date === dateStr && l.entryType === EntryType.WORK);
+                        const workEntries = filteredLogs.filter(l => l.date && l.date.startsWith(dateStr) && l.entryType === EntryType.WORK);
                         const mins = workEntries.reduce((sum, l) => sum + l.durationMinutes, 0);
                         const hasWork = workEntries.length > 0;
-                        const absence = filteredLogs.find(l => l.date === dateStr && l.entryType !== EntryType.WORK);
+                        const absence = filteredLogs.find(l => l.date && l.date.startsWith(dateStr) && l.entryType !== EntryType.WORK);
                         let content = absence ? 
                           <span className="font-black text-blue-600">{absence.entryType === EntryType.SICK ? 'Б' : absence.entryType === EntryType.VACATION ? 'О' : 'В'}</span> : 
                           (hasWork ? 
