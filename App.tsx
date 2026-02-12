@@ -1,6 +1,7 @@
-import React, { useState, useEffect, useCallback } from 'react';
+
+import React, { useState, useEffect, useCallback, useMemo } from 'react';
 import { User, UserRole, WorkLog, Machine, PositionConfig } from './types';
-import { STORAGE_KEYS, INITIAL_USERS, INITIAL_MACHINES, INITIAL_POSITIONS, INITIAL_LOGS } from './constants';
+import { STORAGE_KEYS, INITIAL_USERS, INITIAL_MACHINES, INITIAL_POSITIONS, INITIAL_LOGS, DEFAULT_PERMISSIONS } from './constants';
 import Layout from './components/Layout';
 import EmployeeView from './components/EmployeeView';
 import EmployerView from './components/EmployerView';
@@ -94,9 +95,10 @@ const App: React.FC = () => {
       }
 
       if (dbPositions && dbPositions.length > 0) {
+        // Handle migration from string positions to full config objects
         const normalized = dbPositions.map((p: any) => 
           typeof p === 'string' 
-            ? (INITIAL_POSITIONS.find(ip => ip.name === p) || { name: p, permissions: INITIAL_POSITIONS[0].permissions }) 
+            ? (INITIAL_POSITIONS.find(ip => ip.name === p) || { name: p, permissions: DEFAULT_PERMISSIONS }) 
             : p
         );
         setPositions(normalized);
@@ -113,6 +115,20 @@ const App: React.FC = () => {
   useEffect(() => {
     initData();
   }, [initData]);
+
+  const userPermissions = useMemo(() => {
+    if (!currentUser) return DEFAULT_PERMISSIONS;
+    if (currentUser.id === 'admin') return { ...DEFAULT_PERMISSIONS, isFullAdmin: true };
+    const pos = positions.find(p => p.name === currentUser.position);
+    return pos?.permissions || DEFAULT_PERMISSIONS;
+  }, [currentUser, positions]);
+
+  const isSelectedUserAdmin = useMemo(() => {
+    if (!selectedLoginUser) return false;
+    if (selectedLoginUser.id === 'admin') return true;
+    const pos = positions.find(p => p.name === selectedLoginUser.position);
+    return pos?.permissions?.isFullAdmin || pos?.permissions?.isLimitedAdmin;
+  }, [selectedLoginUser, positions]);
 
   const handleRefresh = async () => {
     await initData(true);
@@ -148,14 +164,11 @@ const App: React.FC = () => {
   };
 
   const handleLogsUpdate = useCallback((newLogs: WorkLog[]) => {
-    // Вычисляем только реально изменившиеся или новые записи для точечного апсерта
     const currentLogsMap = new Map(logs.map(l => [l.id, JSON.stringify(l)]));
     const changedOrNew = newLogs.filter(nl => currentLogsMap.get(nl.id) !== JSON.stringify(nl));
 
     setLogs(newLogs);
     localStorage.setItem(STORAGE_KEYS.WORK_LOGS, JSON.stringify(newLogs));
-    
-    // Точечная синхронизация каждой измененной записи
     changedOrNew.forEach(log => db.upsertLog(log));
   }, [logs]);
 
@@ -292,7 +305,9 @@ const App: React.FC = () => {
                 </div>
                 <div className="flex-1">
                   <p className="text-sm font-black text-slate-900">{selectedLoginUser.name}</p>
-                  <button type="button" onClick={() => { setSelectedLoginUser(null); setPinInput(''); }} className="text-[10px] text-blue-600 uppercase underline font-black">Сменить профиль</button>
+                  {isSelectedUserAdmin && (
+                    <button type="button" onClick={() => { setSelectedLoginUser(null); setPinInput(''); }} className="text-[10px] text-blue-600 uppercase underline font-black">Сменить профиль</button>
+                  )}
                 </div>
               </div>
               <div>
@@ -344,6 +359,9 @@ const App: React.FC = () => {
     );
   }
 
+  // Determine if the current view should be Employer based on role OR position permissions
+  const isEmployerAuthorized = currentUser.role === UserRole.EMPLOYER || userPermissions.isFullAdmin || userPermissions.isLimitedAdmin;
+
   return (
     <Layout user={currentUser} onLogout={handleLogout} onSwitchRole={handleSwitchRole} version={APP_VERSION}>
       {currentUser.role === UserRole.EMPLOYEE ? (
@@ -356,22 +374,30 @@ const App: React.FC = () => {
           onUpdateUser={handleUpdateUser} 
         />
       ) : (
-        <EmployerView 
-          logs={logs} 
-          users={users} 
-          onAddUser={handleAddUser} 
-          onUpdateUser={handleUpdateUser}
-          onDeleteUser={handleDeleteUser} 
-          machines={machines}
-          onUpdateMachines={persistMachines}
-          positions={positions}
-          onUpdatePositions={persistPositions}
-          onImportData={handleImportData}
-          onLogUpdate={handleLogsUpdate}
-          onDeleteLog={handleDeleteLog}
-          onRefresh={handleRefresh}
-          isSyncing={isSyncing}
-        />
+        isEmployerAuthorized ? (
+          <EmployerView 
+            logs={logs} 
+            users={users} 
+            onAddUser={handleAddUser} 
+            onUpdateUser={handleUpdateUser}
+            onDeleteUser={handleDeleteUser} 
+            machines={machines}
+            onUpdateMachines={persistMachines}
+            positions={positions}
+            onUpdatePositions={persistPositions}
+            onImportData={handleImportData}
+            onLogUpdate={handleLogsUpdate}
+            onDeleteLog={handleDeleteLog}
+            onRefresh={handleRefresh}
+            isSyncing={isSyncing}
+          />
+        ) : (
+          <div className="text-center py-20">
+            <h2 className="text-2xl font-black text-slate-900 uppercase">Доступ ограничен</h2>
+            <p className="text-slate-500 mt-2 font-medium">У вас нет прав для просмотра этого раздела.</p>
+            <button onClick={() => handleSwitchRole(UserRole.EMPLOYEE)} className="mt-6 px-8 py-3 bg-blue-600 text-white rounded-2xl font-black uppercase text-xs">Вернуться в Мой Табель</button>
+          </div>
+        )
       )}
     </Layout>
   );

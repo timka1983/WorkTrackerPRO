@@ -1,3 +1,4 @@
+
 import React, { useState, useMemo } from 'react';
 import { WorkLog, User, EntryType, UserRole, Machine, FIXED_POSITION_TURNER, PositionConfig, PositionPermissions } from '../types';
 import { formatDuration, getDaysInMonthArray, formatDurationShort, exportToCSV, formatTime, calculateMinutes } from '../utils';
@@ -5,7 +6,7 @@ import { format, isAfter } from 'date-fns';
 import { startOfDay } from 'date-fns/startOfDay';
 import { subDays } from 'date-fns/subDays';
 import { ru } from 'date-fns/locale/ru';
-import { DEFAULT_PERMISSIONS } from '../constants';
+import { DEFAULT_PERMISSIONS, STORAGE_KEYS } from '../constants';
 import { db } from '../lib/supabase';
 
 interface EmployerViewProps {
@@ -44,21 +45,26 @@ const EmployerView: React.FC<EmployerViewProps> = ({
   const [configuringPosition, setConfiguringPosition] = useState<PositionConfig | null>(null);
   const [expandedTurnerRows, setExpandedTurnerRows] = useState<Set<string>>(new Set());
 
+  const [newUser, setNewUser] = useState({ name: '', position: positions[0]?.name || '', department: '', pin: '0000', requirePhoto: false });
   const [newMachineName, setNewMachineName] = useState('');
   const [newPositionName, setNewPositionName] = useState('');
 
-  // ИСПРАВЛЕНО: Расширенный поиск сотрудников для табеля (включаем всех, у кого есть логи или роль сотрудника)
-  const employees = useMemo(() => {
-    const usersWithLogs = new Set(logs.map(l => l.userId));
-    return users.filter(u => 
-      u.role === UserRole.EMPLOYEE || 
-      usersWithLogs.has(u.id) || 
-      (u.role !== UserRole.EMPLOYER && u.id !== 'admin')
-    );
-  }, [users, logs]);
-
+  const employees = users.filter(u => u.role === UserRole.EMPLOYEE);
   const days = getDaysInMonthArray(filterMonth);
   const today = startOfDay(new Date());
+
+  const currentUser = useMemo(() => {
+    // Note: In a real app this would come from a context or higher-level prop.
+    // For now, we assume the person seeing this view is the 'admin' or has a role/position permission.
+    const cached = localStorage.getItem('timesheet_current_user');
+    return cached ? JSON.parse(cached) as User : null;
+  }, []);
+
+  const userPerms = useMemo(() => {
+    if (currentUser?.id === 'admin') return { isFullAdmin: true, isLimitedAdmin: false };
+    const pos = positions.find(p => p.name === currentUser?.position);
+    return pos?.permissions || DEFAULT_PERMISSIONS;
+  }, [currentUser, positions]);
 
   const toggleTurnerRow = (empId: string) => {
     const newSet = new Set(expandedTurnerRows);
@@ -88,18 +94,18 @@ const EmployerView: React.FC<EmployerViewProps> = ({
 
   const dashboardStats = useMemo(() => {
     const todayStr = format(new Date(), 'yyyy-MM-dd');
-    const todayLogs = logs.filter(l => l.date && l.date.startsWith(todayStr));
+    const todayLogs = logs.filter(l => l.date === todayStr);
     
-    // ИСПРАВЛЕНО: Более надежный поиск активных смен
+    // Ищем активные смены по ВСЕМ логам.
     const activeShifts = logs.filter(l => l.entryType === EntryType.WORK && !l.checkOut);
     const finishedToday = todayLogs.filter(l => l.entryType === EntryType.WORK && l.checkOut);
     
     const last7Days = Array.from({ length: 7 }, (_, i) => format(subDays(new Date(), i), 'yyyy-MM-dd'));
-    const weekLogs = logs.filter(l => l.date && last7Days.some(d => l.date.startsWith(d)) && l.entryType === EntryType.WORK);
+    const weekLogs = logs.filter(l => last7Days.includes(l.date) && l.entryType === EntryType.WORK);
     const totalWeeklyMinutes = weekLogs.reduce((s, l) => s + l.durationMinutes, 0);
     const avgWeeklyHours = (totalWeeklyMinutes / 60) / 7;
 
-    const monthLogs = logs.filter(l => l.date && l.date.startsWith(filterMonth));
+    const monthLogs = logs.filter(l => l.date.startsWith(filterMonth));
     const absenceCounts = employees.map(emp => {
       const absences = monthLogs.filter(l => l.userId === emp.id && (l.entryType === EntryType.SICK || l.entryType === EntryType.VACATION)).length;
       return { name: emp.name, count: absences };
@@ -152,23 +158,18 @@ const EmployerView: React.FC<EmployerViewProps> = ({
 
   const handleAddUser = (e: React.FormEvent) => {
     e.preventDefault();
-    const newUserForm = (e.target as any);
-    const name = newUserForm.elements[0].value;
-    const position = newUserForm.elements[1].value;
-    const pin = newUserForm.elements[2].value;
-    const requirePhoto = newUserForm.elements[3].checked;
-
-    if (!name.trim()) return;
+    if (!newUser.name.trim()) return;
     const user: User = {
       id: Math.random().toString(36).substring(2, 11),
-      name,
-      position,
-      pin: pin || '0000',
+      name: newUser.name,
+      position: newUser.position,
+      department: newUser.department,
+      pin: newUser.pin,
       role: UserRole.EMPLOYEE,
-      requirePhoto
+      requirePhoto: newUser.requirePhoto
     };
     onAddUser(user);
-    newUserForm.reset();
+    setNewUser({ name: '', position: positions[0]?.name || '', department: '', pin: '0000', requirePhoto: false });
   };
 
   const deleteLogItem = (logId: string) => {
@@ -261,6 +262,25 @@ const EmployerView: React.FC<EmployerViewProps> = ({
     setEditValue('');
   };
 
+  const tabs = useMemo(() => {
+    const allTabs = [
+      { id: 'analytics', label: 'Дашборд' },
+      { id: 'matrix', label: 'Табель' },
+      { id: 'team', label: 'Команда' },
+      { id: 'settings', label: 'Настройки' }
+    ];
+    if (userPerms.isFullAdmin) return allTabs;
+    if (userPerms.isLimitedAdmin) return allTabs.filter(t => ['analytics', 'matrix'].includes(t.id));
+    return allTabs;
+  }, [userPerms]);
+
+  const handleResetDevicePairing = () => {
+    if (confirm('Сбросить привязку профиля на этом устройстве? На этом планшете/телефоне система снова потребует выбрать пользователя при входе.')) {
+      localStorage.removeItem(STORAGE_KEYS.LAST_USER_ID);
+      alert('Привязка сброшена.');
+    }
+  };
+
   return (
     <div className="space-y-6 animate-fadeIn pb-20">
       {previewPhoto && (
@@ -283,8 +303,10 @@ const EmployerView: React.FC<EmployerViewProps> = ({
                 </div>
                 <button onClick={() => setConfiguringPosition(null)} className="text-slate-400 hover:text-slate-900 text-3xl font-light transition-colors">&times;</button>
              </div>
-             <div className="p-8 space-y-3">
+             <div className="p-8 space-y-3 max-h-[70vh] overflow-y-auto custom-scrollbar">
                 {[
+                  { key: 'isFullAdmin', label: 'Администратор', desc: 'Должность обладает всеми правами Администратора' },
+                  { key: 'isLimitedAdmin', label: 'Менеджер', desc: 'Доступ только к вкладкам Дашборд и Табель' },
                   { key: 'useMachines', label: 'Работа на станках', desc: 'Возможность выбирать оборудование при начале смены' },
                   { key: 'multiSlot', label: 'Мульти-слот (3 карточки)', desc: 'Одновременная работа на 3 станках (для токарей)' },
                   { key: 'viewSelfMatrix', label: 'Вкладка «Мой Табель»', desc: 'Доступ сотрудника к своей статистике' },
@@ -309,7 +331,7 @@ const EmployerView: React.FC<EmployerViewProps> = ({
                 ))}
                 <button 
                   onClick={() => setConfiguringPosition(null)} 
-                  className="w-full py-4 bg-slate-900 text-white rounded-2xl font-black uppercase tracking-widest text-xs mt-4 shadow-xl hover:bg-slate-800 transition-all active:scale-95"
+                  className="w-full py-4 bg-slate-900 text-white rounded-2xl font-black uppercase tracking-widest text-xs mt-4 shadow-xl hover:bg-slate-800 transition-all active:scale-95 sticky bottom-0"
                 >
                   Готово
                 </button>
@@ -370,7 +392,16 @@ const EmployerView: React.FC<EmployerViewProps> = ({
                       </div>
                    </div>
                 </div>
-                <button type="submit" className="w-full py-4 bg-blue-600 text-white rounded-2xl font-black shadow-lg shadow-blue-100 uppercase text-xs tracking-widest mt-4">Сохранить изменения</button>
+                <div className="pt-2">
+                   <button 
+                     type="button" 
+                     onClick={handleResetDevicePairing}
+                     className="w-full py-3 bg-slate-100 text-slate-500 rounded-2xl font-black uppercase text-[10px] tracking-[0.1em] hover:bg-red-50 hover:text-red-600 transition-all border border-slate-200"
+                   >
+                     Сбросить привязку устройства
+                   </button>
+                </div>
+                <button type="submit" className="w-full py-4 bg-blue-600 text-white rounded-2xl font-black shadow-lg shadow-blue-100 uppercase text-xs tracking-widest mt-2">Сохранить изменения</button>
              </form>
           </div>
         </div>
@@ -388,7 +419,7 @@ const EmployerView: React.FC<EmployerViewProps> = ({
              </div>
              
              <div className="flex-1 overflow-y-auto p-6 space-y-4 custom-scrollbar bg-slate-50/30">
-                {logs.filter(l => l.userId === editingLog.userId && l.date && l.date.startsWith(editingLog.date)).map(log => (
+                {logs.filter(l => l.userId === editingLog.userId && l.date === editingLog.date).map(log => (
                   <div key={log.id} className="bg-white rounded-[1.5rem] border border-slate-200 shadow-sm p-5 space-y-4 relative group">
                     <div className="flex flex-wrap items-center justify-between gap-3 border-b border-slate-100 pb-3">
                        <div className="flex items-center gap-3">
@@ -505,13 +536,13 @@ const EmployerView: React.FC<EmployerViewProps> = ({
 
       <div className="flex flex-col sm:flex-row justify-between items-center bg-white p-4 rounded-3xl border border-slate-200 gap-4 shadow-sm no-print">
         <div className="flex bg-slate-100 p-1 rounded-2xl w-full sm:w-auto overflow-x-auto">
-          {['analytics', 'matrix', 'team', 'settings'].map(tab => (
+          {tabs.map(tab => (
             <button 
-              key={tab}
-              onClick={() => setViewMode(tab as any)} 
-              className={`px-5 py-2.5 rounded-xl text-xs font-bold transition-all whitespace-nowrap ${viewMode === tab ? 'bg-white shadow-sm text-blue-600' : 'text-slate-500 hover:text-slate-900'}`}
+              key={tab.id}
+              onClick={() => setViewMode(tab.id as any)} 
+              className={`px-5 py-2.5 rounded-xl text-xs font-bold transition-all whitespace-nowrap ${viewMode === tab.id ? 'bg-white shadow-sm text-blue-600' : 'text-slate-500 hover:text-slate-900'}`}
             >
-              {tab === 'analytics' ? 'Дашборд' : tab === 'matrix' ? 'Табель' : tab === 'team' ? 'Команда' : 'Настройки'}
+              {tab.label}
             </button>
           ))}
         </div>
@@ -548,12 +579,12 @@ const EmployerView: React.FC<EmployerViewProps> = ({
                       const emp = users.find(u => u.id === s.userId);
                       const machine = machines.find(m => m.id === s.machineId);
                       const machineName = machine?.name || 'Работа';
-                      const isOld = s.date && !s.date.startsWith(dashboardStats.todayStr);
+                      const isOld = s.date !== dashboardStats.todayStr;
                       
                       return (
                         <div key={s.id} className={`group/item flex justify-between items-center p-3 rounded-xl border transition-all ${isOld ? 'bg-red-50 border-red-200 hover:bg-white shadow-sm' : 'bg-blue-50 border-blue-100 hover:bg-white'}`}>
-                           <div className="flex flex-col">
-                              <span className={`text-xs font-bold ${isOld ? 'text-red-900' : 'text-slate-700'}`}>{emp?.name}</span>
+                           <div className="flex-1 pr-2">
+                              <span className={`text-xs font-bold block truncate ${isOld ? 'text-red-900' : 'text-slate-700'}`}>{emp?.name}</span>
                               <span className={`text-[9px] font-black uppercase tracking-tighter mt-1 flex items-center gap-1 ${isOld ? 'text-red-500' : 'text-blue-500'}`}>
                                 <svg className="w-2.5 h-2.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={3} d="M13 10V3L4 14h7v7l9-11h-7z" /></svg>
                                 {machineName}
@@ -561,7 +592,7 @@ const EmployerView: React.FC<EmployerViewProps> = ({
                            </div>
                            <div className="flex items-center gap-2">
                              <div className="flex flex-col items-end">
-                               {isOld && s.date && (
+                               {isOld && (
                                  <span className="text-[8px] font-black text-red-600 uppercase mb-0.5 tracking-tighter">
                                    Начало: {format(new Date(s.date), 'dd.MM')}
                                  </span>
@@ -570,7 +601,8 @@ const EmployerView: React.FC<EmployerViewProps> = ({
                                  {formatTime(s.checkIn)}
                                </span>
                              </div>
-                             <div className="flex items-center gap-1">
+                             <div className="flex flex-col items-center gap-1">
+                                {userPerms.isFullAdmin && (
                                 <button 
                                    onClick={() => handleForceFinish(s)}
                                    className={`hidden group-hover/item:flex items-center justify-center p-1.5 text-white rounded-lg transition-colors shadow-sm ${isOld ? 'bg-red-600 hover:bg-red-700' : 'bg-red-500 hover:bg-red-600'}`}
@@ -578,6 +610,7 @@ const EmployerView: React.FC<EmployerViewProps> = ({
                                 >
                                    <svg className="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={3} d="M6 18L18 6M6 6l12 12" /></svg>
                                 </button>
+                                )}
                                 <span className={`hidden group-hover/item:block text-[6px] font-black uppercase leading-none tracking-tighter ${isOld ? 'text-red-600' : 'text-red-400'}`}>СТОП {machineName.split(' ')[0]}</span>
                              </div>
                            </div>
@@ -661,7 +694,7 @@ const EmployerView: React.FC<EmployerViewProps> = ({
               </thead>
               <tbody>
                 {employees.map(emp => {
-                  const empLogs = logs.filter(l => l.userId === emp.id && l.date && l.date.startsWith(filterMonth));
+                  const empLogs = logs.filter(l => l.userId === emp.id && l.date.startsWith(filterMonth));
                   const totalMinutes = empLogs.filter(l => l.checkOut || l.entryType !== EntryType.WORK).reduce((s, l) => s + l.durationMinutes, 0);
                   const isTurner = emp.position === FIXED_POSITION_TURNER;
                   const usedMachineIds = [...new Set(empLogs.filter(l => l.machineId).map(l => l.machineId!))];
@@ -688,7 +721,7 @@ const EmployerView: React.FC<EmployerViewProps> = ({
                           const dateStr = format(day, 'yyyy-MM-dd');
                           if (isAfter(day, today)) return <td key={dateStr} className="border-r p-1 h-12"></td>;
 
-                          const dayLogs = empLogs.filter(l => l.date && l.date.startsWith(dateStr));
+                          const dayLogs = empLogs.filter(l => l.date === dateStr);
                           const workEntries = dayLogs.filter(l => l.entryType === EntryType.WORK);
                           const workMins = workEntries.reduce((s, l) => s + l.durationMinutes, 0);
                           const hasWork = workEntries.length > 0;
@@ -725,7 +758,7 @@ const EmployerView: React.FC<EmployerViewProps> = ({
                              {days.map(day => {
                                const dateStr = format(day, 'yyyy-MM-dd');
                                if (isAfter(day, today)) return <td key={dateStr} className="border-r p-1 h-10"></td>;
-                               const machineLogs = empLogs.filter(l => l.date && l.date.startsWith(dateStr) && l.machineId === mId);
+                               const machineLogs = empLogs.filter(l => l.date === dateStr && l.machineId === mId);
                                const minsOnMachine = machineLogs.reduce((s, l) => s + l.durationMinutes, 0);
                                const hasWorkOnMachine = machineLogs.length > 0;
                                const isPendingOnMachine = machineLogs.some(l => !l.checkOut);
@@ -755,13 +788,13 @@ const EmployerView: React.FC<EmployerViewProps> = ({
             <div className="bg-white p-6 rounded-3xl border border-slate-200 shadow-sm sticky top-24">
               <h3 className="font-bold text-slate-900 mb-6 uppercase text-xs tracking-widest underline decoration-blue-500 decoration-4 underline-offset-8">Новый сотрудник</h3>
               <form onSubmit={handleAddUser} className="space-y-4">
-                <input required type="text" placeholder="ФИО сотрудника" className="w-full border-2 border-slate-100 rounded-2xl px-4 py-3 text-sm font-medium outline-none" />
-                <select className="w-full border-2 border-slate-100 rounded-2xl px-4 py-3 text-sm font-bold bg-white">
+                <input required type="text" value={newUser.name} onChange={e => setNewUser({...newUser, name: e.target.value})} placeholder="ФИО сотрудника" className="w-full border-2 border-slate-100 rounded-2xl px-4 py-3 text-sm font-medium outline-none" />
+                <select value={newUser.position} onChange={e => setNewUser({...newUser, position: e.target.value})} className="w-full border-2 border-slate-100 rounded-2xl px-4 py-3 text-sm font-bold bg-white">
                   {positions.map(p => <option key={p.name} value={p.name}>{p.name}</option>)}
                 </select>
-                <input type="text" maxLength={4} placeholder="PIN (0000)" className="w-full border-2 border-slate-100 rounded-2xl px-4 py-3 text-sm font-mono" />
+                <input type="text" maxLength={4} value={newUser.pin} onChange={e => setNewUser({...newUser, pin: e.target.value.replace(/[^0-9]/g, '')})} placeholder="PIN (0000)" className="w-full border-2 border-slate-100 rounded-2xl px-4 py-3 text-sm font-mono" />
                 <div className="flex items-center gap-3 p-4 bg-slate-50 rounded-2xl border-2 border-slate-100">
-                   <input type="checkbox" className="w-5 h-5 rounded accent-blue-600" id="req-photo" />
+                   <input type="checkbox" checked={newUser.requirePhoto} onChange={e => setNewUser({...newUser, requirePhoto: e.target.checked})} className="w-5 h-5 rounded accent-blue-600" id="req-photo" />
                    <label htmlFor="req-photo" className="text-xs font-black text-slate-600 uppercase cursor-pointer">Обязательное фото</label>
                 </div>
                 <button type="submit" className="w-full py-4 bg-blue-600 text-white rounded-2xl font-black shadow-lg shadow-blue-100 uppercase text-xs tracking-widest">Создать</button>
@@ -774,25 +807,26 @@ const EmployerView: React.FC<EmployerViewProps> = ({
                const isWorking = activeLogs.length > 0;
                return (
                  <div key={u.id} className="bg-white p-5 rounded-3xl border border-slate-200 flex items-center justify-between group shadow-sm transition-all hover:border-blue-300">
-                    <div className="flex items-center gap-4">
-                      <div className="relative">
+                    <div className="flex-1 flex items-center gap-4 min-w-0">
+                      <div className="relative flex-shrink-0">
                         <div className="w-12 h-12 rounded-2xl bg-blue-100 text-blue-600 flex items-center justify-center font-black text-xl">{u.name.charAt(0)}</div>
                         {isWorking && <span className="absolute -top-1 -right-1 w-3 h-3 bg-blue-600 border-2 border-white rounded-full animate-pulse"></span>}
                       </div>
-                      <div>
+                      <div className="min-w-0">
                         <div className="flex items-center gap-2">
-                          <h4 className="font-bold text-slate-900">{u.name}</h4>
+                          <h4 className="font-bold text-slate-900 truncate">{u.name}</h4>
                         </div>
                         <p className="text-[10px] text-slate-400 font-black uppercase tracking-[0.1em]">{u.position}</p>
                       </div>
                     </div>
-                    <div className="flex items-center gap-2">
+                    <div className="flex items-center gap-2 flex-shrink-0">
                       {isWorking && (
                         <div className="flex gap-2 mr-2">
                           {activeLogs.map(log => {
                             const machineName = machines.find(m => m.id === log.machineId)?.name || 'Работа';
                             return (
                               <div key={log.id} className="flex flex-col items-center gap-1">
+                                {userPerms.isFullAdmin && (
                                 <button 
                                   onClick={() => handleForceFinish(log)}
                                   className="flex items-center gap-1.5 px-3 py-2 bg-red-50 text-red-600 rounded-xl hover:bg-red-600 hover:text-white transition-all border border-red-100 group/stop shadow-sm"
@@ -801,6 +835,7 @@ const EmployerView: React.FC<EmployerViewProps> = ({
                                    <svg className="w-3.5 h-3.5" fill="currentColor" viewBox="0 0 24 24"><path d="M6 6h12v12H6z"/></svg>
                                    <span className="text-[10px] font-black uppercase tracking-tight hidden sm:block">Стоп</span>
                                 </button>
+                                )}
                                 <span className="text-[7px] font-black text-red-400 uppercase tracking-tighter leading-none text-center max-w-[50px] truncate">{machineName}</span>
                               </div>
                             );

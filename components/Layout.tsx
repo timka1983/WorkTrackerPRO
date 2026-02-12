@@ -1,5 +1,7 @@
-import React from 'react';
+
+import React, { useMemo } from 'react';
 import { User, UserRole } from '../types';
+import { STORAGE_KEYS } from '../constants';
 
 interface LayoutProps {
   children: React.ReactNode;
@@ -10,6 +12,25 @@ interface LayoutProps {
 }
 
 const Layout: React.FC<LayoutProps> = ({ children, user, onLogout, onSwitchRole, version }) => {
+  // Check if current position has admin permissions
+  const hasAdminPermissions = useMemo(() => {
+    if (!user) return false;
+    if (user.id === 'admin' || user.isAdmin) return true;
+    
+    // Position permissions check
+    const cachedPositions = localStorage.getItem('timesheet_positions_list');
+    if (cachedPositions) {
+      try {
+        const positions = JSON.parse(cachedPositions);
+        const pos = positions.find((p: any) => p.name === user.position);
+        return pos?.permissions?.isFullAdmin || pos?.permissions?.isLimitedAdmin;
+      } catch (e) {
+        return false;
+      }
+    }
+    return false;
+  }, [user]);
+
   return (
     <div className="min-h-screen flex flex-col">
       <header className="bg-white border-b border-slate-200 sticky top-0 z-50 no-print">
@@ -26,31 +47,31 @@ const Layout: React.FC<LayoutProps> = ({ children, user, onLogout, onSwitchRole,
 
             {user && (
               <div className="flex items-center gap-3 sm:gap-6">
-                {/* Desktop Switcher */}
-                <div className="hidden md:flex items-center gap-4 text-sm font-medium">
-                   <button 
-                    onClick={() => onSwitchRole(UserRole.EMPLOYEE)}
-                    className={`px-3 py-1 rounded-full transition-colors ${user.role === UserRole.EMPLOYEE ? 'bg-blue-100 text-blue-700' : 'text-slate-500 hover:text-slate-900'}`}
-                  >
-                    Сотрудник
-                  </button>
-                  <button 
-                    onClick={() => onSwitchRole(UserRole.EMPLOYER)}
-                    className={`px-3 py-1 rounded-full transition-colors ${user.role === UserRole.EMPLOYER ? 'bg-blue-100 text-blue-700' : 'text-slate-500 hover:text-slate-900'}`}
-                  >
-                    Работодатель
-                  </button>
-                </div>
+                {hasAdminPermissions && (
+                  <div className="hidden md:flex items-center gap-4 text-sm font-medium">
+                     <button 
+                      onClick={() => onSwitchRole(UserRole.EMPLOYEE)}
+                      className={`px-3 py-1 rounded-full transition-colors ${user.role === UserRole.EMPLOYEE ? 'bg-blue-100 text-blue-700' : 'text-slate-500 hover:text-slate-900'}`}
+                    >
+                      Сотрудник
+                    </button>
+                    <button 
+                      onClick={() => onSwitchRole(UserRole.EMPLOYER)}
+                      className={`px-3 py-1 rounded-full transition-colors ${user.role === UserRole.EMPLOYER ? 'bg-blue-100 text-blue-700' : 'text-slate-500 hover:text-slate-900'}`}
+                    >
+                      Работодатель
+                    </button>
+                  </div>
+                )}
 
-                {/* Mobile Switcher (Visible only on small screens) */}
-                <div className="md:hidden flex items-center">
+                {hasAdminPermissions && (
                   <button 
-                    onClick={() => onSwitchRole(user.role === UserRole.EMPLOYEE ? UserRole.EMPLOYER : UserRole.EMPLOYEE)}
-                    className="px-3 py-1.5 bg-slate-100 text-blue-600 rounded-xl text-[10px] font-black uppercase tracking-tight border border-slate-200 active:bg-blue-600 active:text-white transition-all"
+                    onClick={() => onSwitchRole(user.role === UserRole.EMPLOYER ? UserRole.EMPLOYEE : UserRole.EMPLOYER)}
+                    className="md:hidden flex items-center px-3 py-1.5 bg-blue-50 text-blue-700 rounded-full text-[10px] font-black uppercase tracking-tighter active:scale-95 transition-transform border border-blue-100 shadow-sm"
                   >
-                    {user.role === UserRole.EMPLOYEE ? 'В Админ' : 'В Табель'}
+                    {user.role === UserRole.EMPLOYER ? 'В Табель' : 'В Админ'}
                   </button>
-                </div>
+                )}
                 
                 <div className="flex items-center gap-3 border-l pl-3 sm:pl-6 border-slate-200">
                   <div className="text-right hidden sm:block">

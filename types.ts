@@ -19,6 +19,8 @@ export interface PositionPermissions {
   viewSelfMatrix: boolean;
   markAbsences: boolean;
   defaultRequirePhoto: boolean;
+  isFullAdmin: boolean;
+  isLimitedAdmin: boolean;
 }
 
 export interface PositionConfig {

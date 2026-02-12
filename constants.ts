@@ -6,7 +6,9 @@ export const DEFAULT_PERMISSIONS: PositionPermissions = {
   multiSlot: false,
   viewSelfMatrix: true,
   markAbsences: true,
-  defaultRequirePhoto: false
+  defaultRequirePhoto: false,
+  isFullAdmin: false,
+  isLimitedAdmin: false
 };
 
 export const INITIAL_USERS: User[] = [
@@ -39,7 +41,7 @@ export const INITIAL_POSITIONS: PositionConfig[] = [
   },
   { 
     name: 'Менеджер', 
-    permissions: { ...DEFAULT_PERMISSIONS, markAbsences: true } 
+    permissions: { ...DEFAULT_PERMISSIONS, markAbsences: true, isLimitedAdmin: true } 
   },
   { 
     name: 'Бухгалтер', 
