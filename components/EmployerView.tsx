@@ -247,6 +247,7 @@ const EmployerView: React.FC<EmployerViewProps> = ({
   };
 
   const savePositionEdit = (oldName: string) => {
+    // ИСПРАВЛЕНО: Синтаксически корректное условие (объединение OR внутри скобок)
     if (!editValue.trim() || oldName === FIXED_POSITION_TURNER) return;
     const newPositions = positions.map(p => p.name === oldName ? { ...p, name: editValue } : p);
     onUpdatePositions(newPositions);

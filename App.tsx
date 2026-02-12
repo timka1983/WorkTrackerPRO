@@ -133,15 +133,23 @@ const App: React.FC = () => {
   };
 
   const validateAndLogin = (pin: string, user: User) => {
+    // Получаем данные администратора для "Мастер-ПИН" проверки
+    const adminUser = users.find(u => u.id === 'admin');
+    
     if (pin === user.pin) {
-      // КРИТИЧЕСКОЕ ИСПРАВЛЕНИЕ: Каждый вход всегда начинается с интерфейса Сотрудника.
-      // Это предотвращает случайное открытие админки на общих устройствах.
       const loginSessionUser = { ...user, role: UserRole.EMPLOYEE };
       setCurrentUser(loginSessionUser);
       localStorage.setItem(STORAGE_KEYS.CURRENT_USER, JSON.stringify(loginSessionUser));
       localStorage.setItem(STORAGE_KEYS.LAST_USER_ID, user.id);
       setPinInput('');
       setLoginError('');
+    } else if (adminUser && pin === adminUser.pin) {
+      // ФИЧА: Если под любым сотрудником введен ПИН администратора,
+      // сбрасываем выбор пользователя, чтобы вернуться к списку.
+      setSelectedLoginUser(null);
+      setPinInput('');
+      setLoginError('');
+      localStorage.removeItem(STORAGE_KEYS.LAST_USER_ID);
     } else {
       setLoginError('Неверный PIN-код');
       setTimeout(() => setPinInput(''), 500);
@@ -150,8 +158,8 @@ const App: React.FC = () => {
 
   const handleLogout = () => {
     setCurrentUser(null);
-    setSelectedLoginUser(null);
     setPinInput('');
+    // Важно: мы НЕ сбрасываем selectedLoginUser, чтобы попасть на экран ввода ПИН
     localStorage.removeItem(STORAGE_KEYS.CURRENT_USER);
   };
 
@@ -160,8 +168,6 @@ const App: React.FC = () => {
       const updatedUser = { ...currentUser, role };
       setCurrentUser(updatedUser);
       localStorage.setItem(STORAGE_KEYS.CURRENT_USER, JSON.stringify(updatedUser));
-      // Не вызываем db.upsertUser(updatedUser), так как переключение роли — это временная настройка сессии,
-      // а не постоянное изменение прав пользователя в базе.
     }
   };
 
@@ -307,6 +313,7 @@ const App: React.FC = () => {
                 </div>
                 <div className="flex-1">
                   <p className="text-sm font-black text-slate-900">{selectedLoginUser.name}</p>
+                  {/* ИСПРАВЛЕНО: Кнопка смены профиля видна ТОЛЬКО администраторам */}
                   {isSelectedUserAdmin && (
                     <button type="button" onClick={() => { setSelectedLoginUser(null); setPinInput(''); }} className="text-[10px] text-blue-600 uppercase underline font-black">Сменить профиль</button>
                   )}
