@@ -34,7 +34,7 @@ const EmployeeView: React.FC<EmployeeViewProps> = ({ user, logs, onLogUpdate, ma
   const [viewMode, setViewMode] = useState<'control' | 'matrix'>('control');
   const [showCamera, setShowCamera] = useState<{ slot: number; type: 'start' | 'stop' } | null>(null);
   
-  const [showPinChange, setShowPinChange] = useState(false);
+  const [showPinChange, setShowPinChange] = useState(user.forcePinChange || false);
   const [pinState, setPinState] = useState({ old: '', new: '', confirm: '' });
   const [pinError, setPinError] = useState('');
 
@@ -236,11 +236,15 @@ const EmployeeView: React.FC<EmployeeViewProps> = ({ user, logs, onLogUpdate, ma
       setPinError('PIN должен состоять из 4 цифр');
       return;
     }
+    if (pinState.new === pinState.old) {
+      setPinError('Новый PIN должен отличаться от старого');
+      return;
+    }
     if (pinState.new !== pinState.confirm) {
       setPinError('Новые PIN-коды не совпадают');
       return;
     }
-    onUpdateUser({ ...user, pin: pinState.new });
+    onUpdateUser({ ...user, pin: pinState.new, forcePinChange: false });
     alert('PIN-код успешно изменен');
     setShowPinChange(false);
     setPinState({ old: '', new: '', confirm: '' });
@@ -380,8 +384,13 @@ const EmployeeView: React.FC<EmployeeViewProps> = ({ user, logs, onLogUpdate, ma
         <div className="fixed inset-0 z-[150] bg-slate-900/80 backdrop-blur-md flex items-center justify-center p-4">
           <div className="bg-white rounded-[2.5rem] w-full max-w-sm shadow-2xl p-8 border border-slate-200">
              <div className="flex justify-between items-center mb-6">
-                <h3 className="text-lg font-black text-slate-900 uppercase tracking-tight">Смена PIN-кода</h3>
-                <button onClick={() => setShowPinChange(false)} className="text-slate-400 text-2xl">&times;</button>
+                <div>
+                  <h3 className="text-lg font-black text-slate-900 uppercase tracking-tight">Смена PIN-кода</h3>
+                  {user.forcePinChange && <p className="text-[10px] font-bold text-amber-600 uppercase tracking-tight">Необходима смена пароля</p>}
+                </div>
+                {!user.forcePinChange && (
+                  <button onClick={() => setShowPinChange(false)} className="text-slate-400 text-2xl">&times;</button>
+                )}
              </div>
              <form onSubmit={handlePinChangeSubmit} className="space-y-4">
                 <div className="space-y-1">

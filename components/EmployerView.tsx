@@ -1,4 +1,3 @@
-
 import React, { useState, useMemo } from 'react';
 import { WorkLog, User, EntryType, UserRole, Machine, FIXED_POSITION_TURNER, PositionConfig, PositionPermissions } from '../types';
 import { formatDuration, getDaysInMonthArray, formatDurationShort, exportToCSV, formatTime, calculateMinutes } from '../utils';
@@ -54,8 +53,6 @@ const EmployerView: React.FC<EmployerViewProps> = ({
   const today = startOfDay(new Date());
 
   const currentUser = useMemo(() => {
-    // Note: In a real app this would come from a context or higher-level prop.
-    // For now, we assume the person seeing this view is the 'admin' or has a role/position permission.
     const cached = localStorage.getItem('timesheet_current_user');
     return cached ? JSON.parse(cached) as User : null;
   }, []);
@@ -96,7 +93,6 @@ const EmployerView: React.FC<EmployerViewProps> = ({
     const todayStr = format(new Date(), 'yyyy-MM-dd');
     const todayLogs = logs.filter(l => l.date === todayStr);
     
-    // Ищем активные смены по ВСЕМ логам.
     const activeShifts = logs.filter(l => l.entryType === EntryType.WORK && !l.checkOut);
     const finishedToday = todayLogs.filter(l => l.entryType === EntryType.WORK && l.checkOut);
     
@@ -166,7 +162,8 @@ const EmployerView: React.FC<EmployerViewProps> = ({
       department: newUser.department,
       pin: newUser.pin,
       role: UserRole.EMPLOYEE,
-      requirePhoto: newUser.requirePhoto
+      requirePhoto: newUser.requirePhoto,
+      forcePinChange: false
     };
     onAddUser(user);
     setNewUser({ name: '', position: positions[0]?.name || '', department: '', pin: '0000', requirePhoto: false });
@@ -392,15 +389,25 @@ const EmployerView: React.FC<EmployerViewProps> = ({
                       </div>
                    </div>
                 </div>
-                <div className="pt-2">
+
+                <div className="bg-amber-50 p-4 rounded-2xl border border-amber-100 space-y-3">
+                   <p className="text-[9px] font-black text-amber-700 uppercase tracking-widest text-center">Безопасность и доступ</p>
+                   <button 
+                     type="button" 
+                     onClick={() => setEditingEmployee({...editingEmployee, forcePinChange: true})}
+                     className={`w-full py-3 rounded-xl font-black uppercase text-[10px] tracking-widest transition-all border-2 ${editingEmployee.forcePinChange ? 'bg-amber-600 text-white border-amber-600' : 'bg-white text-amber-600 border-amber-200 hover:bg-amber-100'}`}
+                   >
+                     {editingEmployee.forcePinChange ? 'PIN будет сброшен при входе' : 'Сбросить PIN при входе'}
+                   </button>
                    <button 
                      type="button" 
                      onClick={handleResetDevicePairing}
-                     className="w-full py-3 bg-slate-100 text-slate-500 rounded-2xl font-black uppercase text-[10px] tracking-[0.1em] hover:bg-red-50 hover:text-red-600 transition-all border border-slate-200"
+                     className="w-full py-3 bg-white text-amber-600 rounded-xl font-black uppercase text-[10px] tracking-widest transition-all border-2 border-amber-200 hover:bg-amber-100"
                    >
                      Сбросить привязку устройства
                    </button>
                 </div>
+
                 <button type="submit" className="w-full py-4 bg-blue-600 text-white rounded-2xl font-black shadow-lg shadow-blue-100 uppercase text-xs tracking-widest mt-2">Сохранить изменения</button>
              </form>
           </div>
@@ -715,7 +722,12 @@ const EmployerView: React.FC<EmployerViewProps> = ({
                               </button>
                             )}
                           </div>
-                          <div className="text-[8px] text-blue-600 font-black uppercase mt-0.5">{emp.position}</div>
+                          <div className="flex items-center gap-1.5 mt-0.5">
+                            <div className="text-[8px] text-blue-600 font-black uppercase">{emp.position}</div>
+                            {emp.forcePinChange && (
+                                <div className="w-1.5 h-1.5 bg-amber-500 rounded-full animate-pulse" title="Требуется смена PIN"></div>
+                            )}
+                          </div>
                         </td>
                         {days.map(day => {
                           const dateStr = format(day, 'yyyy-MM-dd');
@@ -815,6 +827,9 @@ const EmployerView: React.FC<EmployerViewProps> = ({
                       <div className="min-w-0">
                         <div className="flex items-center gap-2">
                           <h4 className="font-bold text-slate-900 truncate">{u.name}</h4>
+                          {u.forcePinChange && (
+                            <span className="px-2 py-0.5 bg-amber-100 text-amber-700 text-[8px] font-black uppercase rounded-full border border-amber-200">PIN Reset</span>
+                          )}
                         </div>
                         <p className="text-[10px] text-slate-400 font-black uppercase tracking-[0.1em]">{u.position}</p>
                       </div>

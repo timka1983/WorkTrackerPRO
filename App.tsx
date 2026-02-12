@@ -1,4 +1,3 @@
-
 import React, { useState, useEffect, useCallback, useMemo } from 'react';
 import { User, UserRole, WorkLog, Machine, PositionConfig } from './types';
 import { STORAGE_KEYS, INITIAL_USERS, INITIAL_MACHINES, INITIAL_POSITIONS, INITIAL_LOGS, DEFAULT_PERMISSIONS } from './constants';
@@ -95,7 +94,6 @@ const App: React.FC = () => {
       }
 
       if (dbPositions && dbPositions.length > 0) {
-        // Handle migration from string positions to full config objects
         const normalized = dbPositions.map((p: any) => 
           typeof p === 'string' 
             ? (INITIAL_POSITIONS.find(ip => ip.name === p) || { name: p, permissions: DEFAULT_PERMISSIONS }) 
@@ -136,8 +134,11 @@ const App: React.FC = () => {
 
   const validateAndLogin = (pin: string, user: User) => {
     if (pin === user.pin) {
-      setCurrentUser(user);
-      localStorage.setItem(STORAGE_KEYS.CURRENT_USER, JSON.stringify(user));
+      // КРИТИЧЕСКОЕ ИСПРАВЛЕНИЕ: Каждый вход всегда начинается с интерфейса Сотрудника.
+      // Это предотвращает случайное открытие админки на общих устройствах.
+      const loginSessionUser = { ...user, role: UserRole.EMPLOYEE };
+      setCurrentUser(loginSessionUser);
+      localStorage.setItem(STORAGE_KEYS.CURRENT_USER, JSON.stringify(loginSessionUser));
       localStorage.setItem(STORAGE_KEYS.LAST_USER_ID, user.id);
       setPinInput('');
       setLoginError('');
@@ -159,7 +160,8 @@ const App: React.FC = () => {
       const updatedUser = { ...currentUser, role };
       setCurrentUser(updatedUser);
       localStorage.setItem(STORAGE_KEYS.CURRENT_USER, JSON.stringify(updatedUser));
-      db.upsertUser(updatedUser);
+      // Не вызываем db.upsertUser(updatedUser), так как переключение роли — это временная настройка сессии,
+      // а не постоянное изменение прав пользователя в базе.
     }
   };
 
@@ -359,7 +361,6 @@ const App: React.FC = () => {
     );
   }
 
-  // Determine if the current view should be Employer based on role OR position permissions
   const isEmployerAuthorized = currentUser.role === UserRole.EMPLOYER || userPermissions.isFullAdmin || userPermissions.isLimitedAdmin;
 
   return (
