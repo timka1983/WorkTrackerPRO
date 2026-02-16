@@ -1,4 +1,3 @@
-
 export enum UserRole {
   EMPLOYEE = 'EMPLOYEE',
   EMPLOYER = 'EMPLOYER'
@@ -21,6 +20,7 @@ export interface PositionPermissions {
   defaultRequirePhoto: boolean;
   isFullAdmin: boolean;
   isLimitedAdmin: boolean;
+  canUseNightShift: boolean;
 }
 
 export interface PositionConfig {
@@ -59,4 +59,5 @@ export interface WorkLog {
   isCorrected?: boolean;
   correctionNote?: string;
   correctionTimestamp?: string;
+  isNightShift?: boolean; // Флаг ночной смены
 }

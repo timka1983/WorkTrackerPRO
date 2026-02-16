@@ -1,3 +1,4 @@
+
 import React, { useState, useEffect, useCallback, useMemo } from 'react';
 import { User, UserRole, WorkLog, Machine, PositionConfig } from './types';
 import { STORAGE_KEYS, INITIAL_USERS, INITIAL_MACHINES, INITIAL_POSITIONS, INITIAL_LOGS, DEFAULT_PERMISSIONS } from './constants';
@@ -6,7 +7,7 @@ import EmployeeView from './components/EmployeeView';
 import EmployerView from './components/EmployerView';
 import { db } from './lib/supabase';
 
-const APP_VERSION = 'v1.8.0-PRO';
+const APP_VERSION = 'v1.9.0-PRO';
 
 const App: React.FC = () => {
   const [currentUser, setCurrentUser] = useState<User | null>(null);
@@ -14,12 +15,20 @@ const App: React.FC = () => {
   const [logs, setLogs] = useState<WorkLog[]>([]);
   const [machines, setMachines] = useState<Machine[]>([]);
   const [positions, setPositions] = useState<PositionConfig[]>([]);
+  const [nightShiftBonus, setNightShiftBonus] = useState<number>(() => {
+    const saved = localStorage.getItem('timesheet_night_bonus');
+    return saved ? parseInt(saved) : 120; // По умолчанию +2 часа
+  });
   
   const [selectedLoginUser, setSelectedLoginUser] = useState<User | null>(null);
   const [pinInput, setPinInput] = useState('');
   const [loginError, setLoginError] = useState('');
   const [isInitialized, setIsInitialized] = useState(false);
   const [isSyncing, setIsSyncing] = useState(false);
+
+  useEffect(() => {
+    localStorage.setItem('timesheet_night_bonus', nightShiftBonus.toString());
+  }, [nightShiftBonus]);
 
   const initData = useCallback(async (isRefresh = false) => {
     if (isRefresh) setIsSyncing(true);
@@ -74,13 +83,6 @@ const App: React.FC = () => {
       if (dbUsers && dbUsers.length > 0) {
         setUsers(dbUsers);
         localStorage.setItem(STORAGE_KEYS.USERS_LIST, JSON.stringify(dbUsers));
-        if (!lastUserId) {
-          const recheckLastId = localStorage.getItem(STORAGE_KEYS.LAST_USER_ID);
-          if (recheckLastId) {
-             const lastUser = dbUsers.find(u => u.id === recheckLastId);
-             if (lastUser) setSelectedLoginUser(lastUser);
-          }
-        }
       } else if (!cachedUsers && !isRefresh) {
         for (const u of INITIAL_USERS) await db.upsertUser(u);
       }
@@ -133,7 +135,6 @@ const App: React.FC = () => {
   };
 
   const validateAndLogin = (pin: string, user: User) => {
-    // Получаем данные администратора для "Мастер-ПИН" проверки
     const adminUser = users.find(u => u.id === 'admin');
     
     if (pin === user.pin) {
@@ -144,8 +145,6 @@ const App: React.FC = () => {
       setPinInput('');
       setLoginError('');
     } else if (adminUser && pin === adminUser.pin) {
-      // ФИЧА: Если под любым сотрудником введен ПИН администратора,
-      // сбрасываем выбор пользователя, чтобы вернуться к списку.
       setSelectedLoginUser(null);
       setPinInput('');
       setLoginError('');
@@ -159,7 +158,6 @@ const App: React.FC = () => {
   const handleLogout = () => {
     setCurrentUser(null);
     setPinInput('');
-    // Важно: мы НЕ сбрасываем selectedLoginUser, чтобы попасть на экран ввода ПИН
     localStorage.removeItem(STORAGE_KEYS.CURRENT_USER);
   };
 
@@ -313,7 +311,6 @@ const App: React.FC = () => {
                 </div>
                 <div className="flex-1">
                   <p className="text-sm font-black text-slate-900">{selectedLoginUser.name}</p>
-                  {/* ИСПРАВЛЕНО: Кнопка смены профиля видна ТОЛЬКО администраторам */}
                   {isSelectedUserAdmin && (
                     <button type="button" onClick={() => { setSelectedLoginUser(null); setPinInput(''); }} className="text-[10px] text-blue-600 uppercase underline font-black">Сменить профиль</button>
                   )}
@@ -379,7 +376,8 @@ const App: React.FC = () => {
           onLogUpdate={handleLogsUpdate} 
           machines={machines} 
           positions={positions} 
-          onUpdateUser={handleUpdateUser} 
+          onUpdateUser={handleUpdateUser}
+          nightShiftBonusMinutes={nightShiftBonus}
         />
       ) : (
         isEmployerAuthorized ? (
@@ -398,6 +396,8 @@ const App: React.FC = () => {
             onDeleteLog={handleDeleteLog}
             onRefresh={handleRefresh}
             isSyncing={isSyncing}
+            nightShiftBonusMinutes={nightShiftBonus}
+            onUpdateNightBonus={setNightShiftBonus}
           />
         ) : (
           <div className="text-center py-20">

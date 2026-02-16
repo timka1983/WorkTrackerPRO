@@ -1,3 +1,4 @@
+
 import React, { useState, useEffect, useMemo, useRef } from 'react';
 import { WorkLog, User, EntryType, FIXED_POSITION_TURNER, Machine, PositionConfig } from '../types';
 import { formatTime, formatDate, formatDuration, calculateMinutes, getDaysInMonthArray, formatDurationShort } from '../utils';
@@ -16,9 +17,12 @@ interface EmployeeViewProps {
   machines: Machine[];
   positions: PositionConfig[];
   onUpdateUser: (user: User) => void;
+  nightShiftBonusMinutes: number;
 }
 
-const EmployeeView: React.FC<EmployeeViewProps> = ({ user, logs, onLogUpdate, machines, positions, onUpdateUser }) => {
+const EmployeeView: React.FC<EmployeeViewProps> = ({ 
+  user, logs, onLogUpdate, machines, positions, onUpdateUser, nightShiftBonusMinutes 
+}) => {
   const perms = useMemo(() => {
     const config = positions.find(p => p.name === user.position);
     return config?.permissions || DEFAULT_PERMISSIONS;
@@ -38,11 +42,18 @@ const EmployeeView: React.FC<EmployeeViewProps> = ({ user, logs, onLogUpdate, ma
   const [pinState, setPinState] = useState({ old: '', new: '', confirm: '' });
   const [pinError, setPinError] = useState('');
 
+  // Единое состояние ночного режима для всех слотов
+  const [isNightModeGlobal, setIsNightModeGlobal] = useState(false);
+
   const videoRef = useRef<HTMLVideoElement>(null);
 
+  // Проверка: запущена ли хотя бы одна ночная смена на оборудовании
+  const isAnyNightShiftActive = useMemo(() => {
+    // Добавлен type assertion (as WorkLog), так как Object.values может возвращать unknown[] в зависимости от версии TS
+    return Object.values(activeShifts).some(s => s !== null && (s as WorkLog).isNightShift);
+  }, [activeShifts]);
+
   const busyMachineIds = useMemo(() => {
-    // Более строгий расчет: только те станки, у которых нет checkOut в последней записи
-    // Исключаем записи старше 24 часов для предотвращения вечного блокирования при сбоях
     const dayAgo = new Date(Date.now() - 24 * 60 * 60 * 1000).toISOString();
     return logs
       .filter(l => l.entryType === EntryType.WORK && !l.checkOut && l.checkIn && l.checkIn > dayAgo)
@@ -68,7 +79,11 @@ const EmployeeView: React.FC<EmployeeViewProps> = ({ user, logs, onLogUpdate, ma
       const saved = localStorage.getItem(`${STORAGE_KEYS.ACTIVE_SHIFTS}_${user.id}`);
       if (saved) {
         try {
-          setActiveShifts(JSON.parse(saved));
+          const parsed = JSON.parse(saved);
+          setActiveShifts(parsed);
+          // Если хоть одна активная смена ночная - включаем глобальный флаг
+          const hasAnyNight = Object.values(parsed).some(s => s && (s as WorkLog).isNightShift);
+          if (hasAnyNight) setIsNightModeGlobal(true);
         } catch (e) {}
       }
       
@@ -77,6 +92,8 @@ const EmployeeView: React.FC<EmployeeViewProps> = ({ user, logs, onLogUpdate, ma
         if (dbShifts) {
           setActiveShifts(dbShifts);
           localStorage.setItem(`${STORAGE_KEYS.ACTIVE_SHIFTS}_${user.id}`, JSON.stringify(dbShifts));
+          const hasAnyNight = Object.values(dbShifts).some(s => s && (s as WorkLog).isNightShift);
+          if (hasAnyNight) setIsNightModeGlobal(true);
         }
       } catch (err) {
         console.warn("DB Shift fetch failed");
@@ -136,17 +153,11 @@ const EmployeeView: React.FC<EmployeeViewProps> = ({ user, logs, onLogUpdate, ma
     
     if (requirePhoto) {
       if (type === 'start') {
-        if (activeCount === 0) {
-          setShowCamera({ slot, type });
-        } else {
-          handleStartWork(slot);
-        }
+        if (activeCount === 0) setShowCamera({ slot, type });
+        else handleStartWork(slot);
       } else {
-        if (activeCount === 1) {
-          setShowCamera({ slot, type });
-        } else {
-          handleStopWork(slot);
-        }
+        if (activeCount === 1) setShowCamera({ slot, type });
+        else handleStopWork(slot);
       }
     } else {
       type === 'start' ? handleStartWork(slot) : handleStopWork(slot);
@@ -163,14 +174,15 @@ const EmployeeView: React.FC<EmployeeViewProps> = ({ user, logs, onLogUpdate, ma
     const now = new Date();
     const dateStr = format(now, 'yyyy-MM-dd');
     const newShift: WorkLog = {
-      id: `shift-${user.id}-${Date.now()}-${slot}`, // Более надежный ID
+      id: `shift-${user.id}-${Date.now()}-${slot}`,
       userId: user.id,
       date: dateStr,
       entryType: EntryType.WORK,
       machineId: selectedMachineId,
       checkIn: now.toISOString(),
       durationMinutes: 0,
-      photoIn: photo
+      photoIn: photo,
+      isNightShift: isNightModeGlobal
     };
     
     const nextShifts = { ...activeShifts, [slot]: newShift };
@@ -184,7 +196,13 @@ const EmployeeView: React.FC<EmployeeViewProps> = ({ user, logs, onLogUpdate, ma
     if (!currentShift) return;
     
     const now = new Date();
-    const duration = calculateMinutes(currentShift.checkIn!, now.toISOString());
+    let duration = calculateMinutes(currentShift.checkIn!, now.toISOString());
+    
+    // Применяем бонус ночной смены
+    if (currentShift.isNightShift) {
+      duration += nightShiftBonusMinutes;
+    }
+
     const completed: WorkLog = { 
       ...currentShift, 
       checkOut: now.toISOString(), 
@@ -192,7 +210,6 @@ const EmployeeView: React.FC<EmployeeViewProps> = ({ user, logs, onLogUpdate, ma
       photoOut: photo
     };
     
-    // Принудительно очищаем состояние активной смены ПЕРЕД обновлением основного лога
     const nextShifts = { ...activeShifts, [slot]: null };
     saveActiveShifts(nextShifts);
 
@@ -316,8 +333,13 @@ const EmployeeView: React.FC<EmployeeViewProps> = ({ user, logs, onLogUpdate, ma
         
         {active ? (
           <div className="text-center space-y-4 w-full">
-            <div className="bg-blue-600 p-3 rounded-2xl shadow-lg shadow-blue-100">
-              <p className="text-xs font-bold text-blue-100 uppercase mb-1">В процессе</p>
+            <div className="bg-blue-600 p-3 rounded-2xl shadow-lg shadow-blue-100 relative overflow-hidden">
+              {active.isNightShift && (
+                <div className="absolute top-1 right-1">
+                   <svg className="w-3 h-3 text-white opacity-40" fill="currentColor" viewBox="0 0 20 20"><path d="M17.293 13.293A8 8 0 016.707 2.707a8.001 8.001 0 1010.586 10.586z"/></svg>
+                </div>
+              )}
+              <p className="text-xs font-bold text-blue-100 uppercase mb-1">В процессе {active.isNightShift ? '(Ночь)' : ''}</p>
               <p className="text-sm font-black text-white truncate px-2">{getMachineName(active.machineId)}</p>
             </div>
             <p className="text-3xl font-mono font-black text-slate-900 tabular-nums">{formatTime(active.checkIn)}</p>
@@ -345,12 +367,30 @@ const EmployeeView: React.FC<EmployeeViewProps> = ({ user, logs, onLogUpdate, ma
                 </select>
               </div>
             )}
+            
+            {perms.canUseNightShift && (
+              <div className="flex items-center justify-between px-2 py-1">
+                 <span className={`text-[10px] font-black uppercase tracking-widest flex items-center gap-1 ${isAnyNightShiftActive ? 'text-blue-600' : 'text-slate-400'}`}>
+                    <svg className={`w-3 h-3 ${isNightModeGlobal ? 'text-blue-500' : 'text-slate-300'}`} fill="currentColor" viewBox="0 0 20 20"><path d="M17.293 13.293A8 8 0 016.707 2.707a8.001 8.001 0 1010.586 10.586z"/></svg>
+                    Ночная смена
+                 </span>
+                 <button 
+                    disabled={isAnyNightShiftActive}
+                    onClick={() => setIsNightModeGlobal(!isNightModeGlobal)}
+                    className={`w-10 h-5 rounded-full transition-all relative ${isNightModeGlobal ? 'bg-blue-600' : 'bg-slate-200'} ${isAnyNightShiftActive ? 'opacity-80 cursor-not-allowed' : ''}`}
+                    title={isAnyNightShiftActive ? "Нельзя отключить, пока один из станков в ночной смене" : ""}
+                 >
+                    <div className={`absolute top-0.5 w-4 h-4 bg-white rounded-full shadow-sm transition-all ${isNightModeGlobal ? 'left-5.5' : 'left-0.5'}`}></div>
+                 </button>
+              </div>
+            )}
+
             <button 
               disabled={isAbsentToday || (perms.useMachines && busyMachineIds.includes(slotMachineIds[slot]))}
               onClick={() => processAction(slot, 'start')} 
               className="w-full py-4 bg-blue-600 hover:bg-blue-700 text-white rounded-2xl font-black text-sm shadow-lg shadow-blue-100 transition-all active:scale-95 uppercase disabled:bg-slate-300 disabled:shadow-none"
             >
-              Начать смену
+              Начать {isNightModeGlobal && perms.canUseNightShift ? 'ночную' : ''} смену
             </button>
           </div>
         )}
@@ -592,7 +632,8 @@ const EmployeeView: React.FC<EmployeeViewProps> = ({ user, logs, onLogUpdate, ma
                     {todayLogs.length > 0 ? todayLogs.map(log => (
                       <tr key={log.id} className="border-b border-slate-50 hover:bg-slate-50/50 transition-colors">
                         <td className="px-4 py-3">
-                          <span className={`px-2 py-1 rounded-lg text-[10px] font-black uppercase tracking-tight ${log.entryType === EntryType.WORK ? 'bg-blue-50 text-blue-600' : 'bg-amber-50 text-amber-600'}`}>
+                          <span className={`px-2 py-1 rounded-lg text-[10px] font-black uppercase tracking-tight flex items-center gap-1 w-fit ${log.entryType === EntryType.WORK ? 'bg-blue-50 text-blue-600' : 'bg-amber-50 text-amber-600'}`}>
+                            {log.isNightShift && <svg className="w-2.5 h-2.5" fill="currentColor" viewBox="0 0 20 20"><path d="M17.293 13.293A8 8 0 016.707 2.707a8.001 8.001 0 1010.586 10.586z"/></svg>}
                             {log.entryType === EntryType.WORK ? getMachineName(log.machineId) : 'Отсутствие'}
                           </span>
                         </td>
@@ -652,7 +693,7 @@ const EmployeeView: React.FC<EmployeeViewProps> = ({ user, logs, onLogUpdate, ma
                 <h3 className="font-bold text-slate-900">Мой Табель</h3>
                 <div className="flex gap-2">
                    <button onClick={() => window.print()} className="flex items-center gap-2 px-4 py-2 bg-slate-100 text-slate-600 border border-slate-200 rounded-xl text-xs font-bold hover:bg-white transition-colors">
-                     <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M17 17h2a2 2 0 002-2v-4a2 2 0 00-2-2H5a2 2 0 00-2 2v4a2 2 0 002 2h2m2 4h6a2 2 0 002-2v-4a2 2 0 00-2-2H9a2 2 0 00-2 2v4a2 2 0 002 2zm8-12V5a2 2 0 00-2-2H9a2 2 0 00-2 2v4h10z" /></svg>
+                     <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M17 17h2a2 2 0 002-2v-4a2 2 0 00-2-2H5a2 2 0 00-2 2v4a2 2 0 00-2 2h2m2 4h6a2 2 0 002-2v-4a2 2 0 00-2-2H9a2 2 0 00-2 2v4a2 2 0 002 2zm8-12V5a2 2 0 00-2-2H9a2 2 0 00-2 2v4h10z" /></svg>
                      Обычная печать
                    </button>
                    <button onClick={downloadCalendarPDF} className="flex items-center gap-2 px-4 py-2 bg-slate-900 text-white rounded-xl text-xs font-bold hover:bg-slate-800 transition-colors">

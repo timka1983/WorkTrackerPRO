@@ -1,4 +1,3 @@
-
 import { User, UserRole, Machine, WorkLog, EntryType, PositionConfig, PositionPermissions } from './types';
 
 export const DEFAULT_PERMISSIONS: PositionPermissions = {
@@ -8,7 +7,8 @@ export const DEFAULT_PERMISSIONS: PositionPermissions = {
   markAbsences: true,
   defaultRequirePhoto: false,
   isFullAdmin: false,
-  isLimitedAdmin: false
+  isLimitedAdmin: false,
+  canUseNightShift: false
 };
 
 export const INITIAL_USERS: User[] = [
@@ -29,7 +29,7 @@ export const INITIAL_MACHINES: Machine[] = [
 export const INITIAL_POSITIONS: PositionConfig[] = [
   { 
     name: 'Токарь', 
-    permissions: { ...DEFAULT_PERMISSIONS, useMachines: true, multiSlot: true } 
+    permissions: { ...DEFAULT_PERMISSIONS, useMachines: true, multiSlot: true, canUseNightShift: true } 
   },
   { 
     name: 'Инженер', 
@@ -41,7 +41,7 @@ export const INITIAL_POSITIONS: PositionConfig[] = [
   },
   { 
     name: 'Менеджер', 
-    permissions: { ...DEFAULT_PERMISSIONS, markAbsences: true, isLimitedAdmin: true } 
+    permissions: { ...DEFAULT_PERMISSIONS, markAbsences: true, isLimitedAdmin: true, canUseNightShift: true } 
   },
   { 
     name: 'Бухгалтер', 
