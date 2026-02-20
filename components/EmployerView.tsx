@@ -1,11 +1,12 @@
+
 import React, { useState, useMemo } from 'react';
-import { WorkLog, User, EntryType, UserRole, Machine, FIXED_POSITION_TURNER, PositionConfig, PositionPermissions } from '../types';
+import { WorkLog, User, EntryType, UserRole, Machine, FIXED_POSITION_TURNER, PositionConfig, PositionPermissions, Organization, PlanType, Plan } from '../types';
 import { formatDuration, getDaysInMonthArray, formatDurationShort, exportToCSV, formatTime, calculateMinutes } from '../utils';
 import { format, isAfter } from 'date-fns';
 import { startOfDay } from 'date-fns/startOfDay';
 import { subDays } from 'date-fns/subDays';
 import { ru } from 'date-fns/locale/ru';
-import { DEFAULT_PERMISSIONS, STORAGE_KEYS } from '../constants';
+import { DEFAULT_PERMISSIONS, STORAGE_KEYS, PLAN_LIMITS } from '../constants';
 import { db } from '../lib/supabase';
 
 interface EmployerViewProps {
@@ -25,15 +26,17 @@ interface EmployerViewProps {
   isSyncing?: boolean;
   nightShiftBonusMinutes: number;
   onUpdateNightBonus: (minutes: number) => void;
+  currentOrg: Organization | null;
+  plans: Plan[];
 }
 
 const EmployerView: React.FC<EmployerViewProps> = ({ 
   logs, users, onAddUser, onUpdateUser, onDeleteUser, 
   machines, onUpdateMachines, positions, onUpdatePositions, onImportData, onLogUpdate, onDeleteLog,
-  onRefresh, isSyncing = false, nightShiftBonusMinutes, onUpdateNightBonus
+  onRefresh, isSyncing = false, nightShiftBonusMinutes, onUpdateNightBonus, currentOrg, plans
 }) => {
   const [filterMonth, setFilterMonth] = useState(format(new Date(), 'yyyy-MM'));
-  const [viewMode, setViewMode] = useState<'matrix' | 'team' | 'analytics' | 'settings'>('analytics');
+  const [viewMode, setViewMode] = useState<'matrix' | 'team' | 'analytics' | 'settings' | 'billing'>('analytics');
   const [editingLog, setEditingLog] = useState<{ userId: string; date: string } | null>(null);
   const [tempNotes, setTempNotes] = useState<Record<string, string>>({});
   const [previewPhoto, setPreviewPhoto] = useState<string | null>(null);
@@ -46,6 +49,10 @@ const EmployerView: React.FC<EmployerViewProps> = ({
   const [configuringPosition, setConfiguringPosition] = useState<PositionConfig | null>(null);
   const [expandedTurnerRows, setExpandedTurnerRows] = useState<Set<string>>(new Set());
 
+  const [promoCode, setPromoCode] = useState('');
+  const [isApplyingPromo, setIsApplyingPromo] = useState(false);
+  const [promoMessage, setPromoMessage] = useState<{ text: string, type: 'success' | 'error' } | null>(null);
+
   const [newUser, setNewUser] = useState({ name: '', position: positions[0]?.name || '', department: '', pin: '0000', requirePhoto: false });
   const [newMachineName, setNewMachineName] = useState('');
   const [newPositionName, setNewPositionName] = useState('');
@@ -53,6 +60,16 @@ const EmployerView: React.FC<EmployerViewProps> = ({
   const employees = useMemo(() => {
     return [...users].sort((a, b) => a.name.localeCompare(b.name));
   }, [users]);
+
+  // Расчет текущих лимитов
+  const planLimits = useMemo(() => {
+    if (!currentOrg) return PLAN_LIMITS[PlanType.FREE];
+    const dynamicPlan = plans.find(p => p.type === currentOrg.plan);
+    return dynamicPlan ? dynamicPlan.limits : PLAN_LIMITS[currentOrg.plan];
+  }, [currentOrg, plans]);
+
+  const isUserLimitReached = users.length >= planLimits.maxUsers;
+  const isMachineLimitReached = machines.length >= planLimits.maxMachines;
 
   const days = getDaysInMonthArray(filterMonth);
   const today = startOfDay(new Date());
@@ -126,6 +143,7 @@ const EmployerView: React.FC<EmployerViewProps> = ({
     const mName = machines.find(m => m.id === log.machineId)?.name || 'Работа';
     if (!confirm(`Вы действительно хотите принудительно завершить смену (${mName}) для ${empName}? Таймер сотрудника будет остановлен, оборудование станет свободным.`)) return;
 
+    const orgId = localStorage.getItem(STORAGE_KEYS.ORG_ID) || 'default_org';
     const now = new Date();
     const duration = log.checkIn ? calculateMinutes(log.checkIn, now.toISOString()) : 0;
     
@@ -142,7 +160,7 @@ const EmployerView: React.FC<EmployerViewProps> = ({
     onLogUpdate(newLogs);
 
     try {
-      const currentActive = await db.getActiveShifts(log.userId);
+      const currentActive = await db.getActiveShifts(log.userId, orgId);
       if (currentActive) {
         const updatedActive = { ...currentActive };
         Object.keys(updatedActive).forEach(slotKey => {
@@ -150,7 +168,7 @@ const EmployerView: React.FC<EmployerViewProps> = ({
             updatedActive[slotKey] = null;
           }
         });
-        await db.saveActiveShifts(log.userId, updatedActive);
+        await db.saveActiveShifts(log.userId, updatedActive, orgId);
       }
     } catch (e) {
       console.warn("Не удалось очистить активную смену в облаке, но лог обновлен.");
@@ -201,6 +219,17 @@ const EmployerView: React.FC<EmployerViewProps> = ({
   
   const handlePermissionToggle = (key: keyof PositionPermissions) => {
     if (!configuringPosition) return;
+
+    // Проверка лимитов фич тарифа
+    if (key === 'canUseNightShift' && !planLimits.features.nightShift) {
+       alert("Ночная смена доступна только в тарифе PRO");
+       return;
+    }
+    if (key === 'defaultRequirePhoto' && !planLimits.features.photoCapture) {
+       alert("Фотофиксация доступна только в тарифе PRO");
+       return;
+    }
+
     const updated = {
       ...configuringPosition,
       permissions: {
@@ -269,6 +298,7 @@ const EmployerView: React.FC<EmployerViewProps> = ({
       { id: 'analytics', label: 'Дашборд' },
       { id: 'matrix', label: 'Табель' },
       { id: 'team', label: 'Команда' },
+      { id: 'billing', label: 'Биллинг' },
       { id: 'settings', label: 'Настройки' }
     ];
     if (userPerms.isFullAdmin) return allTabs;
@@ -280,6 +310,54 @@ const EmployerView: React.FC<EmployerViewProps> = ({
     if (confirm('Сбросить привязку профиля на этом устройстве? На этом планшете/телефоне система снова потребует выбрать пользователя при входе.')) {
       localStorage.removeItem(STORAGE_KEYS.LAST_USER_ID);
       alert('Привязка сброшена.');
+    }
+  };
+
+  const handleApplyPromo = async () => {
+    if (!promoCode.trim() || !currentOrg) return;
+    setIsApplyingPromo(true);
+    setPromoMessage(null);
+    
+    try {
+      const promos = await db.getPromoCodes();
+      const promo = promos?.find(p => p.code.toUpperCase() === promoCode.toUpperCase() && p.isActive);
+      
+      if (!promo) {
+        setPromoMessage({ text: 'Промокод не найден или неактивен', type: 'error' });
+        return;
+      }
+      
+      if (promo.maxUses > 0 && promo.usedCount >= promo.maxUses) {
+        setPromoMessage({ text: 'Лимит использований промокода исчерпан', type: 'error' });
+        return;
+      }
+      
+      if (promo.expiresAt && new Date(promo.expiresAt) < new Date()) {
+        setPromoMessage({ text: 'Срок действия промокода истек', type: 'error' });
+        return;
+      }
+
+      // Применяем промокод
+      const expiryDate = new Date();
+      expiryDate.setDate(expiryDate.getDate() + promo.durationDays);
+      
+      await db.updateOrganization(currentOrg.id, {
+        plan: promo.planType,
+        status: 'active',
+        expiryDate: expiryDate.toISOString()
+      });
+      
+      // Обновляем счетчик использований
+      await db.savePromoCode({ ...promo, usedCount: promo.usedCount + 1 });
+      
+      setPromoMessage({ text: `Промокод успешно применен! Тариф ${promo.planType} активирован на ${promo.durationDays} дней.`, type: 'success' });
+      setPromoCode('');
+      
+      if (onRefresh) await onRefresh();
+    } catch (err) {
+      setPromoMessage({ text: 'Ошибка при активации промокода', type: 'error' });
+    } finally {
+      setIsApplyingPromo(false);
     }
   };
 
@@ -311,27 +389,35 @@ const EmployerView: React.FC<EmployerViewProps> = ({
                   { key: 'isLimitedAdmin', label: 'Менеджер', desc: 'Доступ только к вкладкам Дашборд и Табель' },
                   { key: 'useMachines', label: 'Работа на станках', desc: 'Возможность выбирать оборудование при начале смены' },
                   { key: 'multiSlot', label: 'Мульти-слот (3 карточки)', desc: 'Одновременная работа на 3 станках (для токарей)' },
-                  { key: 'canUseNightShift', label: 'Ночная смена', desc: 'Возможность включать ночной режим работы с бонусом времени' },
+                  { key: 'canUseNightShift', label: 'Ночная смена', desc: 'Возможность включать ночной режим работы с бонусом времени', isPro: true },
                   { key: 'viewSelfMatrix', label: 'Вкладка «Мой Табель»', desc: 'Доступ сотрудника к своей статистике' },
                   { key: 'markAbsences', label: 'Регистрация пропусков', desc: 'Возможность отмечать Б, О, В самостоятельно' },
-                  { key: 'defaultRequirePhoto', label: 'Обязательное фото', desc: 'Фотофиксация при каждом начале/конце смены' },
-                ].map((item) => (
-                  <label key={item.key} className="flex items-center justify-between p-4 bg-slate-50 rounded-2xl border border-slate-100 cursor-pointer hover:bg-white transition-all group">
-                    <div className="flex-1 pr-4">
-                       <p className="text-xs font-black text-slate-800 uppercase tracking-tight">{item.label}</p>
-                       <p className="text-[9px] font-bold text-slate-400 leading-tight mt-0.5">{item.desc}</p>
-                    </div>
-                    <div className="relative inline-flex items-center cursor-pointer">
-                      <input 
-                        type="checkbox" 
-                        className="sr-only peer" 
-                        checked={(configuringPosition.permissions as any)[item.key]} 
-                        onChange={() => handlePermissionToggle(item.key as any)}
-                      />
-                      <div className="w-11 h-6 bg-slate-200 peer-focus:outline-none rounded-full peer peer-checked:after:translate-x-full after:content-[''] after:absolute after:top-[2px] after:start-[2px] after:bg-white after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-blue-600 shadow-sm"></div>
-                    </div>
-                  </label>
-                ))}
+                  { key: 'defaultRequirePhoto', label: 'Обязательное фото', desc: 'Фотофиксация при каждом начале/конце смены', isPro: true },
+                ].map((item) => {
+                  const isBlocked = (item.key === 'canUseNightShift' && !planLimits.features.nightShift) || 
+                                    (item.key === 'defaultRequirePhoto' && !planLimits.features.photoCapture);
+                  
+                  return (
+                    <label key={item.key} className={`flex items-center justify-between p-4 bg-slate-50 rounded-2xl border border-slate-100 cursor-pointer hover:bg-white transition-all group ${isBlocked ? 'opacity-60 grayscale-[0.5]' : ''}`}>
+                      <div className="flex-1 pr-4">
+                         <div className="flex items-center gap-2">
+                           <p className="text-xs font-black text-slate-800 uppercase tracking-tight">{item.label}</p>
+                           {isBlocked && <span className="text-[7px] font-black bg-blue-600 text-white px-1 py-0.5 rounded uppercase">PRO</span>}
+                         </div>
+                         <p className="text-[9px] font-bold text-slate-400 leading-tight mt-0.5">{item.desc}</p>
+                      </div>
+                      <div className="relative inline-flex items-center cursor-pointer">
+                        <input 
+                          type="checkbox" 
+                          className="sr-only peer" 
+                          checked={(configuringPosition.permissions as any)[item.key]} 
+                          onChange={() => handlePermissionToggle(item.key as any)}
+                        />
+                        <div className={`w-11 h-6 bg-slate-200 peer-focus:outline-none rounded-full peer peer-checked:after:translate-x-full after:content-[''] after:absolute after:top-[2px] after:start-[2px] after:bg-white after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-blue-600 shadow-sm ${isBlocked ? 'bg-slate-300' : ''}`}></div>
+                      </div>
+                    </label>
+                  );
+                })}
                 <button 
                   onClick={() => setConfiguringPosition(null)} 
                   className="w-full py-4 bg-slate-900 text-white rounded-2xl font-black uppercase tracking-widest text-xs mt-4 shadow-xl hover:bg-slate-800 transition-all active:scale-95 sticky bottom-0"
@@ -383,15 +469,18 @@ const EmployerView: React.FC<EmployerViewProps> = ({
                       />
                    </div>
                    <div className="flex flex-col justify-end">
-                      <div className="flex items-center gap-3 p-3 bg-slate-50 rounded-2xl border-2 border-slate-100 h-[52px]">
+                      <div className={`flex items-center gap-3 p-3 bg-slate-50 rounded-2xl border-2 border-slate-100 h-[52px] ${!planLimits.features.photoCapture ? 'opacity-50' : ''}`}>
                          <input 
+                           disabled={!planLimits.features.photoCapture}
                            type="checkbox" 
                            checked={editingEmployee.requirePhoto} 
                            onChange={e => setEditingEmployee({...editingEmployee, requirePhoto: e.target.checked})} 
                            className="w-5 h-5 rounded accent-blue-600" 
                            id="edit-req-photo" 
                          />
-                         <label htmlFor="edit-req-photo" className="text-[9px] font-black text-slate-600 uppercase cursor-pointer">Фото</label>
+                         <label htmlFor="edit-req-photo" className="text-[9px] font-black text-slate-600 uppercase cursor-pointer">
+                            Фото {!planLimits.features.photoCapture && 'PRO'}
+                         </label>
                       </div>
                    </div>
                 </div>
@@ -433,7 +522,7 @@ const EmployerView: React.FC<EmployerViewProps> = ({
              
              <div className="flex-1 overflow-y-auto p-6 space-y-4 custom-scrollbar bg-slate-50/30">
                 {logs.filter(l => l.userId === editingLog.userId && l.date === editingLog.date).map(log => (
-                  <div key={log.id} className="bg-white rounded-[1.5rem] border border-slate-200 shadow-sm p-5 space-y-4 relative group">
+                  <div className="bg-white rounded-[1.5rem] border border-slate-200 shadow-sm p-5 space-y-4 relative group">
                     <div className="flex flex-wrap items-center justify-between gap-3 border-b border-slate-100 pb-3">
                        <div className="flex items-center gap-3">
                           <span className={`text-[10px] font-black px-3 py-1 rounded-full uppercase tracking-widest border flex items-center gap-1 ${log.entryType === EntryType.WORK ? 'text-blue-700 bg-blue-50 border-blue-100' : 'text-amber-700 bg-amber-50 border-amber-100'}`}>
@@ -810,20 +899,42 @@ const EmployerView: React.FC<EmployerViewProps> = ({
       {viewMode === 'team' && (
         <section className="grid grid-cols-1 lg:grid-cols-3 gap-8">
           <div className="lg:col-span-1">
-            <div className="bg-white p-6 rounded-3xl border border-slate-200 shadow-sm sticky top-24">
-              <h3 className="font-bold text-slate-900 mb-6 uppercase text-xs tracking-widest underline decoration-blue-500 decoration-4 underline-offset-8">Новый сотрудник</h3>
-              <form onSubmit={handleAddUser} className="space-y-4">
-                <input required type="text" value={newUser.name} onChange={e => setNewUser({...newUser, name: e.target.value})} placeholder="ФИО сотрудника" className="w-full border-2 border-slate-100 rounded-2xl px-4 py-3 text-sm font-medium outline-none" />
-                <select value={newUser.position} onChange={e => setNewUser({...newUser, position: e.target.value})} className="w-full border-2 border-slate-100 rounded-2xl px-4 py-3 text-sm font-bold bg-white">
-                  {positions.map(p => <option key={p.name} value={p.name}>{p.name}</option>)}
-                </select>
-                <input type="text" maxLength={4} value={newUser.pin} onChange={e => setNewUser({...newUser, pin: e.target.value.replace(/[^0-9]/g, '')})} placeholder="PIN (0000)" className="w-full border-2 border-slate-100 rounded-2xl px-4 py-3 text-sm font-mono" />
-                <div className="flex items-center gap-3 p-4 bg-slate-50 rounded-2xl border-2 border-slate-100">
-                   <input type="checkbox" checked={newUser.requirePhoto} onChange={e => setNewUser({...newUser, requirePhoto: e.target.checked})} className="w-5 h-5 rounded accent-blue-600" id="req-photo" />
-                   <label htmlFor="req-photo" className="text-xs font-black text-slate-600 uppercase cursor-pointer">Обязательное фото</label>
+            <div className={`bg-white p-6 rounded-3xl border border-slate-200 shadow-sm sticky top-24 ${isUserLimitReached ? 'ring-2 ring-blue-600 ring-offset-2' : ''}`}>
+              <div className="flex justify-between items-center mb-6">
+                <h3 className="font-bold text-slate-900 uppercase text-xs tracking-widest underline decoration-blue-500 decoration-4 underline-offset-8">Новый сотрудник</h3>
+                <span className={`text-[10px] font-black px-2 py-0.5 rounded-full ${isUserLimitReached ? 'bg-red-100 text-red-600' : 'bg-slate-100 text-slate-400'}`}>
+                  {users.length} / {planLimits.maxUsers}
+                </span>
+              </div>
+              
+              {isUserLimitReached ? (
+                <div className="bg-blue-50 p-4 rounded-2xl border border-blue-100 text-center space-y-3">
+                   <p className="text-[11px] font-bold text-blue-800 leading-tight">Достигнут лимит сотрудников для тарифа {currentOrg?.plan}</p>
+                   <button onClick={() => window.location.href='#pricing'} className="w-full py-3 bg-blue-600 text-white rounded-xl text-[10px] font-black uppercase tracking-widest shadow-lg shadow-blue-200">Расширить лимит</button>
                 </div>
-                <button type="submit" className="w-full py-4 bg-blue-600 text-white rounded-2xl font-black shadow-lg shadow-blue-100 uppercase text-xs tracking-widest">Создать</button>
-              </form>
+              ) : (
+                <form onSubmit={handleAddUser} className="space-y-4">
+                  <input required type="text" value={newUser.name} onChange={e => setNewUser({...newUser, name: e.target.value})} placeholder="ФИО сотрудника" className="w-full border-2 border-slate-100 rounded-2xl px-4 py-3 text-sm font-medium outline-none" />
+                  <select value={newUser.position} onChange={e => setNewUser({...newUser, position: e.target.value})} className="w-full border-2 border-slate-100 rounded-2xl px-4 py-3 text-sm font-bold bg-white">
+                    {positions.map(p => <option key={p.name} value={p.name}>{p.name}</option>)}
+                  </select>
+                  <input type="text" maxLength={4} value={newUser.pin} onChange={e => setNewUser({...newUser, pin: e.target.value.replace(/[^0-9]/g, '')})} placeholder="PIN (0000)" className="w-full border-2 border-slate-100 rounded-2xl px-4 py-3 text-sm font-mono" />
+                  <div className={`flex items-center gap-3 p-4 bg-slate-50 rounded-2xl border-2 border-slate-100 ${!planLimits.features.photoCapture ? 'opacity-50' : ''}`}>
+                    <input 
+                      disabled={!planLimits.features.photoCapture}
+                      type="checkbox" 
+                      checked={newUser.requirePhoto} 
+                      onChange={e => setNewUser({...newUser, requirePhoto: e.target.checked})} 
+                      className="w-5 h-5 rounded accent-blue-600" 
+                      id="req-photo" 
+                    />
+                    <label htmlFor="req-photo" className="text-xs font-black text-slate-600 uppercase cursor-pointer">
+                       Обязательное фото {!planLimits.features.photoCapture && '(PRO)'}
+                    </label>
+                  </div>
+                  <button type="submit" className="w-full py-4 bg-blue-600 text-white rounded-2xl font-black shadow-lg shadow-blue-100 uppercase text-xs tracking-widest">Создать</button>
+                </form>
+              )}
             </div>
           </div>
           <div className="lg:col-span-2 space-y-4">
@@ -890,9 +1001,176 @@ const EmployerView: React.FC<EmployerViewProps> = ({
         </section>
       )}
 
+      {viewMode === 'billing' && (
+        <div className="space-y-8 no-print animate-fadeIn">
+          <section className="bg-white p-8 rounded-[2.5rem] border border-slate-200 shadow-sm overflow-hidden relative">
+            <div className="absolute top-0 right-0 p-8 opacity-5">
+              <svg className="w-32 h-32" fill="currentColor" viewBox="0 0 24 24"><path d="M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zm1.41 16.09V20h-2.82v-1.91c-1.52-.35-2.82-1.3-3.27-2.7h1.82c.45.75 1.2 1.25 2.1 1.25 1.1 0 2-.9 2-2s-.9-2-2-2c-2.1 0-3.9-1.8-3.9-3.9s1.8-3.9 3.9-3.9V5h2.82v1.91c1.52.35 2.82 1.3 3.27 2.7h-1.82c-.45-.75-1.2-1.25-2.1-1.25-1.1 0-2 .9-2 2s.9 2 2 2c2.1 0 3.9 1.8 3.9 3.9s-1.8 3.9-3.9 3.9z"/></svg>
+            </div>
+            
+            <div className="relative z-10">
+              <h3 className="font-black text-slate-900 mb-2 uppercase text-xs tracking-widest underline decoration-blue-500 decoration-4 underline-offset-8">Ваш тарифный план</h3>
+              <div className="flex items-baseline gap-3 mt-6">
+                <span className="text-4xl font-black text-slate-900 uppercase tracking-tighter">{currentOrg?.plan || PlanType.FREE}</span>
+                <span className="text-xs font-bold text-blue-600 bg-blue-50 px-3 py-1 rounded-full uppercase tracking-widest border border-blue-100">Активен</span>
+                {currentOrg?.expiryDate && (
+                  <span className="text-[10px] font-black text-slate-400 uppercase tracking-widest ml-4">
+                    До: {format(new Date(currentOrg.expiryDate), 'dd.MM.yyyy')}
+                  </span>
+                )}
+              </div>
+
+              <div className="mt-8 pt-8 border-t border-slate-100 max-w-md">
+                <h4 className="text-[10px] font-black text-slate-400 uppercase tracking-widest mb-3 ml-1">Активация промокода</h4>
+                <div className="flex gap-2">
+                  <input 
+                    type="text" 
+                    value={promoCode}
+                    onChange={e => setPromoCode(e.target.value)}
+                    placeholder="Введите код..."
+                    className="flex-1 border-2 border-slate-100 rounded-2xl px-4 py-3 text-sm font-bold uppercase tracking-widest outline-none focus:border-blue-500 transition-all"
+                  />
+                  <button 
+                    onClick={handleApplyPromo}
+                    disabled={isApplyingPromo || !promoCode.trim()}
+                    className="px-6 py-3 bg-blue-600 text-white rounded-2xl font-black text-xs uppercase tracking-widest shadow-lg shadow-blue-100 hover:bg-blue-700 disabled:bg-slate-200 disabled:shadow-none transition-all"
+                  >
+                    {isApplyingPromo ? '...' : 'ОК'}
+                  </button>
+                </div>
+                {promoMessage && (
+                  <p className={`mt-3 text-[10px] font-bold uppercase tracking-tight px-4 py-2 rounded-xl ${promoMessage.type === 'success' ? 'bg-green-50 text-green-600 border border-green-100' : 'bg-red-50 text-red-600 border border-red-100'}`}>
+                    {promoMessage.text}
+                  </p>
+                )}
+              </div>
+              
+              <div className="grid grid-cols-1 md:grid-cols-3 gap-6 mt-10">
+                <div className="bg-slate-50 p-6 rounded-3xl border border-slate-100">
+                  <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest mb-2">Сотрудники</p>
+                  <div className="flex items-baseline gap-1">
+                    <span className="text-2xl font-black text-slate-900">{users.length}</span>
+                    <span className="text-sm font-bold text-slate-400">/ {planLimits.maxUsers}</span>
+                  </div>
+                  <div className="w-full bg-slate-200 h-1.5 rounded-full mt-3 overflow-hidden">
+                    <div 
+                      className={`h-full rounded-full transition-all ${users.length / planLimits.maxUsers > 0.9 ? 'bg-red-500' : 'bg-blue-600'}`} 
+                      style={{ width: `${Math.min((users.length / planLimits.maxUsers) * 100, 100)}%` }}
+                    ></div>
+                  </div>
+                </div>
+                
+                <div className="bg-slate-50 p-6 rounded-3xl border border-slate-100">
+                  <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest mb-2">Оборудование</p>
+                  <div className="flex items-baseline gap-1">
+                    <span className="text-2xl font-black text-slate-900">{machines.length}</span>
+                    <span className="text-sm font-bold text-slate-400">/ {planLimits.maxMachines}</span>
+                  </div>
+                  <div className="w-full bg-slate-200 h-1.5 rounded-full mt-3 overflow-hidden">
+                    <div 
+                      className={`h-full rounded-full transition-all ${machines.length / planLimits.maxMachines > 0.9 ? 'bg-red-500' : 'bg-blue-600'}`} 
+                      style={{ width: `${Math.min((machines.length / planLimits.maxMachines) * 100, 100)}%` }}
+                    ></div>
+                  </div>
+                </div>
+
+                <div className="bg-slate-50 p-6 rounded-3xl border border-slate-100">
+                  <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest mb-2">Функционал</p>
+                  <div className="space-y-2 mt-1">
+                    <div className="flex items-center gap-2">
+                      <div className={`w-1.5 h-1.5 rounded-full ${planLimits.features.photoCapture ? 'bg-green-500' : 'bg-slate-300'}`}></div>
+                      <span className={`text-[10px] font-bold uppercase ${planLimits.features.photoCapture ? 'text-slate-700' : 'text-slate-400'}`}>Фотофиксация</span>
+                    </div>
+                    <div className="flex items-center gap-2">
+                      <div className={`w-1.5 h-1.5 rounded-full ${planLimits.features.nightShift ? 'bg-green-500' : 'bg-slate-300'}`}></div>
+                      <span className={`text-[10px] font-bold uppercase ${planLimits.features.nightShift ? 'text-slate-700' : 'text-slate-400'}`}>Ночные смены</span>
+                    </div>
+                    <div className="flex items-center gap-2">
+                      <div className={`w-1.5 h-1.5 rounded-full ${planLimits.features.advancedAnalytics ? 'bg-green-500' : 'bg-slate-300'}`}></div>
+                      <span className={`text-[10px] font-bold uppercase ${planLimits.features.advancedAnalytics ? 'text-slate-700' : 'text-slate-400'}`}>Аналитика</span>
+                    </div>
+                  </div>
+                </div>
+              </div>
+            </div>
+          </section>
+
+          <div className="grid grid-cols-1 md:grid-cols-3 gap-8">
+            {[PlanType.FREE, PlanType.PRO, PlanType.BUSINESS].map((planType) => {
+              const dynamicPlan = plans.find(p => p.type === planType);
+              const limits = dynamicPlan ? dynamicPlan.limits : PLAN_LIMITS[planType];
+              const isCurrent = currentOrg?.plan === planType;
+              
+              return (
+                <div key={planType} className={`bg-white p-8 rounded-[2.5rem] border-2 transition-all flex flex-col ${isCurrent ? 'border-blue-600 shadow-xl shadow-blue-50' : 'border-slate-100 hover:border-slate-200'}`}>
+                  <div className="flex justify-between items-start mb-6">
+                    <div>
+                      <h4 className="font-black text-slate-900 uppercase tracking-tighter text-xl">{dynamicPlan?.name || planType}</h4>
+                      <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest mt-1">
+                        {planType === PlanType.FREE ? 'Для малого бизнеса' : planType === PlanType.PRO ? 'Для растущих команд' : 'Для крупных предприятий'}
+                      </p>
+                    </div>
+                    {isCurrent && <span className="text-[8px] font-black bg-blue-600 text-white px-2 py-1 rounded-full uppercase">Текущий</span>}
+                  </div>
+                  
+                  <div className="mb-8 space-y-4 flex-1">
+                    <div className="flex items-center gap-3">
+                      <div className="w-8 h-8 rounded-xl bg-slate-50 flex items-center justify-center text-blue-600">
+                        <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2.5} d="M12 4.354a4 4 0 110 5.292M15 21H3v-1a6 6 0 0112 0v1zm0 0h6v-1a6 6 0 00-9-5.197M13 7a4 4 0 11-8 0 4 4 0 018 0z"/></svg>
+                      </div>
+                      <div>
+                        <p className="text-xs font-black text-slate-900 uppercase tracking-tight">{limits.maxUsers === 1000 ? 'Безлимитно' : `${limits.maxUsers} сотрудников`}</p>
+                        <p className="text-[9px] font-bold text-slate-400 uppercase">Макс. пользователей</p>
+                      </div>
+                    </div>
+                    
+                    <div className="flex items-center gap-3">
+                      <div className="w-8 h-8 rounded-xl bg-slate-50 flex items-center justify-center text-blue-600">
+                        <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2.5} d="M19 11H5m14 0a2 2 0 012 2v6a2 2 0 01-2 2H5a2 2 0 01-2-2v-6a2 2 0 01-2-2m14 0V9a2 2 0 00-2-2M5 11V9a2 2 0 012-2m0 0V5a2 2 0 012-2h6a2 2 0 012 2v2M7 7h10"/></svg>
+                      </div>
+                      <div>
+                        <p className="text-xs font-black text-slate-900 uppercase tracking-tight">{limits.maxMachines === 1000 ? 'Безлимитно' : `${limits.maxMachines} станков`}</p>
+                        <p className="text-[9px] font-bold text-slate-400 uppercase">Оборудование</p>
+                      </div>
+                    </div>
+
+                    <div className="pt-4 space-y-2 border-t border-slate-50">
+                      {[
+                        { label: 'Фотофиксация', enabled: limits.features.photoCapture },
+                        { label: 'Ночные смены', enabled: limits.features.nightShift },
+                        { label: 'Аналитика', enabled: limits.features.advancedAnalytics },
+                        { label: 'Облачная синхронизация', enabled: true },
+                        { label: 'Техподдержка 24/7', enabled: planType !== PlanType.FREE },
+                      ].map((feat, idx) => (
+                        <div key={idx} className="flex items-center gap-2">
+                          <svg className={`w-3 h-3 ${feat.enabled ? 'text-green-500' : 'text-slate-200'}`} fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={3} d="M5 13l4 4L19 7"/></svg>
+                          <span className={`text-[10px] font-bold uppercase ${feat.enabled ? 'text-slate-600' : 'text-slate-300 line-through'}`}>{feat.label}</span>
+                        </div>
+                      ))}
+                    </div>
+                  </div>
+                  
+                  <button 
+                    disabled={isCurrent}
+                    className={`w-full py-4 rounded-2xl font-black uppercase tracking-widest text-xs transition-all ${isCurrent ? 'bg-slate-100 text-slate-400 cursor-default' : 'bg-slate-900 text-white hover:bg-blue-600 shadow-lg shadow-slate-100 hover:shadow-blue-100 active:scale-95'}`}
+                  >
+                    {isCurrent ? 'Ваш тариф' : 'Выбрать тариф'}
+                  </button>
+                </div>
+              );
+            })}
+          </div>
+        </div>
+      )}
+
       {viewMode === 'settings' && (
         <div className="space-y-8 no-print">
-          <section className="bg-white p-8 rounded-[2.5rem] border border-slate-200 shadow-sm">
+          <section className="bg-white p-8 rounded-[2.5rem] border border-slate-200 shadow-sm relative overflow-hidden">
+            {!planLimits.features.nightShift && (
+               <div className="absolute inset-0 bg-white/40 backdrop-blur-[2px] z-10 flex items-center justify-center cursor-help" onClick={() => alert('Ночная смена доступна в PRO тарифе')}>
+                  <span className="bg-blue-600 text-white px-6 py-2 rounded-full text-xs font-black uppercase tracking-widest shadow-xl">Разблокировать в PRO</span>
+               </div>
+            )}
             <h3 className="font-black text-slate-900 mb-6 flex items-center gap-2 underline decoration-blue-500 decoration-4 underline-offset-8 uppercase text-xs tracking-widest">Параметры смен</h3>
             <div className="max-w-md space-y-4">
                <div className="space-y-2">
@@ -916,16 +1194,32 @@ const EmployerView: React.FC<EmployerViewProps> = ({
 
           <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
             <section className="bg-white p-8 rounded-[2.5rem] border border-slate-200 shadow-sm">
-              <h3 className="font-bold text-slate-900 mb-6 underline decoration-blue-500 decoration-4 underline-offset-8 uppercase text-xs tracking-widest">Оборудование</h3>
-              <div className="flex gap-2 mb-6">
-                <input type="text" value={newMachineName} onChange={e => setNewMachineName(e.target.value)} placeholder="Название станка" className="flex-1 border-2 border-slate-100 rounded-2xl px-4 py-3 text-sm outline-none focus:border-blue-500 transition-all" />
-                <button onClick={() => {
-                  if (newMachineName.trim()) {
-                    handleUpdateMachinesList([...machines, { id: 'm' + Date.now(), name: newMachineName }]);
-                    setNewMachineName('');
-                  }
-                }} className="px-6 py-3 bg-blue-600 text-white rounded-2xl font-black text-sm uppercase">Добавить</button>
+              <div className="flex justify-between items-center mb-6">
+                <h3 className="font-bold text-slate-900 underline decoration-blue-500 decoration-4 underline-offset-8 uppercase text-xs tracking-widest">Оборудование</h3>
+                <span className={`text-[10px] font-black px-2 py-0.5 rounded-full ${isMachineLimitReached ? 'bg-red-100 text-red-600' : 'bg-slate-100 text-slate-400'}`}>
+                   {machines.length} / {planLimits.maxMachines}
+                </span>
               </div>
+              
+              <div className="flex gap-2 mb-6">
+                <input 
+                   disabled={isMachineLimitReached}
+                   type="text" 
+                   value={newMachineName} 
+                   onChange={e => setNewMachineName(e.target.value)} 
+                   placeholder={isMachineLimitReached ? "Лимит тарифа исчерпан" : "Название станка"} 
+                   className="flex-1 border-2 border-slate-100 rounded-2xl px-4 py-3 text-sm outline-none focus:border-blue-500 transition-all disabled:bg-slate-50" 
+                />
+                <button 
+                  disabled={isMachineLimitReached}
+                  onClick={() => {
+                    if (newMachineName.trim()) {
+                      handleUpdateMachinesList([...machines, { id: 'm' + Date.now(), name: newMachineName }]);
+                      setNewMachineName('');
+                    }
+                  }} className="px-6 py-3 bg-blue-600 text-white rounded-2xl font-black text-sm uppercase disabled:bg-slate-300">Добавить</button>
+              </div>
+              
               <div className="space-y-2 max-h-[300px] overflow-y-auto pr-1 custom-scrollbar">
                 {machines.map(m => (
                   <div key={m.id} className="flex items-center justify-between p-4 bg-slate-50 rounded-2xl border border-slate-100 hover:bg-white transition-all">
@@ -996,7 +1290,7 @@ const EmployerView: React.FC<EmployerViewProps> = ({
                              className="p-2 text-slate-500 hover:text-blue-600"
                              title="Конструктор функций"
                            >
-                             <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2.5} d="M10.325 4.317c.426-1.756 2.924-1.756 3.35 0a1.724 1.724 0 002.573 1.066c1.543-.94 3.31.826 2.37 2.37a1.724 1.724 0 001.065 2.572c1.756.426 1.756 2.924 0 3.35a1.724 1.724 0 00-1.066 2.573c.94 1.543-.826 3.31-2.37 2.37a1.724 1.724 0 00-2.572 1.065c-.426 1.756-2.924 1.756-3.35 0a1.724 1.724 0 00-2.573-1.066-1.543.94-3.31-.826-2.37-2.37a1.724 1.724 0 00-1.065-2.572c-1.756-.426-1.756-2.924 0-3.35a1.724 1.724 0 001.066-2.573c-.94-1.543.826-3.31 2.37-2.37.996.608 2.296.07 2.572-1.065z" /><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2.5} d="M15 12a3 3 0 11-6 0 3 3 0 016 0z" /></svg>
+                             <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2.5} d="M10.325 4.317c.426-1.756 2.924-1.756 3.35 0a1.724 1.724 0 002.573 1.066c1.543-.94 3.31.826 2.37 2.37a1.724 1.724 0 001.065 2.572c1.756.426 1.756 2.924 0 3.35a1.724 1.724 0 00-1.066 2.573c.94 1.543-.826 3.31-2.37 2.37a1.724 1.724(0 00-2.572 1.065c-.426 1.756-2.924 1.756-3.35 0a1.724 1.724 0 00-2.573-1.066-1.543.94-3.31-.826-2.37-2.37a1.724 1.724 0 00-1.065-2.572c-1.756-.426-1.756-2.924 0-3.35a1.724 1.724 0 001.066-2.573c-.94-1.543.826-3.31 2.37-2.37.996.608 2.296.07 2.572-1.065z" /><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2.5} d="M15 12a3 3 0 11-6 0 3 3 0 016 0z" /></svg>
                            </button>
                            {p.name !== FIXED_POSITION_TURNER && (
                              <>

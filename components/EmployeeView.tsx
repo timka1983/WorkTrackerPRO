@@ -1,6 +1,6 @@
 
 import React, { useState, useEffect, useMemo, useRef } from 'react';
-import { WorkLog, User, EntryType, FIXED_POSITION_TURNER, Machine, PositionConfig } from '../types';
+import { WorkLog, User, EntryType, Machine, PositionConfig } from '../types';
 import { formatTime, formatDate, formatDuration, calculateMinutes, getDaysInMonthArray, formatDurationShort } from '../utils';
 import { STORAGE_KEYS, DEFAULT_PERMISSIONS } from '../constants';
 import { format, isAfter, endOfMonth, eachDayOfInterval, getDay, addMonths } from 'date-fns';
@@ -23,6 +23,8 @@ interface EmployeeViewProps {
 const EmployeeView: React.FC<EmployeeViewProps> = ({ 
   user, logs, onLogUpdate, machines, positions, onUpdateUser, nightShiftBonusMinutes 
 }) => {
+  const orgId = localStorage.getItem(STORAGE_KEYS.ORG_ID) || 'default_org';
+
   const perms = useMemo(() => {
     const config = positions.find(p => p.name === user.position);
     return config?.permissions || DEFAULT_PERMISSIONS;
@@ -42,14 +44,10 @@ const EmployeeView: React.FC<EmployeeViewProps> = ({
   const [pinState, setPinState] = useState({ old: '', new: '', confirm: '' });
   const [pinError, setPinError] = useState('');
 
-  // Единое состояние ночного режима для всех слотов
   const [isNightModeGlobal, setIsNightModeGlobal] = useState(false);
-
   const videoRef = useRef<HTMLVideoElement>(null);
 
-  // Проверка: запущена ли хотя бы одна ночная смена на оборудовании
   const isAnyNightShiftActive = useMemo(() => {
-    // Добавлен type assertion (as WorkLog), так как Object.values может возвращать unknown[] в зависимости от версии TS
     return Object.values(activeShifts).some(s => s !== null && (s as WorkLog).isNightShift);
   }, [activeShifts]);
 
@@ -81,14 +79,13 @@ const EmployeeView: React.FC<EmployeeViewProps> = ({
         try {
           const parsed = JSON.parse(saved);
           setActiveShifts(parsed);
-          // Если хоть одна активная смена ночная - включаем глобальный флаг
           const hasAnyNight = Object.values(parsed).some(s => s && (s as WorkLog).isNightShift);
           if (hasAnyNight) setIsNightModeGlobal(true);
         } catch (e) {}
       }
       
       try {
-        const dbShifts = await db.getActiveShifts(user.id);
+        const dbShifts = await db.getActiveShifts(user.id, orgId);
         if (dbShifts) {
           setActiveShifts(dbShifts);
           localStorage.setItem(`${STORAGE_KEYS.ACTIVE_SHIFTS}_${user.id}`, JSON.stringify(dbShifts));
@@ -101,7 +98,7 @@ const EmployeeView: React.FC<EmployeeViewProps> = ({
     };
     
     loadShifts();
-  }, [user.id]);
+  }, [user.id, orgId]);
 
   useEffect(() => {
     if (showCamera) {
@@ -126,7 +123,7 @@ const EmployeeView: React.FC<EmployeeViewProps> = ({
   const saveActiveShifts = (shifts: Record<number, WorkLog | null>) => {
     setActiveShifts(shifts);
     localStorage.setItem(`${STORAGE_KEYS.ACTIVE_SHIFTS}_${user.id}`, JSON.stringify(shifts));
-    db.saveActiveShifts(user.id, shifts); 
+    db.saveActiveShifts(user.id, shifts, orgId); 
   };
 
   const capturePhoto = (): string => {
@@ -176,6 +173,7 @@ const EmployeeView: React.FC<EmployeeViewProps> = ({
     const newShift: WorkLog = {
       id: `shift-${user.id}-${Date.now()}-${slot}`,
       userId: user.id,
+      organizationId: orgId,
       date: dateStr,
       entryType: EntryType.WORK,
       machineId: selectedMachineId,
@@ -198,7 +196,6 @@ const EmployeeView: React.FC<EmployeeViewProps> = ({
     const now = new Date();
     let duration = calculateMinutes(currentShift.checkIn!, now.toISOString());
     
-    // Применяем бонус ночной смены
     if (currentShift.isNightShift) {
       duration += nightShiftBonusMinutes;
     }
@@ -222,6 +219,17 @@ const EmployeeView: React.FC<EmployeeViewProps> = ({
   };
 
   const handleMarkAbsence = (type: EntryType) => {
+    const typeNames = {
+      [EntryType.DAY_OFF]: 'Выходной',
+      [EntryType.SICK]: 'Больничный',
+      [EntryType.VACATION]: 'Отпуск',
+      [EntryType.WORK]: 'Рабочая смена'
+    };
+
+    if (!confirm(`Вы действительно хотите отметить сегодняшний день как "${typeNames[type]}"? Это действие нельзя будет отменить самостоятельно.`)) {
+      return;
+    }
+
     const dateStr = format(new Date(), 'yyyy-MM-dd');
     const exists = logs.find(l => l.date === dateStr && l.userId === user.id);
     if (exists) {
@@ -235,6 +243,7 @@ const EmployeeView: React.FC<EmployeeViewProps> = ({
     const log: WorkLog = {
       id: `abs-${user.id}-${Date.now()}`,
       userId: user.id,
+      organizationId: orgId,
       date: dateStr,
       entryType: type,
       durationMinutes: 0

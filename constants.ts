@@ -1,4 +1,35 @@
-import { User, UserRole, Machine, WorkLog, EntryType, PositionConfig, PositionPermissions } from './types';
+
+import { User, UserRole, Machine, WorkLog, EntryType, PositionConfig, PositionPermissions, PlanType, PlanLimits } from './types';
+
+export const PLAN_LIMITS: Record<PlanType, PlanLimits> = {
+  [PlanType.FREE]: {
+    maxUsers: 3,
+    maxMachines: 2,
+    features: {
+      photoCapture: false,
+      nightShift: false,
+      advancedAnalytics: false
+    }
+  },
+  [PlanType.PRO]: {
+    maxUsers: 20,
+    maxMachines: 10,
+    features: {
+      photoCapture: true,
+      nightShift: true,
+      advancedAnalytics: true
+    }
+  },
+  [PlanType.BUSINESS]: {
+    maxUsers: 1000,
+    maxMachines: 1000,
+    features: {
+      photoCapture: true,
+      nightShift: true,
+      advancedAnalytics: true
+    }
+  }
+};
 
 export const DEFAULT_PERMISSIONS: PositionPermissions = {
   useMachines: false,
@@ -21,9 +52,7 @@ export const INITIAL_USERS: User[] = [
 
 export const INITIAL_MACHINES: Machine[] = [
   { id: 'm1', name: 'Пила Bosch' },
-  { id: 'm2', name: 'Станок 502' },
-  { id: 'm3', name: 'Токарный ЧПУ' },
-  { id: 'm4', name: 'Пресс гидравлический' }
+  { id: 'm2', name: 'Станок 502' }
 ];
 
 export const INITIAL_POSITIONS: PositionConfig[] = [
@@ -60,7 +89,10 @@ export const STORAGE_KEYS = {
   MACHINES_LIST: 'timesheet_machines_list',
   POSITIONS_LIST: 'timesheet_positions_list',
   ACTIVE_SHIFTS: 'timesheet_active_shifts',
-  LAST_USER_ID: 'timesheet_last_user_id'
+  LAST_USER_ID: 'timesheet_last_user_id',
+  ORG_ID: 'timesheet_org_id',
+  ORG_DATA: 'timesheet_org_data',
+  PROMO_CODES: 'timesheet_promo_codes'
 };
 
 const savedLogs = localStorage.getItem(STORAGE_KEYS.WORK_LOGS);
