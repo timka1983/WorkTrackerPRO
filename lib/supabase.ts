@@ -225,9 +225,10 @@ export const db = {
     }
   },
   updateOrganization: async (orgId: string, updates: Partial<Organization>) => {
-    if (!isConfigured()) return;
+    if (!isConfigured()) return { error: 'Not configured' };
     const { error } = await supabase.from('organizations').update(updates).eq('id', orgId);
     if (error) console.error('Error updating organization:', error);
+    return { error };
   },
   createOrganization: async (org: Organization) => {
     if (!isConfigured()) return;

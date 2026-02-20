@@ -94,8 +94,9 @@ const App: React.FC = () => {
     try {
       const dbOrg = await db.getOrganization(orgId);
       if (dbOrg) {
-        // Проверка истечения срока действия
-        if (dbOrg.expiryDate && new Date(dbOrg.expiryDate) < new Date() && dbOrg.status !== 'expired') {
+        // Проверка истечения срока действия: только если статус active/trial и дата в прошлом
+        const isExpired = dbOrg.expiryDate && new Date(dbOrg.expiryDate) < new Date();
+        if (isExpired && dbOrg.status !== 'expired') {
           dbOrg.status = 'expired';
           dbOrg.plan = PlanType.FREE; // Сброс на бесплатный при истечении
           await db.updateOrganization(orgId, { status: 'expired', plan: PlanType.FREE });

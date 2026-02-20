@@ -101,14 +101,22 @@ const SuperAdminView: React.FC<SuperAdminViewProps> = ({ onLogout }) => {
     
     setSaving(true);
     try {
-      await db.updateOrganization(editingOrg.id, {
+      const { error } = await db.updateOrganization(editingOrg.id, {
         plan: editingOrg.plan,
         status: editingOrg.status,
         name: editingOrg.name,
-        email: editingOrg.email
+        email: editingOrg.email,
+        expiryDate: editingOrg.expiryDate
       });
+      
+      if (error) {
+        alert('Ошибка при обновлении организации: ' + (error as any).message);
+        return;
+      }
+
       setOrganizations(prev => prev.map(o => o.id === editingOrg.id ? editingOrg : o));
       setEditingOrg(null);
+      alert('Организация успешно обновлена');
     } catch (error) {
       console.error('Error updating org:', error);
     } finally {
@@ -939,6 +947,29 @@ const SuperAdminView: React.FC<SuperAdminViewProps> = ({ onLogout }) => {
                     <option value="expired">Expired</option>
                   </select>
                 </div>
+              </div>
+
+              <div>
+                <label className="block text-xs font-bold text-slate-500 uppercase tracking-wider mb-2">Дата истечения (Expiry Date)</label>
+                <div className="flex gap-2">
+                  <input 
+                    type="date"
+                    value={editingOrg.expiryDate ? editingOrg.expiryDate.split('T')[0] : ''}
+                    onChange={(e) => setEditingOrg({
+                      ...editingOrg, 
+                      expiryDate: e.target.value ? new Date(e.target.value).toISOString() : undefined
+                    })}
+                    className="flex-1 px-4 py-2.5 bg-slate-50 border border-slate-200 rounded-xl focus:ring-2 focus:ring-indigo-500 outline-none transition-all"
+                  />
+                  <button 
+                    type="button"
+                    onClick={() => setEditingOrg({...editingOrg, expiryDate: undefined})}
+                    className="px-4 py-2 bg-slate-100 text-slate-600 rounded-xl text-xs font-bold hover:bg-slate-200"
+                  >
+                    Сбросить
+                  </button>
+                </div>
+                <p className="text-[10px] text-slate-400 mt-1">Оставьте пустым для бессрочного тарифа</p>
               </div>
 
               <div className="p-4 bg-indigo-50 rounded-2xl border border-indigo-100">
