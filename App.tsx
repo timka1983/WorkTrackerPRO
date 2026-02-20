@@ -23,6 +23,7 @@ const App: React.FC = () => {
   
   // Состояние для окна апгрейда
   const [upgradeReason, setUpgradeReason] = useState<string | null>(null);
+  const [showUpgradeModal, setShowUpgradeModal] = useState(false);
 
   const [showLanding, setShowLanding] = useState<boolean>(() => {
     const hasUser = localStorage.getItem(STORAGE_KEYS.CURRENT_USER);
@@ -96,11 +97,15 @@ const App: React.FC = () => {
       if (dbOrg) {
         // Проверка истечения срока действия: только если статус active/trial и дата в прошлом
         const isExpired = dbOrg.expiryDate && new Date(dbOrg.expiryDate) < new Date();
-        if (isExpired && dbOrg.status !== 'expired') {
+        
+        // Если тариф истек и он НЕ Free, сбрасываем его
+        if (isExpired && dbOrg.status !== 'expired' && dbOrg.plan !== PlanType.FREE) {
           dbOrg.status = 'expired';
-          dbOrg.plan = PlanType.FREE; // Сброс на бесплатный при истечении
+          dbOrg.plan = PlanType.FREE;
           await db.updateOrganization(orgId, { status: 'expired', plan: PlanType.FREE });
+          setUpgradeReason(`Срок действия тарифа истек.`);
         }
+        
         setCurrentOrg(dbOrg);
         localStorage.setItem(STORAGE_KEYS.ORG_DATA, JSON.stringify(dbOrg));
       } else if (orgId === DEFAULT_ORG_ID) {
@@ -173,12 +178,14 @@ const App: React.FC = () => {
       case 'users':
         if (users.length >= limits.maxUsers) {
           setUpgradeReason(`Вы достигли лимита сотрудников (${limits.maxUsers}) для вашего тарифа.`);
+          setShowUpgradeModal(true);
           return false;
         }
         break;
       case 'machines':
         if (machines.length >= limits.maxMachines) {
           setUpgradeReason(`Вы достигли лимита оборудования (${limits.maxMachines}) для вашего тарифа.`);
+          setShowUpgradeModal(true);
           return false;
         }
         break;
@@ -528,8 +535,33 @@ const App: React.FC = () => {
           </div>
         </div>
       )}
+      
+      {upgradeReason && !showUpgradeModal && (
+        <div className="fixed inset-0 z-[200] bg-slate-900/80 backdrop-blur-md flex items-center justify-center p-4 animate-fadeIn">
+          <div className="bg-white rounded-[2.5rem] shadow-2xl p-10 w-full max-w-sm border border-slate-200 text-center space-y-6">
+            <div className="w-20 h-20 bg-amber-100 text-amber-600 rounded-3xl flex items-center justify-center mx-auto shadow-xl shadow-amber-50">
+              <svg className="w-10 h-10" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2.5} d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z" /></svg>
+            </div>
+            <div>
+              <h3 className="text-xl font-black text-slate-900 uppercase tracking-tight mb-2">Уведомление</h3>
+              <p className="text-sm text-slate-500 font-medium leading-relaxed">
+                {upgradeReason}
+              </p>
+            </div>
+            <div className="space-y-3">
+              <button 
+                onClick={() => setUpgradeReason(null)}
+                className="w-full py-4 bg-slate-900 text-white rounded-2xl font-black uppercase text-xs tracking-widest shadow-xl hover:bg-slate-800 transition-all active:scale-95"
+              >
+                Понятно
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
 
-      {upgradeReason && (
+      {/* Upgrade Modal (Limits reached) */}
+      {showUpgradeModal && (
         <div className="fixed inset-0 z-[200] bg-slate-900/80 backdrop-blur-md flex items-center justify-center p-4 animate-fadeIn">
           <div className="bg-white rounded-[2.5rem] shadow-2xl p-10 w-full max-w-sm border border-slate-200 text-center space-y-6">
             <div className="w-20 h-20 bg-blue-100 text-blue-600 rounded-3xl flex items-center justify-center mx-auto shadow-xl shadow-blue-50">
@@ -541,13 +573,13 @@ const App: React.FC = () => {
             </div>
             <div className="space-y-3">
               <button 
-                onClick={() => { window.location.href = '#pricing'; setUpgradeReason(null); }}
+                onClick={() => { window.location.href = '#pricing'; setUpgradeReason(null); setShowUpgradeModal(false); }}
                 className="w-full py-4 bg-blue-600 text-white rounded-2xl font-black uppercase text-xs tracking-widest shadow-xl shadow-blue-200 hover:bg-blue-700 transition-all active:scale-95"
               >
                 Посмотреть тарифы
               </button>
               <button 
-                onClick={() => setUpgradeReason(null)}
+                onClick={() => { setUpgradeReason(null); setShowUpgradeModal(false); }}
                 className="w-full py-4 bg-slate-100 text-slate-500 rounded-2xl font-black uppercase text-[10px] tracking-widest hover:bg-slate-200 transition-all"
               >
                 Позже

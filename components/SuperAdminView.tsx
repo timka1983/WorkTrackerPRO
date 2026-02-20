@@ -927,7 +927,27 @@ const SuperAdminView: React.FC<SuperAdminViewProps> = ({ onLogout }) => {
                   <label className="block text-xs font-bold text-slate-500 uppercase tracking-wider mb-2">Тарифный план</label>
                   <select 
                     value={editingOrg.plan}
-                    onChange={(e) => setEditingOrg({...editingOrg, plan: e.target.value as PlanType})}
+                    onChange={(e) => {
+                      const newPlan = e.target.value as PlanType;
+                      let newStatus = editingOrg.status;
+                      let newExpiry = editingOrg.expiryDate;
+                      
+                      // Если меняем на платный тариф, автоматически активируем и убираем просрочку
+                      if (newPlan !== PlanType.FREE && editingOrg.plan === PlanType.FREE) {
+                        newStatus = 'active';
+                        // Если дата в прошлом, сбрасываем её
+                        if (newExpiry && new Date(newExpiry) < new Date()) {
+                          newExpiry = undefined;
+                        }
+                      }
+                      
+                      setEditingOrg({
+                        ...editingOrg, 
+                        plan: newPlan,
+                        status: newStatus,
+                        expiryDate: newExpiry
+                      });
+                    }}
                     className="w-full px-4 py-2.5 bg-slate-50 border border-slate-200 rounded-xl focus:ring-2 focus:ring-indigo-500 outline-none transition-all"
                   >
                     <option value={PlanType.FREE}>FREE</option>
