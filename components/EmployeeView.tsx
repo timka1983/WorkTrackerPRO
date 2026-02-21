@@ -178,6 +178,7 @@ const EmployeeView: React.FC<EmployeeViewProps> = ({
       entryType: EntryType.WORK,
       machineId: selectedMachineId,
       checkIn: now.toISOString(),
+      checkOut: undefined, // Явно указываем отсутствие завершения
       durationMinutes: 0,
       photoIn: photo,
       isNightShift: isNightModeGlobal

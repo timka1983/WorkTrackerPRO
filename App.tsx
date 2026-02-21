@@ -190,6 +190,96 @@ const App: React.FC = () => {
     initData();
   }, [initData]);
 
+  // Real-time subscriptions
+  useEffect(() => {
+    if (!isInitialized || !currentOrg) return;
+
+    const orgId = currentOrg.id;
+    
+    const unsubLogs = db.subscribeToChanges(orgId, 'work_logs', (payload) => {
+      if (payload.eventType === 'INSERT' || payload.eventType === 'UPDATE') {
+        const newLog = {
+          id: payload.new.id,
+          userId: payload.new.user_id,
+          organizationId: payload.new.organization_id,
+          date: payload.new.date,
+          entryType: payload.new.entry_type,
+          machineId: payload.new.machine_id,
+          checkIn: payload.new.check_in,
+          checkOut: payload.new.check_out,
+          durationMinutes: payload.new.duration_minutes,
+          photoIn: payload.new.photo_in,
+          photoOut: payload.new.photo_out,
+          isCorrected: payload.new.is_corrected,
+          correctionNote: payload.new.correction_note,
+          correctionTimestamp: payload.new.correction_timestamp,
+          isNightShift: payload.new.is_night_shift
+        };
+        
+        setLogs(prev => {
+          const exists = prev.find(l => l.id === newLog.id);
+          if (exists && JSON.stringify(exists) === JSON.stringify(newLog)) return prev;
+          
+          const filtered = prev.filter(l => l.id !== newLog.id);
+          const updated = [newLog, ...filtered].sort((a, b) => {
+            const dateCompare = b.date.localeCompare(a.date);
+            if (dateCompare !== 0) return dateCompare;
+            // Tie-breaker по времени начала
+            const aTime = a.checkIn || '';
+            const bTime = b.checkIn || '';
+            return bTime.localeCompare(aTime);
+          });
+          localStorage.setItem(STORAGE_KEYS.WORK_LOGS, JSON.stringify(updated));
+          return updated;
+        });
+      } else if (payload.eventType === 'DELETE') {
+        setLogs(prev => {
+          const updated = prev.filter(l => l.id !== payload.old.id);
+          localStorage.setItem(STORAGE_KEYS.WORK_LOGS, JSON.stringify(updated));
+          return updated;
+        });
+      }
+    });
+
+    const unsubUsers = db.subscribeToChanges(orgId, 'users', (payload) => {
+      if (payload.eventType === 'INSERT' || payload.eventType === 'UPDATE') {
+        const newUser = {
+          id: payload.new.id,
+          name: payload.new.name,
+          role: payload.new.role,
+          department: payload.new.department,
+          position: payload.new.position,
+          pin: payload.new.pin,
+          requirePhoto: payload.new.require_photo,
+          isAdmin: payload.new.is_admin,
+          forcePinChange: payload.new.force_pin_change,
+          organizationId: payload.new.organization_id
+        };
+        
+        setUsers(prev => {
+          const exists = prev.find(u => u.id === newUser.id);
+          if (exists && JSON.stringify(exists) === JSON.stringify(newUser)) return prev;
+          
+          const filtered = prev.filter(u => u.id !== newUser.id);
+          const updated = [...filtered, newUser].sort((a, b) => a.name.localeCompare(b.name));
+          localStorage.setItem(STORAGE_KEYS.USERS_LIST, JSON.stringify(updated));
+          return updated;
+        });
+      } else if (payload.eventType === 'DELETE') {
+        setUsers(prev => {
+          const updated = prev.filter(u => u.id !== payload.old.id);
+          localStorage.setItem(STORAGE_KEYS.USERS_LIST, JSON.stringify(updated));
+          return updated;
+        });
+      }
+    });
+
+    return () => {
+      unsubLogs();
+      unsubUsers();
+    };
+  }, [isInitialized, currentOrg?.id]);
+
   // Хелпер проверки лимитов
   const checkLimit = useCallback((type: 'users' | 'machines' | 'nightShift' | 'photo') => {
     if (!currentOrg) return true;
@@ -313,12 +403,19 @@ const App: React.FC = () => {
 
   const handleLogsUpdate = useCallback((newLogs: WorkLog[]) => {
     const orgId = localStorage.getItem(STORAGE_KEYS.ORG_ID) || DEFAULT_ORG_ID;
+    
+    // Оптимистичное обновление локального состояния
     const currentLogsMap = new Map(logs.map(l => [l.id, JSON.stringify(l)]));
     const changedOrNew = newLogs.filter(nl => currentLogsMap.get(nl.id) !== JSON.stringify(nl));
 
     setLogs(newLogs);
     localStorage.setItem(STORAGE_KEYS.WORK_LOGS, JSON.stringify(newLogs));
-    changedOrNew.forEach(log => db.upsertLog(log, orgId));
+    
+    // Пакетное обновление в БД
+    if (changedOrNew.length > 0) {
+      setIsSyncing(true);
+      db.batchUpsertLogs(changedOrNew, orgId).finally(() => setIsSyncing(false));
+    }
   }, [logs]);
 
   const handleResetRequest = async (e: React.FormEvent) => {
@@ -445,17 +542,18 @@ const App: React.FC = () => {
 
   const handleImportData = async (jsonStr: string) => {
     const orgId = localStorage.getItem(STORAGE_KEYS.ORG_ID) || DEFAULT_ORG_ID;
+    setIsSyncing(true);
     try {
       const data = JSON.parse(jsonStr);
       if (data.users) {
         setUsers(data.users);
         localStorage.setItem(STORAGE_KEYS.USERS_LIST, JSON.stringify(data.users));
-        for (const u of data.users) await db.upsertUser(u, orgId);
+        await db.batchUpsertUsers(data.users, orgId);
       }
       if (data.logs) {
         setLogs(data.logs);
         localStorage.setItem(STORAGE_KEYS.WORK_LOGS, JSON.stringify(data.logs));
-        for (const l of data.logs) await db.upsertLog(l, orgId);
+        await db.batchUpsertLogs(data.logs, orgId);
       }
       if (data.machines) {
         setMachines(data.machines);
@@ -471,6 +569,8 @@ const App: React.FC = () => {
       window.location.reload(); 
     } catch (e) {
       alert('Ошибка при импорте файла!');
+    } finally {
+      setIsSyncing(false);
     }
   };
 
@@ -494,7 +594,14 @@ const App: React.FC = () => {
   }
 
   return (
-    <Layout user={currentUser} currentOrg={currentOrg} onLogout={handleLogout} onSwitchRole={handleSwitchRole} version={APP_VERSION}>
+    <Layout 
+      user={currentUser} 
+      currentOrg={currentOrg} 
+      onLogout={handleLogout} 
+      onSwitchRole={handleSwitchRole} 
+      version={APP_VERSION}
+      isSyncing={isSyncing}
+    >
       {/* Модальное окно апгрейда */}
       {/* PIN Reset Modal */}
       {showResetModal && (

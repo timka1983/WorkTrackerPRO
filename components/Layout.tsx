@@ -10,9 +10,10 @@ interface LayoutProps {
   onLogout: () => void;
   onSwitchRole: (role: UserRole) => void;
   version: string;
+  isSyncing?: boolean;
 }
 
-const Layout: React.FC<LayoutProps> = ({ children, user, currentOrg, onLogout, onSwitchRole, version }) => {
+const Layout: React.FC<LayoutProps> = ({ children, user, currentOrg, onLogout, onSwitchRole, version, isSyncing = false }) => {
   // Check if current position has admin permissions
   const hasAdminPermissions = useMemo(() => {
     if (!user) return false;
@@ -44,11 +45,25 @@ const Layout: React.FC<LayoutProps> = ({ children, user, currentOrg, onLogout, o
                 </svg>
               </div>
               <div className="flex flex-col">
-                <span className="text-xl font-bold text-slate-900 tracking-tight leading-none">WorkTracker</span>
+                <div className="flex items-center gap-2">
+                  <span className="text-xl font-bold text-slate-900 tracking-tight leading-none">WorkTracker</span>
+                  {isSyncing && (
+                    <div className="flex items-center gap-1">
+                      <div className="w-1 h-1 bg-blue-500 rounded-full animate-bounce [animation-delay:-0.3s]"></div>
+                      <div className="w-1 h-1 bg-blue-500 rounded-full animate-bounce [animation-delay:-0.15s]"></div>
+                      <div className="w-1 h-1 bg-blue-500 rounded-full animate-bounce"></div>
+                    </div>
+                  )}
+                </div>
                 {currentOrg && (
-                  <span className="text-[10px] font-bold text-indigo-600 uppercase tracking-wider mt-0.5">
-                    {currentOrg.name}
-                  </span>
+                  <div className="flex flex-col">
+                    <span className="text-[10px] font-bold text-indigo-600 uppercase tracking-wider mt-0.5">
+                      {currentOrg.name}
+                    </span>
+                    <span className="text-[7px] font-mono text-slate-400 uppercase tracking-tighter">
+                      ID: {currentOrg.id}
+                    </span>
+                  </div>
                 )}
               </div>
             </div>

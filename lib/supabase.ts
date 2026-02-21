@@ -58,7 +58,15 @@ export const db = {
   getLogs: async (orgId: string) => {
     if (!checkConfig()) return null;
     try {
-      const { data, error } = await supabase.from('work_logs').select('*').eq('organization_id', orgId).order('date', { ascending: false }).limit(1000);
+      // Добавляем сортировку по check_in как tie-breaker для одинаковых дат
+      const { data, error } = await supabase
+        .from('work_logs')
+        .select('*')
+        .eq('organization_id', orgId)
+        .order('date', { ascending: false })
+        .order('check_in', { ascending: false })
+        .limit(1000);
+        
       if (error) {
         console.error('Error fetching logs:', error);
         return null;
@@ -106,6 +114,29 @@ export const db = {
     });
     if (error) console.error('Error upserting log:', error);
   },
+  batchUpsertLogs: async (logs: any[], orgId: string) => {
+    if (!isConfigured() || logs.length === 0) return;
+    const { error } = await supabase.from('work_logs').upsert(
+      logs.map(log => ({
+        id: log.id,
+        user_id: log.userId,
+        organization_id: orgId,
+        date: log.date,
+        entry_type: log.entryType,
+        machine_id: log.machineId,
+        check_in: log.checkIn,
+        check_out: log.checkOut,
+        duration_minutes: log.durationMinutes,
+        photo_in: log.photoIn,
+        photo_out: log.photoOut,
+        is_corrected: log.isCorrected,
+        correction_note: log.correctionNote,
+        correction_timestamp: log.correctionTimestamp,
+        is_night_shift: log.isNightShift
+      }))
+    );
+    if (error) console.error('Error batch upserting logs:', error);
+  },
   deleteLog: async (id: string, orgId: string) => {
     if (!isConfigured()) return;
     await supabase.from('work_logs').delete().eq('id', id).eq('organization_id', orgId);
@@ -150,6 +181,24 @@ export const db = {
     });
     return { error };
   },
+  batchUpsertUsers: async (users: any[], orgId: string) => {
+    if (!isConfigured() || users.length === 0) return { error: 'Not configured' };
+    const { error } = await supabase.from('users').upsert(
+      users.map(user => ({
+        id: user.id,
+        name: user.name,
+        role: user.role,
+        department: user.department,
+        position: user.position,
+        pin: user.pin,
+        require_photo: user.requirePhoto,
+        is_admin: user.isAdmin,
+        force_pin_change: user.forcePinChange,
+        organization_id: orgId
+      }))
+    );
+    return { error };
+  },
   deleteUser: async (id: string, orgId: string) => {
     if (!isConfigured()) return;
     await supabase.from('users').delete().eq('id', id).eq('organization_id', orgId);
@@ -162,17 +211,13 @@ export const db = {
   saveMachines: async (machines: any[], orgId: string) => {
     if (!checkConfig()) return { error: 'Not configured' };
     
-    // Сначала удаляем (это не ограничено триггером на вставку)
-    const { error: delError } = await supabase.from('machines').delete().eq('organization_id', orgId);
-    if (delError) return { error: delError };
-
-    if (machines.length > 0) {
-      const { error: insError } = await supabase.from('machines').insert(
-        machines.map(m => ({ ...m, organization_id: orgId }))
-      );
-      return { error: insError };
-    }
-    return { error: null };
+    // Используем upsert для сохранения ID и производительности
+    const { error } = await supabase.from('machines').upsert(
+      machines.map(m => ({ ...m, organization_id: orgId })),
+      { onConflict: 'id' }
+    );
+    
+    return { error };
   },
   getPositions: async (orgId: string) => {
     if (!checkConfig()) return null;
@@ -181,6 +226,9 @@ export const db = {
   },
   savePositions: async (positions: string[], orgId: string) => {
     if (!checkConfig()) return;
+    
+    // Для позиций upsert сложнее, так как у них может не быть ID в массиве строк
+    // Но мы можем оптимизировать, удаляя только те, которых нет в новом списке
     await supabase.from('positions').delete().eq('organization_id', orgId);
     if (positions.length > 0) {
       await supabase.from('positions').insert(positions.map(p => ({ name: p, organization_id: orgId })));
@@ -296,6 +344,29 @@ export const db = {
     if (!checkConfig()) return;
     const { error } = await supabase.from('users').update({ pin: newPin }).eq('organization_id', orgId).eq('id', 'admin');
     if (error) console.error('Error resetting admin pin:', error);
+  },
+  subscribeToChanges: (orgId: string, table: string, callback: (payload: any) => void) => {
+    if (!isConfigured()) return () => {};
+    
+    const channel = supabase
+      .channel(`public:${table}:org:${orgId}`)
+      .on(
+        'postgres_changes',
+        {
+          event: '*',
+          schema: 'public',
+          table: table,
+          filter: `organization_id=eq.${orgId}`
+        },
+        (payload) => {
+          callback(payload);
+        }
+      )
+      .subscribe();
+      
+    return () => {
+      supabase.removeChannel(channel);
+    };
   },
   getPromoCodes: async () => {
     if (!checkConfig()) return null;
