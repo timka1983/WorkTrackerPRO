@@ -32,18 +32,21 @@ const SuperAdminView: React.FC<SuperAdminViewProps> = ({ onLogout }) => {
     isActive: true
   });
   const [saving, setSaving] = useState(false);
+  const [resetPinConfirm, setResetPinConfirm] = useState<{ orgId: string; pin: string } | null>(null);
 
   const handleSwitchToOrg = (orgId: string) => {
+    // Сохраняем ID новой организации
     localStorage.setItem(STORAGE_KEYS.ORG_ID, orgId);
-    // Очищаем данные предыдущей организации из кэша, чтобы загрузить новые
-    localStorage.removeItem(STORAGE_KEYS.ORG_DATA);
-    localStorage.removeItem(STORAGE_KEYS.USERS_LIST);
-    localStorage.removeItem(STORAGE_KEYS.MACHINES_LIST);
-    localStorage.removeItem(STORAGE_KEYS.WORK_LOGS);
-    localStorage.removeItem(STORAGE_KEYS.POSITIONS_LIST);
+    
+    // Очищаем ВЕСЬ кэш, чтобы гарантировать загрузку данных новой организации
+    Object.values(STORAGE_KEYS).forEach(key => {
+      if (key !== STORAGE_KEYS.ORG_ID) {
+        localStorage.removeItem(key);
+      }
+    });
     
     // Перезагружаем страницу для применения изменений
-    window.location.reload();
+    window.location.href = '/';
   };
 
   const fetchData = async () => {
@@ -205,12 +208,17 @@ const SuperAdminView: React.FC<SuperAdminViewProps> = ({ onLogout }) => {
 
   const handleResetAdminPin = async (orgId: string) => {
     const newPin = Math.floor(1000 + Math.random() * 9000).toString();
-    if (!confirm(`Вы действительно хотите сбросить пароль администратора для организации ${orgId}? Новый PIN: ${newPin}`)) return;
+    setResetPinConfirm({ orgId, pin: newPin });
+  };
+
+  const confirmResetPin = async () => {
+    if (!resetPinConfirm) return;
     
     setSaving(true);
     try {
-      await db.resetAdminPin(orgId, newPin);
-      alert(`Пароль администратора для ${orgId} успешно сброшен. Новый PIN: ${newPin}`);
+      await db.resetAdminPin(resetPinConfirm.orgId, resetPinConfirm.pin);
+      alert(`Пароль администратора для ${resetPinConfirm.orgId} успешно сброшен. Новый PIN: ${resetPinConfirm.pin}`);
+      setResetPinConfirm(null);
     } catch (error) {
       console.error('Error resetting admin pin:', error);
       alert('Ошибка при сбросе пароля.');
@@ -1146,6 +1154,42 @@ const SuperAdminView: React.FC<SuperAdminViewProps> = ({ onLogout }) => {
                 </button>
               </div>
             </form>
+          </div>
+        </div>
+      )}
+
+      {/* PIN Reset Confirmation Modal */}
+      {resetPinConfirm && (
+        <div className="fixed inset-0 z-[110] flex items-center justify-center p-4 bg-slate-900/80 backdrop-blur-md animate-fadeIn">
+          <div className="bg-white rounded-[2.5rem] shadow-2xl w-full max-w-sm overflow-hidden border border-slate-200 p-8 text-center">
+            <div className="w-16 h-16 bg-amber-100 text-amber-600 rounded-2xl flex items-center justify-center mx-auto mb-6">
+              <RefreshCw className="w-8 h-8" />
+            </div>
+            <h3 className="text-xl font-black text-slate-900 uppercase tracking-tight mb-2">Сброс пароля</h3>
+            <p className="text-sm text-slate-500 mb-6">
+              Вы уверены, что хотите сбросить пароль администратора для организации <span className="font-bold text-slate-900">{resetPinConfirm.orgId}</span>?
+            </p>
+            
+            <div className="bg-slate-50 rounded-2xl p-4 mb-8 border border-slate-100">
+              <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest mb-1">Новый PIN-код</p>
+              <p className="text-4xl font-black text-indigo-600 tracking-[0.2em]">{resetPinConfirm.pin}</p>
+            </div>
+
+            <div className="flex gap-3">
+              <button 
+                onClick={() => setResetPinConfirm(null)}
+                className="flex-1 py-4 bg-slate-100 text-slate-600 rounded-2xl font-black uppercase tracking-widest text-xs hover:bg-slate-200 transition-all"
+              >
+                Отмена
+              </button>
+              <button 
+                onClick={confirmResetPin}
+                disabled={saving}
+                className="flex-1 py-4 bg-indigo-600 text-white rounded-2xl font-black uppercase tracking-widest text-xs shadow-xl shadow-indigo-100 hover:bg-indigo-700 transition-all disabled:opacity-50"
+              >
+                {saving ? '...' : 'Подтвердить'}
+              </button>
+            </div>
           </div>
         </div>
       )}
