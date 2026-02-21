@@ -41,6 +41,7 @@ const App: React.FC = () => {
   const [loginError, setLoginError] = useState('');
   const [isInitialized, setIsInitialized] = useState(false);
   const [isSyncing, setIsSyncing] = useState(false);
+  const [dbError, setDbError] = useState<string | null>(null);
 
   // States for PIN reset
   const [showResetModal, setShowResetModal] = useState(false);
@@ -96,10 +97,12 @@ const App: React.FC = () => {
       // Быстрая проверка соединения
       const isConnected = await db.checkConnection();
       if (!isConnected) {
+        setDbError('Нет подключения к базе данных. Проверьте настройки Supabase.');
         console.warn('Supabase not connected or not configured');
         if (isRefresh) setIsSyncing(false);
         return;
       }
+      setDbError(null);
 
       const dbOrg = await db.getOrganization(orgId);
       if (dbOrg) {
@@ -602,6 +605,11 @@ const App: React.FC = () => {
       version={APP_VERSION}
       isSyncing={isSyncing}
     >
+      {dbError && (
+        <div className="bg-rose-600 text-white px-4 py-2 text-center text-xs font-bold animate-pulse sticky top-16 z-[60] shadow-lg">
+          ⚠️ {dbError}
+        </div>
+      )}
       {/* Модальное окно апгрейда */}
       {/* PIN Reset Modal */}
       {showResetModal && (

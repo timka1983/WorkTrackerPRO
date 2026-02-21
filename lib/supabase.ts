@@ -345,6 +345,34 @@ export const db = {
     const { error } = await supabase.from('users').update({ pin: newPin }).eq('organization_id', orgId).eq('id', 'admin');
     if (error) console.error('Error resetting admin pin:', error);
   },
+  getDiagnostics: async () => {
+    const results: Record<string, any> = {
+      config: {
+        urlSet: SUPABASE_URL !== 'https://placeholder-project.supabase.co' && SUPABASE_URL.trim() !== '',
+        keySet: SUPABASE_ANON_KEY !== 'placeholder-anon-key' && SUPABASE_ANON_KEY.trim() !== '',
+      },
+      tables: {}
+    };
+
+    if (!results.config.urlSet || !results.config.keySet) {
+      return { ...results, status: 'error', message: 'Supabase URL or Key is not configured in environment variables.' };
+    }
+
+    const tablesToCheck = ['organizations', 'users', 'work_logs', 'machines', 'positions', 'plans', 'promo_codes', 'active_shifts'];
+    
+    try {
+      for (const table of tablesToCheck) {
+        const { error } = await supabase.from(table).select('count', { count: 'exact', head: true }).limit(0);
+        results.tables[table] = error ? { status: 'error', message: error.message } : { status: 'ok' };
+      }
+      
+      const hasErrors = Object.values(results.tables).some((t: any) => t.status === 'error');
+      results.status = hasErrors ? 'partial' : 'ok';
+      return results;
+    } catch (e: any) {
+      return { ...results, status: 'error', message: e.message };
+    }
+  },
   subscribeToChanges: (orgId: string, table: string, callback: (payload: any) => void) => {
     if (!isConfigured()) return () => {};
     

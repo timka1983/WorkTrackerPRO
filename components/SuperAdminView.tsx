@@ -17,7 +17,7 @@ const SuperAdminView: React.FC<SuperAdminViewProps> = ({ onLogout }) => {
   const [refreshing, setRefreshing] = useState(false);
   const [editingOrg, setEditingOrg] = useState<Organization | null>(null);
   const [isCreating, setIsCreating] = useState(false);
-  const [activeTab, setActiveTab] = useState<'orgs' | 'plans' | 'marketing'>('orgs');
+  const [activeTab, setActiveTab] = useState<'orgs' | 'plans' | 'marketing' | 'diagnostics'>('orgs');
   const [plans, setPlans] = useState<Plan[]>([]);
   const [promoCodes, setPromoCodes] = useState<PromoCode[]>([]);
   const [editingPlan, setEditingPlan] = useState<Plan | null>(null);
@@ -33,6 +33,26 @@ const SuperAdminView: React.FC<SuperAdminViewProps> = ({ onLogout }) => {
   });
   const [saving, setSaving] = useState(false);
   const [resetPinConfirm, setResetPinConfirm] = useState<{ orgId: string; pin: string } | null>(null);
+  const [diagnostics, setDiagnostics] = useState<any>(null);
+  const [checkingDiagnostics, setCheckingDiagnostics] = useState(false);
+
+  const runDiagnostics = async () => {
+    setCheckingDiagnostics(true);
+    try {
+      const results = await db.getDiagnostics();
+      setDiagnostics(results);
+    } catch (e) {
+      console.error('Diagnostics failed:', e);
+    } finally {
+      setCheckingDiagnostics(false);
+    }
+  };
+
+  useEffect(() => {
+    if (activeTab === 'diagnostics') {
+      runDiagnostics();
+    }
+  }, [activeTab]);
 
   const handleSwitchToOrg = (orgId: string) => {
     // Сохраняем ID новой организации
@@ -334,6 +354,15 @@ const SuperAdminView: React.FC<SuperAdminViewProps> = ({ onLogout }) => {
             <Megaphone className="w-4 h-4" />
             Маркетинг
           </button>
+          <button 
+            onClick={() => setActiveTab('diagnostics')}
+            className={`px-6 py-2.5 rounded-xl text-sm font-bold transition-all flex items-center gap-2 ${
+              activeTab === 'diagnostics' ? 'bg-white text-indigo-600 shadow-sm' : 'text-slate-600 hover:text-slate-900'
+            }`}
+          >
+            <Activity className="w-4 h-4" />
+            Диагностика БД
+          </button>
         </div>
 
         {activeTab === 'orgs' ? (
@@ -596,6 +625,106 @@ const SuperAdminView: React.FC<SuperAdminViewProps> = ({ onLogout }) => {
                   Изменения в конструкторе тарифов применяются мгновенно ко всем организациям, использующим данный тариф. 
                   Будьте осторожны при уменьшении лимитов, так как это может ограничить функционал уже работающих клиентов.
                 </p>
+              </div>
+            </div>
+          </div>
+        ) : activeTab === 'diagnostics' ? (
+          <div className="space-y-8 animate-fadeIn">
+            <div className="bg-white p-8 rounded-3xl border border-slate-200 shadow-sm">
+              <div className="flex justify-between items-center mb-8">
+                <div>
+                  <h3 className="text-xl font-bold text-slate-900">Диагностика Supabase</h3>
+                  <p className="text-sm text-slate-500">Проверка подключения и целостности таблиц</p>
+                </div>
+                <button 
+                  onClick={runDiagnostics}
+                  disabled={checkingDiagnostics}
+                  className="flex items-center gap-2 px-6 py-2.5 bg-indigo-600 text-white rounded-xl hover:bg-indigo-700 transition-all shadow-lg shadow-indigo-100 font-bold disabled:opacity-50"
+                >
+                  <RefreshCw className={`w-4 h-4 ${checkingDiagnostics ? 'animate-spin' : ''}`} />
+                  Запустить проверку
+                </button>
+              </div>
+
+              {diagnostics ? (
+                <div className="space-y-8">
+                  {/* Config Section */}
+                  <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                    <div className={`p-6 rounded-2xl border ${diagnostics.config.urlSet ? 'bg-emerald-50 border-emerald-100' : 'bg-rose-50 border-rose-100'}`}>
+                      <div className="flex items-center gap-3 mb-2">
+                        {diagnostics.config.urlSet ? <Check className="w-5 h-5 text-emerald-600" /> : <X className="w-5 h-5 text-rose-600" />}
+                        <span className="font-bold text-slate-900">VITE_SUPABASE_URL</span>
+                      </div>
+                      <p className="text-xs text-slate-500">{diagnostics.config.urlSet ? 'Настроен корректно' : 'Не найден или содержит значение по умолчанию'}</p>
+                    </div>
+                    <div className={`p-6 rounded-2xl border ${diagnostics.config.keySet ? 'bg-emerald-50 border-emerald-100' : 'bg-rose-50 border-rose-100'}`}>
+                      <div className="flex items-center gap-3 mb-2">
+                        {diagnostics.config.keySet ? <Check className="w-5 h-5 text-emerald-600" /> : <X className="w-5 h-5 text-rose-600" />}
+                        <span className="font-bold text-slate-900">VITE_SUPABASE_ANON_KEY</span>
+                      </div>
+                      <p className="text-xs text-slate-500">{diagnostics.config.keySet ? 'Настроен корректно' : 'Не найден или содержит значение по умолчанию'}</p>
+                    </div>
+                  </div>
+
+                  {/* Overall Status */}
+                  {diagnostics.status === 'error' && (
+                    <div className="p-6 bg-rose-50 border border-rose-200 rounded-2xl flex items-start gap-4">
+                      <X className="w-6 h-6 text-rose-600 flex-shrink-0" />
+                      <div>
+                        <h4 className="font-bold text-rose-900">Критическая ошибка</h4>
+                        <p className="text-sm text-rose-700">{diagnostics.message}</p>
+                      </div>
+                    </div>
+                  )}
+
+                  {/* Tables Section */}
+                  <div>
+                    <h4 className="text-sm font-bold text-slate-900 mb-4 uppercase tracking-wider">Статус таблиц</h4>
+                    <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
+                      {Object.entries(diagnostics.tables || {}).map(([table, status]: [string, any]) => (
+                        <div key={table} className={`p-4 rounded-xl border ${status.status === 'ok' ? 'bg-white border-slate-200' : 'bg-rose-50 border-rose-200'}`}>
+                          <div className="flex items-center justify-between mb-2">
+                            <span className="text-xs font-mono font-bold text-slate-700">{table}</span>
+                            {status.status === 'ok' ? <Check className="w-4 h-4 text-emerald-500" /> : <X className="w-4 h-4 text-rose-500" />}
+                          </div>
+                          {status.status !== 'ok' && (
+                            <p className="text-[10px] text-rose-600 leading-tight">{status.message}</p>
+                          )}
+                        </div>
+                      ))}
+                    </div>
+                  </div>
+
+                  {diagnostics.status === 'partial' && (
+                    <div className="p-6 bg-amber-50 border border-amber-200 rounded-2xl flex items-start gap-4">
+                      <Activity className="w-6 h-6 text-amber-600 flex-shrink-0" />
+                      <div>
+                        <h4 className="font-bold text-amber-900">Частичная доступность</h4>
+                        <p className="text-sm text-amber-700">Некоторые таблицы отсутствуют или недоступны. Убедитесь, что вы выполнили все SQL-миграции в панели Supabase.</p>
+                      </div>
+                    </div>
+                  )}
+                </div>
+              ) : (
+                <div className="py-20 text-center">
+                  <RefreshCw className="w-10 h-10 text-slate-200 animate-spin mx-auto mb-4" />
+                  <p className="text-slate-400">Выполняется диагностика...</p>
+                </div>
+              )}
+            </div>
+
+            <div className="bg-indigo-50 p-6 rounded-3xl border border-indigo-100 flex items-start gap-4">
+              <div className="p-3 bg-white rounded-2xl shadow-sm">
+                <ShieldCheck className="w-6 h-6 text-indigo-600" />
+              </div>
+              <div>
+                <h4 className="font-bold text-indigo-900 mb-1">Как исправить ошибки?</h4>
+                <ul className="text-sm text-indigo-700 space-y-2 list-disc ml-4 mt-2">
+                  <li>Проверьте переменные окружения в настройках AI Studio.</li>
+                  <li>Убедитесь, что в Supabase созданы все таблицы (organizations, users, work_logs, machines, positions, plans, promo_codes, active_shifts).</li>
+                  <li>Проверьте политики RLS (Row Level Security) — для тестов можно временно разрешить анонимный доступ.</li>
+                  <li>Убедитесь, что вы не используете прокси или VPN, блокирующие запросы к Supabase.</li>
+                </ul>
               </div>
             </div>
           </div>
