@@ -57,8 +57,23 @@ const App: React.FC = () => {
   const initData = useCallback(async (isRefresh = false) => {
     if (isRefresh) setIsSyncing(true);
     
-    let orgId = localStorage.getItem(STORAGE_KEYS.ORG_ID) || DEFAULT_ORG_ID;
-    localStorage.setItem(STORAGE_KEYS.ORG_ID, orgId);
+    // 1. Проверяем URL на наличие команды переключения (самый надежный способ для мобильных)
+    const urlParams = new URLSearchParams(window.location.search);
+    const urlOrgId = urlParams.get('org_switch');
+    
+    let orgId = urlOrgId || localStorage.getItem(STORAGE_KEYS.ORG_ID) || DEFAULT_ORG_ID;
+    
+    // Если переключение пришло из URL, фиксируем его и очищаем кэш данных
+    if (urlOrgId) {
+      localStorage.setItem(STORAGE_KEYS.ORG_ID, urlOrgId);
+      localStorage.removeItem(STORAGE_KEYS.ORG_DATA);
+      localStorage.removeItem(STORAGE_KEYS.USERS_LIST);
+      localStorage.removeItem(STORAGE_KEYS.WORK_LOGS);
+      localStorage.removeItem(STORAGE_KEYS.CURRENT_USER);
+      localStorage.removeItem(STORAGE_KEYS.LAST_USER_ID);
+      // Убираем параметр из URL без перезагрузки, чтобы не срабатывало при обычном Refresh
+      window.history.replaceState({}, '', window.location.pathname);
+    }
 
     const cachedOrg = localStorage.getItem(STORAGE_KEYS.ORG_DATA);
     if (cachedOrg) setCurrentOrg(JSON.parse(cachedOrg));
@@ -75,14 +90,14 @@ const App: React.FC = () => {
       
       if (cachedUsers) {
         setUsers(JSON.parse(cachedUsers));
-      } else if (orgId === DEFAULT_ORG_ID) {
-        setUsers(INITIAL_USERS);
       } else {
-        setUsers([]); // Для реальных организаций начинаем с пустого списка
+        // УБИРАЕМ автоматическую подстановку INITIAL_USERS здесь.
+        // Мы дождемся загрузки из БД или ручного переключения.
+        setUsers([]); 
       }
 
       if (lastUserId && !cachedCurrentUser) {
-        const usersToSearch = cachedUsers ? JSON.parse(cachedUsers) : (orgId === DEFAULT_ORG_ID ? INITIAL_USERS : []);
+        const usersToSearch = cachedUsers ? JSON.parse(cachedUsers) : [];
         const lastUser = usersToSearch.find((u: any) => u.id === lastUserId);
         if (lastUser) {
           setSelectedLoginUser(lastUser);
