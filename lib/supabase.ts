@@ -21,23 +21,44 @@ const SUPABASE_ANON_KEY = getEnv('VITE_SUPABASE_ANON_KEY') || 'placeholder-anon-
 export const supabase = createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
 
 const isConfigured = () => {
-  return SUPABASE_URL !== 'https://placeholder-project.supabase.co' && 
+  const configured = SUPABASE_URL !== 'https://placeholder-project.supabase.co' && 
          SUPABASE_ANON_KEY !== 'placeholder-anon-key' &&
          SUPABASE_URL.trim() !== '' &&
          SUPABASE_ANON_KEY.trim() !== '';
+  return configured;
+};
+
+// Кэшируем результат конфигурации
+let _isConfigured: boolean | null = null;
+const checkConfig = () => {
+  if (_isConfigured === null) _isConfigured = isConfigured();
+  return _isConfigured;
 };
 
 export const db = {
+  checkConnection: async () => {
+    if (!checkConfig()) return false;
+    try {
+      const { data, error } = await supabase.from('organizations').select('id').limit(1);
+      return !error;
+    } catch (e) {
+      return false;
+    }
+  },
   getOrganization: async (orgId: string) => {
-    if (!isConfigured()) return null;
+    if (!checkConfig()) return null;
     const { data, error } = await supabase.from('organizations').select('*').eq('id', orgId).maybeSingle();
-    if (error) return null;
-    return data;
+    if (error || !data) return null;
+    return {
+      ...data,
+      ownerId: data.owner_id,
+      expiryDate: data.expiry_date
+    };
   },
   getLogs: async (orgId: string) => {
-    if (!isConfigured()) return null;
+    if (!checkConfig()) return null;
     try {
-      const { data, error } = await supabase.from('work_logs').select('*').eq('organization_id', orgId).order('date', { ascending: false });
+      const { data, error } = await supabase.from('work_logs').select('*').eq('organization_id', orgId).order('date', { ascending: false }).limit(1000);
       if (error) {
         console.error('Error fetching logs:', error);
         return null;
@@ -90,7 +111,7 @@ export const db = {
     await supabase.from('work_logs').delete().eq('id', id).eq('organization_id', orgId);
   },
   getUsers: async (orgId: string) => {
-    if (!isConfigured()) return null;
+    if (!checkConfig()) return null;
     try {
       const { data, error } = await supabase.from('users').select('*').eq('organization_id', orgId).order('name');
       if (error) {
@@ -134,12 +155,12 @@ export const db = {
     await supabase.from('users').delete().eq('id', id).eq('organization_id', orgId);
   },
   getMachines: async (orgId: string) => {
-    if (!isConfigured()) return null;
+    if (!checkConfig()) return null;
     const { data } = await supabase.from('machines').select('*').eq('organization_id', orgId).order('name');
     return data || null;
   },
   saveMachines: async (machines: any[], orgId: string) => {
-    if (!isConfigured()) return { error: 'Not configured' };
+    if (!checkConfig()) return { error: 'Not configured' };
     
     // Сначала удаляем (это не ограничено триггером на вставку)
     const { error: delError } = await supabase.from('machines').delete().eq('organization_id', orgId);
@@ -154,12 +175,12 @@ export const db = {
     return { error: null };
   },
   getPositions: async (orgId: string) => {
-    if (!isConfigured()) return null;
+    if (!checkConfig()) return null;
     const { data } = await supabase.from('positions').select('name').eq('organization_id', orgId).order('name');
     return data?.map(p => p.name) || null;
   },
   savePositions: async (positions: string[], orgId: string) => {
-    if (!isConfigured()) return;
+    if (!checkConfig()) return;
     await supabase.from('positions').delete().eq('organization_id', orgId);
     if (positions.length > 0) {
       await supabase.from('positions').insert(positions.map(p => ({ name: p, organization_id: orgId })));
@@ -177,7 +198,7 @@ export const db = {
   },
   // Super-Admin methods
   getPlans: async () => {
-    if (!isConfigured()) return null;
+    if (!checkConfig()) return null;
     const { data, error } = await supabase.from('plans').select('*').order('type');
     if (error) return null;
     return data;
@@ -188,13 +209,17 @@ export const db = {
     if (error) console.error('Error saving plan:', error);
   },
   getAllOrganizations: async () => {
-    if (!isConfigured()) return null;
+    if (!checkConfig()) return null;
     const { data, error } = await supabase.from('organizations').select('*').order('name');
     if (error) return null;
-    return data;
+    return data.map(org => ({
+      ...org,
+      ownerId: org.owner_id,
+      expiryDate: org.expiry_date
+    }));
   },
   getGlobalStats: async () => {
-    if (!isConfigured()) return null;
+    if (!checkConfig()) return null;
     
     try {
       // Пытаемся вызвать RPC функцию для эффективного подсчета на стороне сервера
@@ -224,30 +249,56 @@ export const db = {
       return null;
     }
   },
-  updateOrganization: async (orgId: string, updates: Partial<Organization>) => {
-    if (!isConfigured()) return { error: 'Not configured' };
-    const { error } = await supabase.from('organizations').update(updates).eq('id', orgId);
+  updateOrganization: async (orgId: string, updates: any) => {
+    if (!checkConfig()) return { error: 'Not configured' };
+    
+    const dbUpdates: any = { ...updates };
+    if (updates.ownerId) {
+      dbUpdates.owner_id = updates.ownerId;
+      delete dbUpdates.ownerId;
+    }
+    if (updates.expiryDate) {
+      dbUpdates.expiry_date = updates.expiryDate;
+      delete dbUpdates.expiryDate;
+    }
+
+    const { error } = await supabase.from('organizations').update(dbUpdates).eq('id', orgId);
     if (error) console.error('Error updating organization:', error);
     return { error };
   },
   createOrganization: async (org: Organization) => {
-    if (!isConfigured()) return;
-    const { error } = await supabase.from('organizations').insert(org);
-    if (error) console.error('Error creating organization:', error);
+    if (!checkConfig()) return;
+    const { error } = await supabase.from('organizations').upsert({
+      id: org.id,
+      name: org.name,
+      email: org.email,
+      owner_id: org.ownerId,
+      plan: org.plan,
+      status: org.status,
+      expiry_date: org.expiryDate
+    }, { onConflict: 'id' });
+    
+    if (error && error.code !== '23505') {
+      console.error('Error creating organization:', error);
+    }
   },
   getOrganizationByEmail: async (email: string) => {
-    if (!isConfigured()) return null;
+    if (!checkConfig()) return null;
     const { data, error } = await supabase.from('organizations').select('*').eq('email', email).maybeSingle();
-    if (error) return null;
-    return data;
+    if (error || !data) return null;
+    return {
+      ...data,
+      ownerId: data.owner_id,
+      expiryDate: data.expiry_date
+    };
   },
   resetAdminPin: async (orgId: string, newPin: string) => {
-    if (!isConfigured()) return;
+    if (!checkConfig()) return;
     const { error } = await supabase.from('users').update({ pin: newPin }).eq('organization_id', orgId).eq('id', 'admin');
     if (error) console.error('Error resetting admin pin:', error);
   },
   getPromoCodes: async () => {
-    if (!isConfigured()) return null;
+    if (!checkConfig()) return null;
     const { data, error } = await supabase.from('promo_codes').select('*').order('created_at', { ascending: false });
     if (error) return null;
     return data.map(p => ({
@@ -263,7 +314,7 @@ export const db = {
     }));
   },
   savePromoCode: async (promo: any) => {
-    if (!isConfigured()) return;
+    if (!checkConfig()) return;
     const { error } = await supabase.from('promo_codes').upsert({
       id: promo.id,
       code: promo.code,
@@ -278,7 +329,7 @@ export const db = {
     if (error) console.error('Error saving promo code:', error);
   },
   deletePromoCode: async (id: string) => {
-    if (!isConfigured()) return;
+    if (!checkConfig()) return;
     await supabase.from('promo_codes').delete().eq('id', id);
   }
 };

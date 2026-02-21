@@ -93,6 +93,14 @@ const App: React.FC = () => {
     }
 
     try {
+      // Быстрая проверка соединения
+      const isConnected = await db.checkConnection();
+      if (!isConnected) {
+        console.warn('Supabase not connected or not configured');
+        if (isRefresh) setIsSyncing(false);
+        return;
+      }
+
       const dbOrg = await db.getOrganization(orgId);
       if (dbOrg) {
         // Проверка истечения срока действия: только если статус active/trial и дата в прошлом
@@ -108,9 +116,25 @@ const App: React.FC = () => {
         
         setCurrentOrg(dbOrg);
         localStorage.setItem(STORAGE_KEYS.ORG_DATA, JSON.stringify(dbOrg));
-      } else if (orgId === DEFAULT_ORG_ID) {
-        const defaultOrg: Organization = { id: DEFAULT_ORG_ID, name: 'Моя Компания', ownerId: 'admin', plan: PlanType.FREE, status: 'active' };
-        setCurrentOrg(defaultOrg);
+      } else {
+        // Если организация не найдена в БД, но это default_org, создаем её или используем дефолт
+        if (orgId === DEFAULT_ORG_ID) {
+          const defaultOrg: Organization = { 
+            id: DEFAULT_ORG_ID, 
+            name: 'Моя Компания', 
+            ownerId: 'admin', 
+            plan: PlanType.FREE, 
+            status: 'active' 
+          };
+          setCurrentOrg(defaultOrg);
+          // Попробуем создать её в БД, чтобы супер-админ её видел
+          await db.createOrganization(defaultOrg);
+        } else {
+          // Если это не дефолтная и её нет в БД - сбрасываем на дефолт
+          localStorage.setItem(STORAGE_KEYS.ORG_ID, DEFAULT_ORG_ID);
+          window.location.reload();
+          return;
+        }
       }
 
       const [dbLogs, dbUsers, dbMachines, dbPositions, dbPlans] = await Promise.all([
@@ -470,7 +494,7 @@ const App: React.FC = () => {
   }
 
   return (
-    <Layout user={currentUser} onLogout={handleLogout} onSwitchRole={handleSwitchRole} version={APP_VERSION}>
+    <Layout user={currentUser} currentOrg={currentOrg} onLogout={handleLogout} onSwitchRole={handleSwitchRole} version={APP_VERSION}>
       {/* Модальное окно апгрейда */}
       {/* PIN Reset Modal */}
       {showResetModal && (

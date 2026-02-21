@@ -1,17 +1,18 @@
 
 import React, { useMemo } from 'react';
-import { User, UserRole } from '../types';
+import { User, UserRole, Organization } from '../types';
 import { STORAGE_KEYS } from '../constants';
 
 interface LayoutProps {
   children: React.ReactNode;
   user: User | null;
+  currentOrg: Organization | null;
   onLogout: () => void;
   onSwitchRole: (role: UserRole) => void;
   version: string;
 }
 
-const Layout: React.FC<LayoutProps> = ({ children, user, onLogout, onSwitchRole, version }) => {
+const Layout: React.FC<LayoutProps> = ({ children, user, currentOrg, onLogout, onSwitchRole, version }) => {
   // Check if current position has admin permissions
   const hasAdminPermissions = useMemo(() => {
     if (!user) return false;
@@ -42,7 +43,14 @@ const Layout: React.FC<LayoutProps> = ({ children, user, onLogout, onSwitchRole,
                   <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z" />
                 </svg>
               </div>
-              <span className="text-xl font-bold text-slate-900 tracking-tight">WorkTracker</span>
+              <div className="flex flex-col">
+                <span className="text-xl font-bold text-slate-900 tracking-tight leading-none">WorkTracker</span>
+                {currentOrg && (
+                  <span className="text-[10px] font-bold text-indigo-600 uppercase tracking-wider mt-0.5">
+                    {currentOrg.name}
+                  </span>
+                )}
+              </div>
             </div>
 
             {user && (

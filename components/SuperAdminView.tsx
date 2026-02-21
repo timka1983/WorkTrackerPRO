@@ -33,6 +33,19 @@ const SuperAdminView: React.FC<SuperAdminViewProps> = ({ onLogout }) => {
   });
   const [saving, setSaving] = useState(false);
 
+  const handleSwitchToOrg = (orgId: string) => {
+    localStorage.setItem(STORAGE_KEYS.ORG_ID, orgId);
+    // Очищаем данные предыдущей организации из кэша, чтобы загрузить новые
+    localStorage.removeItem(STORAGE_KEYS.ORG_DATA);
+    localStorage.removeItem(STORAGE_KEYS.USERS_LIST);
+    localStorage.removeItem(STORAGE_KEYS.MACHINES_LIST);
+    localStorage.removeItem(STORAGE_KEYS.WORK_LOGS);
+    localStorage.removeItem(STORAGE_KEYS.POSITIONS_LIST);
+    
+    // Перезагружаем страницу для применения изменений
+    window.location.reload();
+  };
+
   const fetchData = async () => {
     setLoading(true);
     try {
@@ -461,6 +474,13 @@ const SuperAdminView: React.FC<SuperAdminViewProps> = ({ onLogout }) => {
                           </td>
                           <td className="px-6 py-4 text-right">
                             <div className="flex items-center justify-end gap-2">
+                              <button 
+                                onClick={() => handleSwitchToOrg(org.id)}
+                                className="p-2 text-slate-400 hover:text-indigo-600 transition-colors"
+                                title="Войти в организацию"
+                              >
+                                <ExternalLink className="w-5 h-5" />
+                              </button>
                               <button 
                                 onClick={() => setEditingOrg(org)}
                                 className="p-2 text-slate-400 hover:text-indigo-600 transition-colors"
