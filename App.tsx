@@ -72,20 +72,37 @@ const App: React.FC = () => {
 
     if (!isRefresh) {
       if (cachedLogs) setLogs(JSON.parse(cachedLogs));
-      if (cachedUsers) setUsers(JSON.parse(cachedUsers));
-      else setUsers(INITIAL_USERS);
+      
+      if (cachedUsers) {
+        setUsers(JSON.parse(cachedUsers));
+      } else if (orgId === DEFAULT_ORG_ID) {
+        setUsers(INITIAL_USERS);
+      } else {
+        setUsers([]); // Для реальных организаций начинаем с пустого списка
+      }
 
       if (lastUserId && !cachedCurrentUser) {
-        const lastUser = (cachedUsers ? JSON.parse(cachedUsers) : INITIAL_USERS).find((u: any) => u.id === lastUserId);
+        const usersToSearch = cachedUsers ? JSON.parse(cachedUsers) : (orgId === DEFAULT_ORG_ID ? INITIAL_USERS : []);
+        const lastUser = usersToSearch.find((u: any) => u.id === lastUserId);
         if (lastUser) {
           setSelectedLoginUser(lastUser);
           setShowLanding(false);
         }
       }
 
-      if (cachedMachines) setMachines(JSON.parse(cachedMachines));
-      if (cachedPositions) setPositions(JSON.parse(cachedPositions));
-      else setPositions(INITIAL_POSITIONS);
+      if (cachedMachines) {
+        setMachines(JSON.parse(cachedMachines));
+      } else if (orgId === DEFAULT_ORG_ID) {
+        setMachines(INITIAL_MACHINES);
+      } else {
+        setMachines([]);
+      }
+
+      if (cachedPositions) {
+        setPositions(JSON.parse(cachedPositions));
+      } else {
+        setPositions(INITIAL_POSITIONS);
+      }
 
       if (cachedCurrentUser) {
         setCurrentUser(JSON.parse(cachedCurrentUser));
@@ -160,14 +177,15 @@ const App: React.FC = () => {
       if (dbUsers && dbUsers.length > 0) {
         setUsers(dbUsers);
         localStorage.setItem(STORAGE_KEYS.USERS_LIST, JSON.stringify(dbUsers));
-      } else if (!cachedUsers && !isRefresh) {
+      } else if (!cachedUsers && !isRefresh && orgId === DEFAULT_ORG_ID) {
+        // Только для дефолтной организации заливаем демо-данных
         for (const u of INITIAL_USERS) await db.upsertUser(u, orgId);
       }
 
       if (dbMachines && dbMachines.length > 0) {
         setMachines(dbMachines);
         localStorage.setItem(STORAGE_KEYS.MACHINES_LIST, JSON.stringify(dbMachines));
-      } else if (!cachedMachines && !isRefresh) {
+      } else if (!cachedMachines && !isRefresh && orgId === DEFAULT_ORG_ID) {
         setMachines(INITIAL_MACHINES);
         await db.saveMachines(INITIAL_MACHINES, orgId);
       }
