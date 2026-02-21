@@ -177,8 +177,8 @@ const App: React.FC = () => {
       if (dbUsers && dbUsers.length > 0) {
         setUsers(dbUsers);
         localStorage.setItem(STORAGE_KEYS.USERS_LIST, JSON.stringify(dbUsers));
-      } else if (!cachedUsers && !isRefresh && orgId === DEFAULT_ORG_ID) {
-        // Только для дефолтной организации заливаем демо-данных
+      } else if (!cachedUsers && !isRefresh && orgId === DEFAULT_ORG_ID && currentOrg?.name === 'Моя Компания') {
+        // Только для дефолтной организации И дефолтного названия заливаем демо-данных
         for (const u of INITIAL_USERS) await db.upsertUser(u, orgId);
       }
 

@@ -55,18 +55,34 @@ const SuperAdminView: React.FC<SuperAdminViewProps> = ({ onLogout }) => {
   }, [activeTab]);
 
   const handleSwitchToOrg = (orgId: string) => {
-    // Сохраняем ID новой организации
-    localStorage.setItem(STORAGE_KEYS.ORG_ID, orgId);
-    
-    // Очищаем ВЕСЬ кэш, чтобы гарантировать загрузку данных новой организации
-    Object.values(STORAGE_KEYS).forEach(key => {
-      if (key !== STORAGE_KEYS.ORG_ID) {
-        localStorage.removeItem(key);
-      }
-    });
-    
-    // Перезагружаем страницу для применения изменений
-    window.location.href = '/';
+    try {
+      // Сохраняем ID новой организации
+      localStorage.setItem(STORAGE_KEYS.ORG_ID, orgId);
+      
+      // Очищаем ВЕСЬ кэш, чтобы гарантировать загрузку данных новой организации
+      Object.values(STORAGE_KEYS).forEach(key => {
+        if (key !== STORAGE_KEYS.ORG_ID) {
+          localStorage.removeItem(key);
+        }
+      });
+      
+      // Дополнительная очистка для мобильных браузеров
+      localStorage.removeItem('timesheet_org_data');
+      localStorage.removeItem('timesheet_users_list');
+      localStorage.removeItem('timesheet_work_logs');
+      
+      // Перезагружаем с параметром для сброса кэша браузера и предотвращения возврата назад
+      const cleanUrl = window.location.origin + '/?org_switch=' + orgId + '&t=' + Date.now();
+      window.location.replace(cleanUrl);
+    } catch (e) {
+      alert('Ошибка при переключении: ' + e);
+    }
+  };
+
+  const handleHardReset = () => {
+    if (!confirm('Это полностью очистит локальный кэш и перезагрузит приложение. Продолжить?')) return;
+    localStorage.clear();
+    window.location.replace('/?reset=' + Date.now());
   };
 
   const fetchData = async () => {
@@ -505,9 +521,14 @@ const SuperAdminView: React.FC<SuperAdminViewProps> = ({ onLogout }) => {
                             </div>
                           </td>
                           <td className="px-6 py-4">
-                            <code className="text-xs bg-slate-100 px-2 py-1 rounded text-slate-600 font-mono">
-                              {org.id}
-                            </code>
+                            <div className="flex flex-col gap-1">
+                              <code className={`text-xs px-2 py-1 rounded font-mono w-fit ${org.id === 'default_org' ? 'bg-amber-100 text-amber-700 border border-amber-200' : 'bg-slate-100 text-slate-600'}`}>
+                                {org.id}
+                              </code>
+                              {org.id === 'default_org' && (
+                                <span className="text-[8px] font-black text-amber-600 uppercase tracking-tighter">Demo System ID</span>
+                              )}
+                            </div>
                           </td>
                           <td className="px-6 py-4 text-right">
                             <div className="flex items-center justify-end gap-2">
@@ -543,6 +564,17 @@ const SuperAdminView: React.FC<SuperAdminViewProps> = ({ onLogout }) => {
                   </tbody>
                 </table>
               </div>
+            </div>
+            
+            <div className="mt-8 pt-8 border-t border-slate-200 flex flex-col items-center">
+              <p className="text-[10px] text-slate-400 font-bold uppercase mb-4">Проблемы с синхронизацией на мобильном?</p>
+              <button 
+                onClick={handleHardReset}
+                className="flex items-center gap-2 px-6 py-3 bg-slate-100 text-slate-600 rounded-2xl hover:bg-rose-50 hover:text-rose-600 transition-all text-xs font-black uppercase tracking-widest border border-slate-200"
+              >
+                <Trash2 className="w-4 h-4" />
+                Очистить кэш и перезагрузить
+              </button>
             </div>
           </>
         ) : activeTab === 'plans' ? (
@@ -1221,8 +1253,11 @@ const SuperAdminView: React.FC<SuperAdminViewProps> = ({ onLogout }) => {
                   placeholder="Напр: vector-llc"
                   value={newOrg.id || ''}
                   onChange={(e) => setNewOrg({...newOrg, id: e.target.value.toLowerCase().replace(/\s+/g, '-')})}
-                  className="w-full px-4 py-2.5 bg-slate-50 border border-slate-200 rounded-xl focus:ring-2 focus:ring-indigo-500 outline-none transition-all font-mono text-sm"
+                  className={`w-full px-4 py-2.5 border rounded-xl focus:ring-2 focus:ring-indigo-500 outline-none transition-all font-mono text-sm ${newOrg.id === 'default_org' ? 'border-amber-500 bg-amber-50' : 'bg-slate-50 border-slate-200'}`}
                 />
+                {newOrg.id === 'default_org' && (
+                  <p className="text-[9px] text-amber-600 font-bold mt-1 uppercase">⚠️ Внимание: Этот ID зарезервирован для демо-данных</p>
+                )}
                 <p className="text-[10px] text-slate-400 mt-1">Будет использоваться в URL и для входа</p>
               </div>
 
