@@ -116,25 +116,31 @@ export const db = {
   },
   batchUpsertLogs: async (logs: any[], orgId: string) => {
     if (!isConfigured() || logs.length === 0) return { error: null };
-    const { error } = await supabase.from('work_logs').upsert(
-      logs.map(log => ({
+    
+    const payload = logs.map(log => {
+      const item: any = {
         id: log.id,
         user_id: log.userId,
-        organization_id: orgId,
         date: log.date,
         entry_type: log.entryType,
-        machine_id: log.machineId,
         check_in: log.checkIn,
         check_out: log.checkOut || null,
-        duration_minutes: log.durationMinutes,
-        photo_in: log.photoIn,
-        photo_out: log.photoOut,
-        is_corrected: log.isCorrected,
-        correction_note: log.correctionNote,
-        correction_timestamp: log.correctionTimestamp,
-        is_night_shift: log.isNightShift
-      }))
-    );
+        duration_minutes: log.durationMinutes || 0,
+        photo_in: log.photoIn || null,
+        photo_out: log.photoOut || null,
+        is_corrected: log.isCorrected || false,
+        correction_note: log.correctionNote || null,
+        correction_timestamp: log.correctionTimestamp || null,
+      };
+      
+      if (log.machineId) item.machine_id = log.machineId;
+      if (log.isNightShift !== undefined) item.is_night_shift = log.isNightShift;
+      if (orgId && orgId !== 'default_org') item.organization_id = orgId;
+      
+      return item;
+    });
+
+    const { error } = await supabase.from('work_logs').upsert(payload);
     if (error) console.error('Error batch upserting logs:', error);
     return { error };
   },
@@ -243,13 +249,19 @@ export const db = {
   },
   saveActiveShifts: async (userId: string, shifts: any, orgId: string) => {
     if (!isConfigured()) return { error: 'Not configured' };
-    // Используем только user_id как цель конфликта, так как один пользователь 
-    // имеет один набор активных смен глобально или в рамках системы.
-    const { error } = await supabase.from('active_shifts').upsert({ 
+    
+    const payload: any = { 
       user_id: userId, 
-      shifts_json: shifts, 
-      organization_id: orgId 
-    }, { onConflict: 'user_id' });
+      shifts_json: shifts
+    };
+    
+    if (orgId && orgId !== 'default_org') {
+      payload.organization_id = orgId;
+    }
+
+    // Убираем явный onConflict, чтобы Supabase использовал первичный ключ (обычно user_id)
+    const { error } = await supabase.from('active_shifts').upsert(payload);
+    
     if (error) console.error('Error saving active shifts:', error);
     return { error };
   },
