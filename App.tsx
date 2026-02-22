@@ -1018,6 +1018,7 @@ const App: React.FC = () => {
               onUpdatePositions={persistPositions}
               onImportData={handleImportData}
               onLogsUpsert={handleLogsUpsert}
+              activeShiftsMap={activeShiftsMap}
               onActiveShiftsUpdate={handleActiveShiftsUpdate}
               onDeleteLog={handleDeleteLog}
               onRefresh={handleRefresh}

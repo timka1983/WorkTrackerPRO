@@ -243,11 +243,13 @@ export const db = {
   },
   saveActiveShifts: async (userId: string, shifts: any, orgId: string) => {
     if (!isConfigured()) return { error: 'Not configured' };
+    // Используем только user_id как цель конфликта, так как один пользователь 
+    // имеет один набор активных смен глобально или в рамках системы.
     const { error } = await supabase.from('active_shifts').upsert({ 
       user_id: userId, 
       shifts_json: shifts, 
       organization_id: orgId 
-    }, { onConflict: 'user_id,organization_id' });
+    }, { onConflict: 'user_id' });
     if (error) console.error('Error saving active shifts:', error);
     return { error };
   },
@@ -389,6 +391,8 @@ export const db = {
   subscribeToChanges: (orgId: string, table: string, callback: (payload: any) => void) => {
     if (!isConfigured()) return () => {};
     
+    // Пытаемся подписаться с фильтром по организации
+    // Если колонка отсутствует, подписка может не работать, но это ожидаемо для старых схем
     const channel = supabase
       .channel(`public:${table}:org:${orgId}`)
       .on(
@@ -397,7 +401,7 @@ export const db = {
           event: '*',
           schema: 'public',
           table: table,
-          filter: `organization_id=eq.${orgId}`
+          filter: orgId !== 'default_org' ? `organization_id=eq.${orgId}` : undefined
         },
         (payload) => {
           callback(payload);

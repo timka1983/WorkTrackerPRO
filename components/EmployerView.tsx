@@ -21,6 +21,7 @@ interface EmployerViewProps {
   onUpdatePositions: (positions: PositionConfig[]) => void;
   onImportData: (data: string) => void;
   onLogsUpsert: (logs: WorkLog[]) => void;
+  activeShiftsMap?: Record<string, any>;
   onActiveShiftsUpdate: (userId: string, shifts: any) => void;
   onDeleteLog: (logId: string) => void;
   onRefresh?: () => Promise<void>;
@@ -33,7 +34,7 @@ interface EmployerViewProps {
 
 const EmployerView: React.FC<EmployerViewProps> = ({ 
   logs, users, onAddUser, onUpdateUser, onDeleteUser, 
-  machines, onUpdateMachines, positions, onUpdatePositions, onImportData, onLogsUpsert, onActiveShiftsUpdate, onDeleteLog,
+  machines, onUpdateMachines, positions, onUpdatePositions, onImportData, onLogsUpsert, activeShiftsMap = {}, onActiveShiftsUpdate, onDeleteLog,
   onRefresh, isSyncing = false, nightShiftBonusMinutes, onUpdateNightBonus, currentOrg, plans
 }) => {
   const [filterMonth, setFilterMonth] = useState(format(new Date(), 'yyyy-MM'));
@@ -116,7 +117,24 @@ const EmployerView: React.FC<EmployerViewProps> = ({
     const todayStr = format(new Date(), 'yyyy-MM-dd');
     const todayLogs = logs.filter(l => l.date === todayStr);
     
-    const activeShifts = logs.filter(l => l.entryType === EntryType.WORK && !l.checkOut);
+    // Собираем активные смены из двух источников: из логов и из карты активных смен
+    const activeFromLogs = logs.filter(l => l.entryType === EntryType.WORK && !l.checkOut);
+    const activeFromMap: WorkLog[] = [];
+    
+    Object.values(activeShiftsMap).forEach(userShifts => {
+      if (userShifts && typeof userShifts === 'object') {
+        Object.values(userShifts).forEach(s => {
+          if (s && typeof s === 'object' && !(s as any).checkOut) {
+            activeFromMap.push(s as any);
+          }
+        });
+      }
+    });
+
+    // Объединяем, удаляя дубликаты по ID
+    const activeLogIds = new Set(activeFromLogs.map(l => l.id));
+    const activeShifts = [...activeFromLogs, ...activeFromMap.filter(l => !activeLogIds.has(l.id))];
+
     const finishedToday = todayLogs.filter(l => l.entryType === EntryType.WORK && l.checkOut);
     
     const last7Days = Array.from({ length: 7 }, (_, i) => format(subDays(new Date(), i), 'yyyy-MM-dd'));
@@ -137,7 +155,7 @@ const EmployerView: React.FC<EmployerViewProps> = ({
     });
 
     return { activeShifts, finishedToday, avgWeeklyHours, absenceCounts, activeLogsMap, todayStr };
-  }, [logs, employees, filterMonth]);
+  }, [logs, employees, filterMonth, activeShiftsMap]);
 
   const handleForceFinish = async (log: WorkLog) => {
     const empName = users.find(u => u.id === log.userId)?.name || 'сотрудника';
