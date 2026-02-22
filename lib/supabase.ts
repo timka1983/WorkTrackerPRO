@@ -115,7 +115,7 @@ export const db = {
     if (error) console.error('Error upserting log:', error);
   },
   batchUpsertLogs: async (logs: any[], orgId: string) => {
-    if (!isConfigured() || logs.length === 0) return;
+    if (!isConfigured() || logs.length === 0) return { error: null };
     const { error } = await supabase.from('work_logs').upsert(
       logs.map(log => ({
         id: log.id,
@@ -136,6 +136,7 @@ export const db = {
       }))
     );
     if (error) console.error('Error batch upserting logs:', error);
+    return { error };
   },
   deleteLog: async (id: string, orgId: string) => {
     if (!isConfigured()) return;

@@ -17,6 +17,7 @@ const App: React.FC = () => {
   const [currentUser, setCurrentUser] = useState<User | null>(null);
   const [users, setUsers] = useState<User[]>([]);
   const [logs, setLogs] = useState<WorkLog[]>([]);
+  const [syncError, setSyncError] = useState<string | null>(null);
   const [machines, setMachines] = useState<Machine[]>([]);
   const [positions, setPositions] = useState<PositionConfig[]>([]);
   const [plans, setPlans] = useState<Plan[]>([]);
@@ -438,7 +439,7 @@ const App: React.FC = () => {
   };
 
   const handleLogsUpdate = useCallback((newLogs: WorkLog[]) => {
-    const orgId = localStorage.getItem(STORAGE_KEYS.ORG_ID) || DEFAULT_ORG_ID;
+    const orgId = currentOrg?.id || localStorage.getItem(STORAGE_KEYS.ORG_ID) || DEFAULT_ORG_ID;
     
     // Оптимистичное обновление локального состояния
     const currentLogsMap = new Map(logs.map(l => [l.id, JSON.stringify(l)]));
@@ -450,9 +451,21 @@ const App: React.FC = () => {
     // Пакетное обновление в БД
     if (changedOrNew.length > 0) {
       setIsSyncing(true);
-      db.batchUpsertLogs(changedOrNew, orgId).finally(() => setIsSyncing(false));
+      setSyncError(null);
+      db.batchUpsertLogs(changedOrNew, orgId)
+        .then(({ error }) => {
+          if (error) {
+            setSyncError('Ошибка синхронизации. Проверьте интернет.');
+            console.error('Sync error:', error);
+          }
+        })
+        .catch(err => {
+          setSyncError('Критическая ошибка синхронизации.');
+          console.error('Sync catch:', err);
+        })
+        .finally(() => setIsSyncing(false));
     }
-  }, [logs]);
+  }, [logs, currentOrg?.id]);
 
   const handleResetRequest = async (e: React.FormEvent) => {
     e.preventDefault();
