@@ -17,6 +17,7 @@ const App: React.FC = () => {
   const [currentUser, setCurrentUser] = useState<User | null>(null);
   const [users, setUsers] = useState<User[]>([]);
   const [logs, setLogs] = useState<WorkLog[]>([]);
+  const [activeShiftsMap, setActiveShiftsMap] = useState<Record<string, any>>({});
   const [syncError, setSyncError] = useState<string | null>(null);
   const [machines, setMachines] = useState<Machine[]>([]);
   const [positions, setPositions] = useState<PositionConfig[]>([]);
@@ -173,29 +174,57 @@ const App: React.FC = () => {
         }
       }
 
-      const [dbLogs, dbUsers, dbMachines, dbPositions, dbPlans] = await Promise.all([
+      const [dbLogs, dbUsers, dbMachines, dbPositions, dbPlans, dbActiveShifts] = await Promise.all([
         db.getLogs(orgId),
         db.getUsers(orgId),
         db.getMachines(orgId),
         db.getPositions(orgId),
-        db.getPlans()
+        db.getPlans(),
+        db.getAllActiveShifts(orgId)
       ]);
 
       if (dbPlans && dbPlans.length > 0) {
         setPlans(dbPlans);
       }
 
-      if (dbLogs) {
-        setLogs(dbLogs);
-        localStorage.setItem(STORAGE_KEYS.WORK_LOGS, JSON.stringify(dbLogs));
+      if (dbActiveShifts) {
+        const map: Record<string, any> = {};
+        dbActiveShifts.forEach((s: any) => {
+          map[s.user_id] = s.shifts_json;
+        });
+        setActiveShiftsMap(map);
       }
-      
+
+      if (dbLogs) {
+        // Сохраняем локальные активные смены, которых нет в БД (они могли еще не синхронизироваться)
+        const localActiveShifts = logs.filter(l => !l.checkOut);
+        const dbLogIds = new Set(dbLogs.map(l => l.id));
+        const pendingLogs = localActiveShifts.filter(l => !dbLogIds.has(l.id));
+        
+        const mergedLogs = [...dbLogs, ...pendingLogs].sort((a, b) => {
+          const dateCompare = b.date.localeCompare(a.date);
+          if (dateCompare !== 0) return dateCompare;
+          const aTime = a.checkIn || '';
+          const bTime = b.checkIn || '';
+          return bTime.localeCompare(aTime);
+        });
+
+        setLogs(mergedLogs);
+        localStorage.setItem(STORAGE_KEYS.WORK_LOGS, JSON.stringify(mergedLogs));
+      } else if (!isRefresh && !logs.length) {
+        // Если нет данных в БД и нет в стейте, пробуем загрузить из кэша
+        const cachedLogs = localStorage.getItem(STORAGE_KEYS.WORK_LOGS);
+        if (cachedLogs) setLogs(JSON.parse(cachedLogs));
+      }
+
       if (dbUsers && dbUsers.length > 0) {
         setUsers(dbUsers);
         localStorage.setItem(STORAGE_KEYS.USERS_LIST, JSON.stringify(dbUsers));
       } else if (!cachedUsers && !isRefresh && orgId === DEFAULT_ORG_ID && currentOrg?.name === 'Моя Компания') {
         // Только для дефолтной организации И дефолтного названия заливаем демо-данных
         for (const u of INITIAL_USERS) await db.upsertUser(u, orgId);
+        setUsers(INITIAL_USERS);
+        localStorage.setItem(STORAGE_KEYS.USERS_LIST, JSON.stringify(INITIAL_USERS));
       }
 
       if (dbMachines && dbMachines.length > 0) {
@@ -225,6 +254,15 @@ const App: React.FC = () => {
 
   useEffect(() => {
     initData();
+    
+    // Авто-синхронизация при возвращении в приложение (важно для мобильных)
+    const handleVisibilityChange = () => {
+      if (document.visibilityState === 'visible') {
+        initData(true);
+      }
+    };
+    document.addEventListener('visibilitychange', handleVisibilityChange);
+    return () => document.removeEventListener('visibilitychange', handleVisibilityChange);
   }, [initData]);
 
   // Real-time subscriptions
@@ -311,9 +349,19 @@ const App: React.FC = () => {
       }
     });
 
+    const unsubActiveShifts = db.subscribeToChanges(orgId, 'active_shifts', (payload) => {
+      if (payload.eventType === 'INSERT' || payload.eventType === 'UPDATE') {
+        setActiveShiftsMap(prev => ({
+          ...prev,
+          [payload.new.user_id]: payload.new.shifts_json
+        }));
+      }
+    });
+
     return () => {
       unsubLogs();
       unsubUsers();
+      unsubActiveShifts();
     };
   }, [isInitialized, currentOrg?.id]);
 
@@ -438,21 +486,38 @@ const App: React.FC = () => {
     }
   };
 
-  const handleLogsUpdate = useCallback((newLogs: WorkLog[]) => {
+  const handleLogsUpsert = useCallback((logsToUpsert: WorkLog[]) => {
     const orgId = currentOrg?.id || localStorage.getItem(STORAGE_KEYS.ORG_ID) || DEFAULT_ORG_ID;
     
     // Оптимистичное обновление локального состояния
-    const currentLogsMap = new Map(logs.map(l => [l.id, JSON.stringify(l)]));
-    const changedOrNew = newLogs.filter(nl => currentLogsMap.get(nl.id) !== JSON.stringify(nl));
+    setLogs(prev => {
+      const updated = [...prev];
+      logsToUpsert.forEach(newLog => {
+        const index = updated.findIndex(l => l.id === newLog.id);
+        if (index !== -1) {
+          updated[index] = newLog;
+        } else {
+          updated.unshift(newLog);
+        }
+      });
+      
+      const sorted = updated.sort((a, b) => {
+        const dateCompare = b.date.localeCompare(a.date);
+        if (dateCompare !== 0) return dateCompare;
+        const aTime = a.checkIn || '';
+        const bTime = b.checkIn || '';
+        return bTime.localeCompare(aTime);
+      });
 
-    setLogs(newLogs);
-    localStorage.setItem(STORAGE_KEYS.WORK_LOGS, JSON.stringify(newLogs));
+      localStorage.setItem(STORAGE_KEYS.WORK_LOGS, JSON.stringify(sorted));
+      return sorted;
+    });
     
     // Пакетное обновление в БД
-    if (changedOrNew.length > 0) {
+    if (logsToUpsert.length > 0) {
       setIsSyncing(true);
       setSyncError(null);
-      db.batchUpsertLogs(changedOrNew, orgId)
+      db.batchUpsertLogs(logsToUpsert, orgId)
         .then(({ error }) => {
           if (error) {
             setSyncError('Ошибка синхронизации. Проверьте интернет.');
@@ -465,7 +530,18 @@ const App: React.FC = () => {
         })
         .finally(() => setIsSyncing(false));
     }
-  }, [logs, currentOrg?.id]);
+  }, [currentOrg?.id]);
+
+  const handleActiveShiftsUpdate = useCallback((userId: string, shifts: any) => {
+    const orgId = currentOrg?.id || localStorage.getItem(STORAGE_KEYS.ORG_ID) || DEFAULT_ORG_ID;
+    
+    setActiveShiftsMap(prev => ({
+      ...prev,
+      [userId]: shifts
+    }));
+    
+    db.saveActiveShifts(userId, shifts, orgId);
+  }, [currentOrg?.id]);
 
   const handleResetRequest = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -648,12 +724,18 @@ const App: React.FC = () => {
       currentOrg={currentOrg} 
       onLogout={handleLogout} 
       onSwitchRole={handleSwitchRole} 
+      onRefresh={handleRefresh}
       version={APP_VERSION}
       isSyncing={isSyncing}
     >
       {dbError && (
         <div className="bg-rose-600 text-white px-4 py-2 text-center text-xs font-bold animate-pulse sticky top-16 z-[60] shadow-lg">
           ⚠️ {dbError}
+        </div>
+      )}
+      {syncError && (
+        <div className="bg-amber-500 text-white px-4 py-2 text-center text-xs font-bold sticky top-16 z-[60] shadow-lg">
+          ⚠️ {syncError} Данные сохранены локально и будут отправлены позже.
         </div>
       )}
       {/* Модальное окно апгрейда */}
@@ -914,7 +996,9 @@ const App: React.FC = () => {
           <EmployeeView 
             user={currentUser} 
             logs={logs} 
-            onLogUpdate={handleLogsUpdate} 
+            onLogsUpsert={handleLogsUpsert} 
+            activeShifts={activeShiftsMap[currentUser.id] || { 1: null, 2: null, 3: null }}
+            onActiveShiftsUpdate={(shifts) => handleActiveShiftsUpdate(currentUser.id, shifts)}
             machines={machines} 
             positions={positions} 
             onUpdateUser={handleUpdateUser}
@@ -933,7 +1017,8 @@ const App: React.FC = () => {
               positions={positions}
               onUpdatePositions={persistPositions}
               onImportData={handleImportData}
-              onLogUpdate={handleLogsUpdate}
+              onLogsUpsert={handleLogsUpsert}
+              onActiveShiftsUpdate={handleActiveShiftsUpdate}
               onDeleteLog={handleDeleteLog}
               onRefresh={handleRefresh}
               isSyncing={isSyncing}

@@ -125,7 +125,7 @@ export const db = {
         entry_type: log.entryType,
         machine_id: log.machineId,
         check_in: log.checkIn,
-        check_out: log.checkOut,
+        check_out: log.checkOut || null,
         duration_minutes: log.durationMinutes,
         photo_in: log.photoIn,
         photo_out: log.photoOut,
@@ -242,8 +242,20 @@ export const db = {
     return data?.shifts_json || { 1: null, 2: null, 3: null };
   },
   saveActiveShifts: async (userId: string, shifts: any, orgId: string) => {
-    if (!isConfigured()) return;
-    await supabase.from('active_shifts').upsert({ user_id: userId, shifts_json: shifts, organization_id: orgId });
+    if (!isConfigured()) return { error: 'Not configured' };
+    const { error } = await supabase.from('active_shifts').upsert({ 
+      user_id: userId, 
+      shifts_json: shifts, 
+      organization_id: orgId 
+    }, { onConflict: 'user_id,organization_id' });
+    if (error) console.error('Error saving active shifts:', error);
+    return { error };
+  },
+  getAllActiveShifts: async (orgId: string) => {
+    if (!checkConfig()) return null;
+    const { data, error } = await supabase.from('active_shifts').select('*').eq('organization_id', orgId);
+    if (error) return null;
+    return data;
   },
   // Super-Admin methods
   getPlans: async () => {

@@ -20,7 +20,8 @@ interface EmployerViewProps {
   positions: PositionConfig[];
   onUpdatePositions: (positions: PositionConfig[]) => void;
   onImportData: (data: string) => void;
-  onLogUpdate: (logs: WorkLog[]) => void;
+  onLogsUpsert: (logs: WorkLog[]) => void;
+  onActiveShiftsUpdate: (userId: string, shifts: any) => void;
   onDeleteLog: (logId: string) => void;
   onRefresh?: () => Promise<void>;
   isSyncing?: boolean;
@@ -32,7 +33,7 @@ interface EmployerViewProps {
 
 const EmployerView: React.FC<EmployerViewProps> = ({ 
   logs, users, onAddUser, onUpdateUser, onDeleteUser, 
-  machines, onUpdateMachines, positions, onUpdatePositions, onImportData, onLogUpdate, onDeleteLog,
+  machines, onUpdateMachines, positions, onUpdatePositions, onImportData, onLogsUpsert, onActiveShiftsUpdate, onDeleteLog,
   onRefresh, isSyncing = false, nightShiftBonusMinutes, onUpdateNightBonus, currentOrg, plans
 }) => {
   const [filterMonth, setFilterMonth] = useState(format(new Date(), 'yyyy-MM'));
@@ -156,8 +157,7 @@ const EmployerView: React.FC<EmployerViewProps> = ({
       correctionTimestamp: now.toISOString()
     };
 
-    const newLogs = logs.map(l => l.id === log.id ? completedLog : l);
-    onLogUpdate(newLogs);
+    onLogsUpsert([completedLog]);
 
     try {
       const currentActive = await db.getActiveShifts(log.userId, orgId);
@@ -168,7 +168,7 @@ const EmployerView: React.FC<EmployerViewProps> = ({
             updatedActive[slotKey] = null;
           }
         });
-        await db.saveActiveShifts(log.userId, updatedActive, orgId);
+        onActiveShiftsUpdate(log.userId, updatedActive);
       }
     } catch (e) {
       console.warn("Не удалось очистить активную смену в облаке, но лог обновлен.");
@@ -199,20 +199,19 @@ const EmployerView: React.FC<EmployerViewProps> = ({
   };
 
   const saveCorrection = (logId: string, val: number) => {
-    const note = tempNotes[logId] !== undefined ? tempNotes[logId] : (logs.find(l => l.id === logId)?.correctionNote || '');
-    const updated = logs.map(l => {
-      if (l.id === logId) {
-        return { 
-          ...l, 
-          durationMinutes: val, 
-          isCorrected: true, 
-          correctionNote: note,
-          correctionTimestamp: new Date().toISOString()
-        };
-      }
-      return l;
-    });
-    onLogUpdate(updated);
+    const log = logs.find(l => l.id === logId);
+    if (!log) return;
+    
+    const note = tempNotes[logId] !== undefined ? tempNotes[logId] : (log.correctionNote || '');
+    const updatedLog = { 
+      ...log, 
+      durationMinutes: val, 
+      isCorrected: true, 
+      correctionNote: note,
+      correctionTimestamp: new Date().toISOString()
+    };
+    
+    onLogsUpsert([updatedLog]);
   };
 
   const handleUpdateMachinesList = (newMachines: Machine[]) => onUpdateMachines(newMachines);

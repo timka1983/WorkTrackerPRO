@@ -9,11 +9,12 @@ interface LayoutProps {
   currentOrg: Organization | null;
   onLogout: () => void;
   onSwitchRole: (role: UserRole) => void;
+  onRefresh?: () => void;
   version: string;
   isSyncing?: boolean;
 }
 
-const Layout: React.FC<LayoutProps> = ({ children, user, currentOrg, onLogout, onSwitchRole, version, isSyncing = false }) => {
+const Layout: React.FC<LayoutProps> = ({ children, user, currentOrg, onLogout, onSwitchRole, onRefresh, version, isSyncing = false }) => {
   // Check if current position has admin permissions
   const hasAdminPermissions = useMemo(() => {
     if (!user) return false;
@@ -47,13 +48,24 @@ const Layout: React.FC<LayoutProps> = ({ children, user, currentOrg, onLogout, o
               <div className="flex flex-col">
                 <div className="flex items-center gap-2">
                   <span className="text-xl font-bold text-slate-900 tracking-tight leading-none">WorkTracker</span>
-                  {isSyncing && (
-                    <div className="flex items-center gap-1">
-                      <div className="w-1 h-1 bg-blue-500 rounded-full animate-bounce [animation-delay:-0.3s]"></div>
-                      <div className="w-1 h-1 bg-blue-500 rounded-full animate-bounce [animation-delay:-0.15s]"></div>
-                      <div className="w-1 h-1 bg-blue-500 rounded-full animate-bounce"></div>
-                    </div>
-                  )}
+                  <button 
+                    onClick={() => onRefresh?.()}
+                    disabled={isSyncing}
+                    className={`flex items-center gap-1 p-1 rounded-md transition-all ${isSyncing ? 'bg-blue-50' : 'hover:bg-slate-100'}`}
+                    title="Синхронизировать данные"
+                  >
+                    {isSyncing ? (
+                      <div className="flex items-center gap-1">
+                        <div className="w-1 h-1 bg-blue-500 rounded-full animate-bounce [animation-delay:-0.3s]"></div>
+                        <div className="w-1 h-1 bg-blue-500 rounded-full animate-bounce [animation-delay:-0.15s]"></div>
+                        <div className="w-1 h-1 bg-blue-500 rounded-full animate-bounce"></div>
+                      </div>
+                    ) : (
+                      <svg className="w-3 h-3 text-slate-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={3} d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15" />
+                      </svg>
+                    )}
+                  </button>
                 </div>
                 {currentOrg && (
                   <div className="flex flex-col">

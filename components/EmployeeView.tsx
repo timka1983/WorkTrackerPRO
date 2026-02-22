@@ -13,7 +13,9 @@ import { db } from '../lib/supabase';
 interface EmployeeViewProps {
   user: User;
   logs: WorkLog[];
-  onLogUpdate: (newLogs: WorkLog[]) => void;
+  onLogsUpsert: (logs: WorkLog[]) => void;
+  activeShifts: Record<number, WorkLog | null>;
+  onActiveShiftsUpdate: (shifts: Record<number, WorkLog | null>) => void;
   machines: Machine[];
   positions: PositionConfig[];
   onUpdateUser: (user: User) => void;
@@ -21,7 +23,7 @@ interface EmployeeViewProps {
 }
 
 const EmployeeView: React.FC<EmployeeViewProps> = ({ 
-  user, logs, onLogUpdate, machines, positions, onUpdateUser, nightShiftBonusMinutes 
+  user, logs, onLogsUpsert, activeShifts, onActiveShiftsUpdate, machines, positions, onUpdateUser, nightShiftBonusMinutes 
 }) => {
   const orgId = localStorage.getItem(STORAGE_KEYS.ORG_ID) || 'default_org';
 
@@ -30,7 +32,6 @@ const EmployeeView: React.FC<EmployeeViewProps> = ({
     return config?.permissions || DEFAULT_PERMISSIONS;
   }, [user.position, positions]);
 
-  const [activeShifts, setActiveShifts] = useState<Record<number, WorkLog | null>>({ 1: null, 2: null, 3: null });
   const [slotMachineIds, setSlotMachineIds] = useState<Record<number, string>>({ 
     1: machines[0]?.id || '', 
     2: machines[1]?.id || machines[0]?.id || '', 
@@ -73,32 +74,9 @@ const EmployeeView: React.FC<EmployeeViewProps> = ({
   }, [logs, user.id, todayStr]);
 
   useEffect(() => {
-    const loadShifts = async () => {
-      const saved = localStorage.getItem(`${STORAGE_KEYS.ACTIVE_SHIFTS}_${user.id}`);
-      if (saved) {
-        try {
-          const parsed = JSON.parse(saved);
-          setActiveShifts(parsed);
-          const hasAnyNight = Object.values(parsed).some(s => s && (s as WorkLog).isNightShift);
-          if (hasAnyNight) setIsNightModeGlobal(true);
-        } catch (e) {}
-      }
-      
-      try {
-        const dbShifts = await db.getActiveShifts(user.id, orgId);
-        if (dbShifts) {
-          setActiveShifts(dbShifts);
-          localStorage.setItem(`${STORAGE_KEYS.ACTIVE_SHIFTS}_${user.id}`, JSON.stringify(dbShifts));
-          const hasAnyNight = Object.values(dbShifts).some(s => s && (s as WorkLog).isNightShift);
-          if (hasAnyNight) setIsNightModeGlobal(true);
-        }
-      } catch (err) {
-        console.warn("DB Shift fetch failed");
-      }
-    };
-    
-    loadShifts();
-  }, [user.id, orgId]);
+    const hasAnyNight = Object.values(activeShifts).some(s => s && (s as WorkLog).isNightShift);
+    if (hasAnyNight) setIsNightModeGlobal(true);
+  }, [activeShifts]);
 
   useEffect(() => {
     if (showCamera) {
@@ -119,12 +97,6 @@ const EmployeeView: React.FC<EmployeeViewProps> = ({
       }
     };
   }, [showCamera]);
-
-  const saveActiveShifts = (shifts: Record<number, WorkLog | null>) => {
-    setActiveShifts(shifts);
-    localStorage.setItem(`${STORAGE_KEYS.ACTIVE_SHIFTS}_${user.id}`, JSON.stringify(shifts));
-    db.saveActiveShifts(user.id, shifts, orgId); 
-  };
 
   const capturePhoto = (): string => {
     if (!videoRef.current) return '';
@@ -178,15 +150,15 @@ const EmployeeView: React.FC<EmployeeViewProps> = ({
       entryType: EntryType.WORK,
       machineId: selectedMachineId,
       checkIn: now.toISOString(),
-      checkOut: undefined, // Явно указываем отсутствие завершения
+      checkOut: null as any, // Явно указываем отсутствие завершения
       durationMinutes: 0,
       photoIn: photo,
       isNightShift: isNightModeGlobal
     };
     
     const nextShifts = { ...activeShifts, [slot]: newShift };
-    saveActiveShifts(nextShifts);
-    onLogUpdate([newShift, ...logs]);
+    onActiveShiftsUpdate(nextShifts);
+    onLogsUpsert([newShift]);
     setShowCamera(null);
   };
 
@@ -209,13 +181,8 @@ const EmployeeView: React.FC<EmployeeViewProps> = ({
     };
     
     const nextShifts = { ...activeShifts, [slot]: null };
-    saveActiveShifts(nextShifts);
-
-    const newLogs = logs.map(l => l.id === currentShift.id ? completed : l);
-    if (!logs.some(l => l.id === currentShift.id)) {
-      newLogs.unshift(completed);
-    }
-    onLogUpdate(newLogs);
+    onActiveShiftsUpdate(nextShifts);
+    onLogsUpsert([completed]);
     setShowCamera(null);
   };
 
@@ -249,7 +216,7 @@ const EmployeeView: React.FC<EmployeeViewProps> = ({
       entryType: type,
       durationMinutes: 0
     };
-    onLogUpdate([log, ...logs]);
+    onLogsUpsert([log]);
   };
 
   const handlePinChangeSubmit = (e: React.FormEvent) => {
