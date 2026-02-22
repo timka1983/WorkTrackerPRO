@@ -178,10 +178,27 @@ const EmployerView: React.FC<EmployerViewProps> = ({
       correctionTimestamp: now.toISOString()
     };
 
-    // 1. Обновляем основной список логов. 
-    // Наша обновленная функция handleLogsUpsert в App.tsx теперь автоматически 
-    // находит и удаляет завершенные смены из карты активных смен (activeShiftsMap).
+    // 1. Обновляем основной список логов (синхронизация с БД произойдет автоматически через App.tsx)
     onLogsUpsert([completedLog]);
+
+    // 2. Очищаем карту активных смен для этого пользователя
+    // Берем текущее состояние смен пользователя из карты или создаем пустое
+    const currentActive = { ...(activeShiftsMap[log.userId] || { 1: null, 2: null, 3: null }) };
+    let wasChanged = false;
+    
+    // Проходим по всем слотам и удаляем именно ту смену, которую завершаем
+    Object.keys(currentActive).forEach(slotKey => {
+      const shiftInSlot = currentActive[slotKey];
+      if (shiftInSlot && shiftInSlot.id === log.id) {
+        currentActive[slotKey] = null;
+        wasChanged = true;
+      }
+    });
+
+    // Если нашли и удалили смену из слота, уведомляем родительский компонент
+    if (wasChanged) {
+      onActiveShiftsUpdate(log.userId, currentActive);
+    }
   };
 
   const handleAddUser = (e: React.FormEvent) => {

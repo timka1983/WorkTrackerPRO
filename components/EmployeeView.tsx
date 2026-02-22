@@ -75,10 +75,8 @@ const EmployeeView: React.FC<EmployeeViewProps> = ({
   }, [logs, user.id, todayStr]);
 
   const isAnyShiftActiveInLogs = useMemo(() => {
-    // Если разрешено несколько слотов, то наличие активной смены не блокирует начало новой в другом слоте
-    if (perms.multiSlot) return false;
     return logs.some(l => l.userId === user.id && l.entryType === EntryType.WORK && !l.checkOut);
-  }, [logs, user.id, perms.multiSlot]);
+  }, [logs, user.id]);
 
   useEffect(() => {
     const hasAnyNight = Object.values(activeShifts).some(s => s && (s as WorkLog).isNightShift);
@@ -187,8 +185,8 @@ const EmployeeView: React.FC<EmployeeViewProps> = ({
       photoOut: photo
     };
     
-    // Обновляем логи. handleLogsUpsert в App.tsx теперь автоматически очистит 
-    // завершенную смену из карты активных смен.
+    const nextShifts = { ...activeShifts, [slot]: null };
+    onActiveShiftsUpdate(nextShifts);
     onLogsUpsert([completed]);
     setShowCamera(null);
   };

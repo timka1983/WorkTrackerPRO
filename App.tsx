@@ -518,7 +518,7 @@ const App: React.FC = () => {
   const handleLogsUpsert = useCallback((logsToUpsert: WorkLog[]) => {
     const orgId = currentOrg?.id || localStorage.getItem(STORAGE_KEYS.ORG_ID) || DEFAULT_ORG_ID;
     
-    // Оптимистичное обновление локального состояния логов
+    // Оптимистичное обновление локального состояния
     setLogs(prev => {
       const updated = [...prev];
       logsToUpsert.forEach(newLog => {
@@ -540,39 +540,6 @@ const App: React.FC = () => {
 
       localStorage.setItem(STORAGE_KEYS.WORK_LOGS, JSON.stringify(sorted));
       return sorted;
-    });
-
-    // Автоматическая синхронизация карты активных смен
-    // Если лог был завершен (появился checkOut), удаляем его из карты активных смен
-    setActiveShiftsMap(prev => {
-      const newMap = { ...prev };
-      let changed = false;
-
-      logsToUpsert.forEach(log => {
-        if (log.checkOut) {
-          const userShifts = newMap[log.userId];
-          if (userShifts) {
-            const newUserShifts = { ...userShifts };
-            let userChanged = false;
-            Object.keys(newUserShifts).forEach(slot => {
-              if (newUserShifts[slot]?.id === log.id) {
-                newUserShifts[slot] = null;
-                userChanged = true;
-                changed = true;
-              }
-            });
-            if (userChanged) {
-              newMap[log.userId] = newUserShifts;
-            }
-          }
-        }
-      });
-
-      if (changed) {
-        localStorage.setItem(STORAGE_KEYS.ACTIVE_SHIFTS, JSON.stringify(newMap));
-        return newMap;
-      }
-      return prev;
     });
     
     // Пакетное обновление в БД
