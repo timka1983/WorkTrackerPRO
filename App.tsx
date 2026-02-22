@@ -1,6 +1,6 @@
 
 import React, { useState, useEffect, useCallback, useMemo } from 'react';
-import { User, UserRole, WorkLog, Machine, PositionConfig, Organization, PlanType, PlanLimits, Plan } from './types';
+import { User, UserRole, WorkLog, Machine, PositionConfig, Organization, PlanType, PlanLimits, Plan, EntryType } from './types';
 import { STORAGE_KEYS, INITIAL_USERS, INITIAL_MACHINES, INITIAL_POSITIONS, INITIAL_LOGS, DEFAULT_PERMISSIONS, PLAN_LIMITS } from './constants';
 import Layout from './components/Layout';
 import EmployeeView from './components/EmployeeView';
@@ -187,21 +187,14 @@ const App: React.FC = () => {
         setPlans(dbPlans);
       }
 
-      if (dbActiveShifts) {
-        const map: Record<string, any> = {};
-        dbActiveShifts.forEach((s: any) => {
-          map[s.user_id] = s.shifts_json;
-        });
-        setActiveShiftsMap(map);
-      }
-
+      let finalLogs: WorkLog[] = dbLogs || [];
       if (dbLogs) {
         // Сохраняем локальные активные смены, которых нет в БД (они могли еще не синхронизироваться)
         const localActiveShifts = logs.filter(l => !l.checkOut);
         const dbLogIds = new Set(dbLogs.map(l => l.id));
         const pendingLogs = localActiveShifts.filter(l => !dbLogIds.has(l.id));
         
-        const mergedLogs = [...dbLogs, ...pendingLogs].sort((a, b) => {
+        finalLogs = [...dbLogs, ...pendingLogs].sort((a, b) => {
           const dateCompare = b.date.localeCompare(a.date);
           if (dateCompare !== 0) return dateCompare;
           const aTime = a.checkIn || '';
@@ -209,13 +202,49 @@ const App: React.FC = () => {
           return bTime.localeCompare(aTime);
         });
 
-        setLogs(mergedLogs);
-        localStorage.setItem(STORAGE_KEYS.WORK_LOGS, JSON.stringify(mergedLogs));
+        setLogs(finalLogs);
+        localStorage.setItem(STORAGE_KEYS.WORK_LOGS, JSON.stringify(finalLogs));
       } else if (!isRefresh && !logs.length) {
-        // Если нет данных в БД и нет в стейте, пробуем загрузить из кэша
         const cachedLogs = localStorage.getItem(STORAGE_KEYS.WORK_LOGS);
-        if (cachedLogs) setLogs(JSON.parse(cachedLogs));
+        if (cachedLogs) {
+          finalLogs = JSON.parse(cachedLogs);
+          setLogs(finalLogs);
+        }
       }
+
+      // Реконструкция карты активных смен из логов (как запасной вариант)
+      const map: Record<string, any> = {};
+      
+      // Сначала загружаем из кэша
+      const cachedActive = localStorage.getItem(STORAGE_KEYS.ACTIVE_SHIFTS);
+      if (cachedActive) {
+        try {
+          Object.assign(map, JSON.parse(cachedActive));
+        } catch (e) {}
+      }
+
+      if (dbActiveShifts) {
+        dbActiveShifts.forEach((s: any) => {
+          map[s.user_id] = s.shifts_json;
+        });
+      }
+
+      // Дополняем карту из незавершенных логов
+      finalLogs.forEach(log => {
+        if (!log.checkOut && log.entryType === EntryType.WORK) {
+          const userShifts = map[log.userId] || { 1: null, 2: null, 3: null };
+          const alreadyInMap = Object.values(userShifts).some((s: any) => s?.id === log.id);
+          if (!alreadyInMap) {
+            const emptySlot = [1, 2, 3].find(slot => !userShifts[slot]);
+            if (emptySlot) {
+              userShifts[emptySlot] = log;
+              map[log.userId] = { ...userShifts };
+            }
+          }
+        }
+      });
+      setActiveShiftsMap(map);
+      localStorage.setItem(STORAGE_KEYS.ACTIVE_SHIFTS, JSON.stringify(map));
 
       if (dbUsers && dbUsers.length > 0) {
         setUsers(dbUsers);
@@ -489,7 +518,7 @@ const App: React.FC = () => {
   const handleLogsUpsert = useCallback((logsToUpsert: WorkLog[]) => {
     const orgId = currentOrg?.id || localStorage.getItem(STORAGE_KEYS.ORG_ID) || DEFAULT_ORG_ID;
     
-    // Оптимистичное обновление локального состояния
+    // Оптимистичное обновление локального состояния логов
     setLogs(prev => {
       const updated = [...prev];
       logsToUpsert.forEach(newLog => {
@@ -511,6 +540,39 @@ const App: React.FC = () => {
 
       localStorage.setItem(STORAGE_KEYS.WORK_LOGS, JSON.stringify(sorted));
       return sorted;
+    });
+
+    // Автоматическая синхронизация карты активных смен
+    // Если лог был завершен (появился checkOut), удаляем его из карты активных смен
+    setActiveShiftsMap(prev => {
+      const newMap = { ...prev };
+      let changed = false;
+
+      logsToUpsert.forEach(log => {
+        if (log.checkOut) {
+          const userShifts = newMap[log.userId];
+          if (userShifts) {
+            const newUserShifts = { ...userShifts };
+            let userChanged = false;
+            Object.keys(newUserShifts).forEach(slot => {
+              if (newUserShifts[slot]?.id === log.id) {
+                newUserShifts[slot] = null;
+                userChanged = true;
+                changed = true;
+              }
+            });
+            if (userChanged) {
+              newMap[log.userId] = newUserShifts;
+            }
+          }
+        }
+      });
+
+      if (changed) {
+        localStorage.setItem(STORAGE_KEYS.ACTIVE_SHIFTS, JSON.stringify(newMap));
+        return newMap;
+      }
+      return prev;
     });
     
     // Пакетное обновление в БД
@@ -535,12 +597,21 @@ const App: React.FC = () => {
   const handleActiveShiftsUpdate = useCallback((userId: string, shifts: any) => {
     const orgId = currentOrg?.id || localStorage.getItem(STORAGE_KEYS.ORG_ID) || DEFAULT_ORG_ID;
     
-    setActiveShiftsMap(prev => ({
-      ...prev,
-      [userId]: shifts
-    }));
+    setActiveShiftsMap(prev => {
+      const updated = {
+        ...prev,
+        [userId]: shifts
+      };
+      localStorage.setItem(STORAGE_KEYS.ACTIVE_SHIFTS, JSON.stringify(updated));
+      return updated;
+    });
     
-    db.saveActiveShifts(userId, shifts, orgId);
+    db.saveActiveShifts(userId, shifts, orgId).then(({ error }) => {
+      if (error) {
+        console.error('Active shifts sync error:', error);
+        // Не ставим глобальную ошибку, так как локально всё сохранилось
+      }
+    });
   }, [currentOrg?.id]);
 
   const handleResetRequest = async (e: React.FormEvent) => {
@@ -1003,6 +1074,7 @@ const App: React.FC = () => {
             positions={positions} 
             onUpdateUser={handleUpdateUser}
             nightShiftBonusMinutes={nightShiftBonus}
+            onRefresh={handleRefresh}
           />
         ) : (
           isEmployerAuthorized ? (

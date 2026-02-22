@@ -126,22 +126,51 @@ export const db = {
         check_in: log.checkIn,
         check_out: log.checkOut || null,
         duration_minutes: log.durationMinutes || 0,
-        photo_in: log.photoIn || null,
-        photo_out: log.photoOut || null,
-        is_corrected: log.isCorrected || false,
-        correction_note: log.correctionNote || null,
-        correction_timestamp: log.correctionTimestamp || null,
       };
       
+      // Только если значения не пустые/дефолтные, чтобы не ломать старые схемы БД
       if (log.machineId) item.machine_id = log.machineId;
-      if (log.isNightShift !== undefined) item.is_night_shift = log.isNightShift;
+      if (log.photoIn) item.photo_in = log.photoIn;
+      if (log.photoOut) item.photo_out = log.photoOut;
+      if (log.isCorrected) {
+        item.is_corrected = true;
+        if (log.correctionNote) item.correction_note = log.correctionNote;
+        if (log.correctionTimestamp) item.correction_timestamp = log.correctionTimestamp;
+      }
+      
+      // Эти колонки могут отсутствовать в старых версиях БД
+      if (log.isNightShift) item.is_night_shift = true;
       if (orgId && orgId !== 'default_org') item.organization_id = orgId;
       
       return item;
     });
 
     const { error } = await supabase.from('work_logs').upsert(payload);
-    if (error) console.error('Error batch upserting logs:', error);
+    if (error) {
+      console.error('Error batch upserting logs:', error);
+      
+      // Если ошибка в колонках (42703) или неопределенная ошибка, пробуем минимальный набор
+      if (error.code === '42703' || error.message?.includes('column')) {
+        const minimalPayload = payload.map(p => {
+          const { is_night_shift, organization_id, photo_in, photo_out, machine_id, ...rest } = p;
+          return rest;
+        });
+        console.warn('Retrying with minimal payload...');
+        const { error: retryError } = await supabase.from('work_logs').upsert(minimalPayload);
+        return { error: retryError };
+      }
+      
+      // Если ошибка в данных (например, слишком большие фото), пробуем без фото
+      if (error.code === '22001' || error.message?.includes('too long')) {
+        const noPhotoPayload = payload.map(p => {
+          const { photo_in, photo_out, ...rest } = p;
+          return rest;
+        });
+        console.warn('Retrying without photos...');
+        const { error: retryError } = await supabase.from('work_logs').upsert(noPhotoPayload);
+        return { error: retryError };
+      }
+    }
     return { error };
   },
   deleteLog: async (id: string, orgId: string) => {
@@ -259,16 +288,45 @@ export const db = {
       payload.organization_id = orgId;
     }
 
-    // Убираем явный onConflict, чтобы Supabase использовал первичный ключ (обычно user_id)
-    const { error } = await supabase.from('active_shifts').upsert(payload);
-    
-    if (error) console.error('Error saving active shifts:', error);
-    return { error };
+    try {
+      // Пробуем с явным указанием onConflict по user_id
+      const { error } = await supabase.from('active_shifts').upsert(payload, { onConflict: 'user_id' });
+      
+      if (error) {
+        console.warn('First upsert attempt failed, trying fallback:', error);
+        // Если ошибка в колонке organization_id
+        if (error.message?.includes('column') || error.code === '42703') {
+          const { organization_id, ...minimalPayload } = payload;
+          const { error: retryError } = await supabase.from('active_shifts').upsert(minimalPayload, { onConflict: 'user_id' });
+          return { error: retryError };
+        }
+        
+        // Если ошибка в onConflict (например, нет индекса по user_id, но есть по (user_id, organization_id))
+        if (error.code === '42P10' || error.message?.includes('conflict')) {
+           const { error: retryError2 } = await supabase.from('active_shifts').upsert(payload);
+           return { error: retryError2 };
+        }
+        
+        return { error };
+      }
+      return { error: null };
+    } catch (e: any) {
+      console.error('Exception in saveActiveShifts:', e);
+      return { error: e.message };
+    }
   },
   getAllActiveShifts: async (orgId: string) => {
     if (!checkConfig()) return null;
     const { data, error } = await supabase.from('active_shifts').select('*').eq('organization_id', orgId);
-    if (error) return null;
+    if (error) {
+      // Если ошибка в колонке, пробуем получить все и отфильтровать (или вернуть все если orgId дефолтный)
+      if (error.message?.includes('column') || error.code === '42703') {
+        const { data: allData, error: allErrors } = await supabase.from('active_shifts').select('*');
+        if (allErrors) return null;
+        return allData;
+      }
+      return null;
+    }
     return data;
   },
   // Super-Admin methods

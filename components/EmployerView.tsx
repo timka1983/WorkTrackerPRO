@@ -157,15 +157,18 @@ const EmployerView: React.FC<EmployerViewProps> = ({
     return { activeShifts, finishedToday, avgWeeklyHours, absenceCounts, activeLogsMap, todayStr };
   }, [logs, employees, filterMonth, activeShiftsMap]);
 
+  // Функция для принудительного завершения смены администратором
   const handleForceFinish = async (log: WorkLog) => {
     const empName = users.find(u => u.id === log.userId)?.name || 'сотрудника';
     const mName = machines.find(m => m.id === log.machineId)?.name || 'Работа';
+    
     if (!confirm(`Вы действительно хотите принудительно завершить смену (${mName}) для ${empName}? Таймер сотрудника будет остановлен, оборудование станет свободным.`)) return;
 
-    const orgId = localStorage.getItem(STORAGE_KEYS.ORG_ID) || 'default_org';
     const now = new Date();
+    // Рассчитываем длительность смены до текущего момента
     const duration = log.checkIn ? calculateMinutes(log.checkIn, now.toISOString()) : 0;
     
+    // Создаем объект завершенного лога
     const completedLog: WorkLog = {
       ...log,
       checkOut: now.toISOString(),
@@ -175,22 +178,10 @@ const EmployerView: React.FC<EmployerViewProps> = ({
       correctionTimestamp: now.toISOString()
     };
 
+    // 1. Обновляем основной список логов. 
+    // Наша обновленная функция handleLogsUpsert в App.tsx теперь автоматически 
+    // находит и удаляет завершенные смены из карты активных смен (activeShiftsMap).
     onLogsUpsert([completedLog]);
-
-    try {
-      const currentActive = await db.getActiveShifts(log.userId, orgId);
-      if (currentActive) {
-        const updatedActive = { ...currentActive };
-        Object.keys(updatedActive).forEach(slotKey => {
-          if (updatedActive[slotKey]?.id === log.id) {
-            updatedActive[slotKey] = null;
-          }
-        });
-        onActiveShiftsUpdate(log.userId, updatedActive);
-      }
-    } catch (e) {
-      console.warn("Не удалось очистить активную смену в облаке, но лог обновлен.");
-    }
   };
 
   const handleAddUser = (e: React.FormEvent) => {

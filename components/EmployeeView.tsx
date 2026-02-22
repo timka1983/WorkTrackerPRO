@@ -20,10 +20,11 @@ interface EmployeeViewProps {
   positions: PositionConfig[];
   onUpdateUser: (user: User) => void;
   nightShiftBonusMinutes: number;
+  onRefresh?: () => Promise<void>;
 }
 
 const EmployeeView: React.FC<EmployeeViewProps> = ({ 
-  user, logs, onLogsUpsert, activeShifts, onActiveShiftsUpdate, machines, positions, onUpdateUser, nightShiftBonusMinutes 
+  user, logs, onLogsUpsert, activeShifts, onActiveShiftsUpdate, machines, positions, onUpdateUser, nightShiftBonusMinutes, onRefresh
 }) => {
   const orgId = localStorage.getItem(STORAGE_KEYS.ORG_ID) || 'default_org';
 
@@ -72,6 +73,12 @@ const EmployeeView: React.FC<EmployeeViewProps> = ({
       return timeB - timeA;
     });
   }, [logs, user.id, todayStr]);
+
+  const isAnyShiftActiveInLogs = useMemo(() => {
+    // Если разрешено несколько слотов, то наличие активной смены не блокирует начало новой в другом слоте
+    if (perms.multiSlot) return false;
+    return logs.some(l => l.userId === user.id && l.entryType === EntryType.WORK && !l.checkOut);
+  }, [logs, user.id, perms.multiSlot]);
 
   useEffect(() => {
     const hasAnyNight = Object.values(activeShifts).some(s => s && (s as WorkLog).isNightShift);
@@ -180,8 +187,8 @@ const EmployeeView: React.FC<EmployeeViewProps> = ({
       photoOut: photo
     };
     
-    const nextShifts = { ...activeShifts, [slot]: null };
-    onActiveShiftsUpdate(nextShifts);
+    // Обновляем логи. handleLogsUpsert в App.tsx теперь автоматически очистит 
+    // завершенную смену из карты активных смен.
     onLogsUpsert([completed]);
     setShowCamera(null);
   };
@@ -363,7 +370,7 @@ const EmployeeView: React.FC<EmployeeViewProps> = ({
             )}
 
             <button 
-              disabled={isAbsentToday || (perms.useMachines && busyMachineIds.includes(slotMachineIds[slot]))}
+              disabled={isAbsentToday || isAnyShiftActiveInLogs || (perms.useMachines && busyMachineIds.includes(slotMachineIds[slot]))}
               onClick={() => processAction(slot, 'start')} 
               className="w-full py-4 bg-blue-600 hover:bg-blue-700 text-white rounded-2xl font-black text-sm shadow-lg shadow-blue-100 transition-all active:scale-95 uppercase disabled:bg-slate-300 disabled:shadow-none"
             >
@@ -572,6 +579,11 @@ const EmployeeView: React.FC<EmployeeViewProps> = ({
            </div>
         </div>
         <div className="flex items-center gap-4">
+          {onRefresh && (
+            <button onClick={onRefresh} className="p-3 bg-slate-100 text-slate-500 rounded-xl hover:bg-slate-200 transition-colors" title="Обновить данные">
+              <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15" /></svg>
+            </button>
+          )}
           <button onClick={() => setShowPinChange(true)} className="p-3 bg-slate-100 text-slate-500 rounded-xl hover:bg-slate-200 transition-colors" title="Сменить PIN">
              <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 7a2 2 0 012 2m4 0a6 6 0 01-7.743 5.743L11 17H9v2H7v2H4a1 1 0 01-1-1v-2.586a1 1 0 01.293-.707l5.964-5.964A6 6 0 1121 9z" /></svg>
           </button>
