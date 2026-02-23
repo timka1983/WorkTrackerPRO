@@ -6,6 +6,7 @@ import Layout from './components/Layout';
 import EmployeeView from './components/EmployeeView';
 import EmployerView from './components/EmployerView';
 import LandingPage from './components/LandingPage';
+import RegistrationForm from './components/RegistrationForm';
 import SuperAdminView from './components/SuperAdminView';
 import { db } from './lib/supabase';
 
@@ -22,6 +23,9 @@ const App: React.FC = () => {
   const [machines, setMachines] = useState<Machine[]>([]);
   const [positions, setPositions] = useState<PositionConfig[]>([]);
   const [plans, setPlans] = useState<Plan[]>([]);
+  
+  // Состояние для регистрации
+  const [showRegistration, setShowRegistration] = useState(false);
   
   // Состояние для окна апгрейда
   const [upgradeReason, setUpgradeReason] = useState<string | null>(null);
@@ -132,18 +136,17 @@ const App: React.FC = () => {
       const isConnected = await db.checkConnection();
       if (!isConnected) {
         setDbError('Нет подключения к базе данных. Проверьте настройки Supabase.');
-        console.warn('Supabase not connected or not configured');
         if (isRefresh) setIsSyncing(false);
         return;
       }
       setDbError(null);
 
+      // Fetch organization first to ensure we have the right context
       const dbOrg = await db.getOrganization(orgId);
+      
       if (dbOrg) {
-        // Проверка истечения срока действия: только если статус active/trial и дата в прошлом
+        // Проверка истечения срока действия
         const isExpired = dbOrg.expiryDate && new Date(dbOrg.expiryDate) < new Date();
-        
-        // Если тариф истек и он НЕ Free, сбрасываем его
         if (isExpired && dbOrg.status !== 'expired' && dbOrg.plan !== PlanType.FREE) {
           dbOrg.status = 'expired';
           dbOrg.plan = PlanType.FREE;
@@ -153,27 +156,24 @@ const App: React.FC = () => {
         
         setCurrentOrg(dbOrg);
         localStorage.setItem(STORAGE_KEYS.ORG_DATA, JSON.stringify(dbOrg));
+      } else if (orgId === DEFAULT_ORG_ID) {
+        const defaultOrg: Organization = { 
+          id: DEFAULT_ORG_ID, 
+          name: 'Моя Компания', 
+          ownerId: 'admin', 
+          plan: PlanType.FREE, 
+          status: 'active' 
+        };
+        setCurrentOrg(defaultOrg);
+        await db.createOrganization(defaultOrg);
       } else {
-        // Если организация не найдена в БД, но это default_org, создаем её или используем дефолт
-        if (orgId === DEFAULT_ORG_ID) {
-          const defaultOrg: Organization = { 
-            id: DEFAULT_ORG_ID, 
-            name: 'Моя Компания', 
-            ownerId: 'admin', 
-            plan: PlanType.FREE, 
-            status: 'active' 
-          };
-          setCurrentOrg(defaultOrg);
-          // Попробуем создать её в БД, чтобы супер-админ её видел
-          await db.createOrganization(defaultOrg);
-        } else {
-          // Если это не дефолтная и её нет в БД - сбрасываем на дефолт
-          localStorage.setItem(STORAGE_KEYS.ORG_ID, DEFAULT_ORG_ID);
-          window.location.reload();
-          return;
-        }
+        // Org not found and not default - reset to default
+        localStorage.setItem(STORAGE_KEYS.ORG_ID, DEFAULT_ORG_ID);
+        window.location.reload();
+        return;
       }
 
+      // Parallel fetch of all other data
       const [dbLogs, dbUsers, dbMachines, dbPositions, dbPlans, dbActiveShifts] = await Promise.all([
         db.getLogs(orgId),
         db.getUsers(orgId),
@@ -183,88 +183,53 @@ const App: React.FC = () => {
         db.getAllActiveShifts(orgId)
       ]);
 
-      if (dbPlans && dbPlans.length > 0) {
-        setPlans(dbPlans);
-      }
+      if (dbPlans) setPlans(dbPlans);
 
+      // Handle Logs
       let finalLogs: WorkLog[] = dbLogs || [];
       if (dbLogs) {
-        // Сохраняем локальные активные смены, которых нет в БД (они могли еще не синхронизироваться)
-        const localActiveShifts = logs.filter(l => !l.checkOut);
-        const dbLogIds = new Set(dbLogs.map(l => l.id));
-        const pendingLogs = localActiveShifts.filter(l => !dbLogIds.has(l.id));
-        
-        finalLogs = [...dbLogs, ...pendingLogs].sort((a, b) => {
-          const dateCompare = b.date.localeCompare(a.date);
-          if (dateCompare !== 0) return dateCompare;
-          const aTime = a.checkIn || '';
-          const bTime = b.checkIn || '';
-          return bTime.localeCompare(aTime);
-        });
-
-        setLogs(finalLogs);
-        localStorage.setItem(STORAGE_KEYS.WORK_LOGS, JSON.stringify(finalLogs));
-      } else if (!isRefresh && !logs.length) {
-        const cachedLogs = localStorage.getItem(STORAGE_KEYS.WORK_LOGS);
-        if (cachedLogs) {
-          finalLogs = JSON.parse(cachedLogs);
-          setLogs(finalLogs);
-        }
+        setLogs(dbLogs);
+        localStorage.setItem(STORAGE_KEYS.WORK_LOGS, JSON.stringify(dbLogs));
       }
 
-      // Реконструкция карты активных смен из логов (как запасной вариант)
+      // Handle Active Shifts - Isolation fix: only use DB data for new orgs
       const map: Record<string, any> = {};
-      
-      // Сначала загружаем из кэша
-      const cachedActive = localStorage.getItem(STORAGE_KEYS.ACTIVE_SHIFTS);
-      if (cachedActive) {
-        try {
-          Object.assign(map, JSON.parse(cachedActive));
-        } catch (e) {}
-      }
-
       if (dbActiveShifts) {
         dbActiveShifts.forEach((s: any) => {
           map[s.user_id] = s.shifts_json;
         });
       }
-
-      // Дополняем карту из незавершенных логов
-      finalLogs.forEach(log => {
-        if (!log.checkOut && log.entryType === EntryType.WORK) {
-          const userShifts = map[log.userId] || { 1: null, 2: null, 3: null };
-          const alreadyInMap = Object.values(userShifts).some((s: any) => s?.id === log.id);
-          if (!alreadyInMap) {
-            const emptySlot = [1, 2, 3].find(slot => !userShifts[slot]);
-            if (emptySlot) {
-              userShifts[emptySlot] = log;
-              map[log.userId] = { ...userShifts };
-            }
-          }
-        }
-      });
       setActiveShiftsMap(map);
       localStorage.setItem(STORAGE_KEYS.ACTIVE_SHIFTS, JSON.stringify(map));
 
+      // Handle Users
       if (dbUsers && dbUsers.length > 0) {
         setUsers(dbUsers);
         localStorage.setItem(STORAGE_KEYS.USERS_LIST, JSON.stringify(dbUsers));
-      } else if (!cachedUsers && !isRefresh && orgId === DEFAULT_ORG_ID && currentOrg?.name === 'Моя Компания') {
-        // Только для дефолтной организации И дефолтного названия заливаем демо-данных
+      } else if (orgId === DEFAULT_ORG_ID) {
+        // Only seed default org if empty
         for (const u of INITIAL_USERS) await db.upsertUser(u, orgId);
         setUsers(INITIAL_USERS);
         localStorage.setItem(STORAGE_KEYS.USERS_LIST, JSON.stringify(INITIAL_USERS));
+      } else {
+        setUsers([]);
+        localStorage.removeItem(STORAGE_KEYS.USERS_LIST);
       }
 
+      // Handle Machines
       if (dbMachines && dbMachines.length > 0) {
         setMachines(dbMachines);
         localStorage.setItem(STORAGE_KEYS.MACHINES_LIST, JSON.stringify(dbMachines));
-      } else if (!cachedMachines && !isRefresh && orgId === DEFAULT_ORG_ID) {
+      } else if (orgId === DEFAULT_ORG_ID) {
         setMachines(INITIAL_MACHINES);
         await db.saveMachines(INITIAL_MACHINES, orgId);
+      } else {
+        setMachines([]);
+        localStorage.removeItem(STORAGE_KEYS.MACHINES_LIST);
       }
 
-      if (dbPositions && dbPositions.length > 0) {
+      // Handle Positions
+      if (dbPositions) {
         const normalized = dbPositions.map((p: any) => 
           typeof p === 'string' 
             ? (INITIAL_POSITIONS.find(ip => ip.name === p) || { name: p, permissions: DEFAULT_PERMISSIONS }) 
@@ -274,7 +239,7 @@ const App: React.FC = () => {
         localStorage.setItem(STORAGE_KEYS.POSITIONS_LIST, JSON.stringify(normalized));
       }
     } catch (err) {
-      console.warn("Cloud sync deferred: working in multi-tenant offline mode.");
+      console.error("Sync error:", err);
     } finally {
       if (!isRefresh) setIsInitialized(true);
       if (isRefresh) setIsSyncing(false);
@@ -785,8 +750,31 @@ const App: React.FC = () => {
     return <SuperAdminView onLogout={handleLogout} />;
   }
 
+  if (showRegistration) {
+    return (
+      <RegistrationForm 
+        onBack={() => setShowRegistration(false)} 
+        onSuccess={(orgId) => {
+          // Clear all cache before switching to new org
+          Object.values(STORAGE_KEYS).forEach(key => {
+            localStorage.removeItem(key);
+          });
+          localStorage.setItem(STORAGE_KEYS.ORG_ID, orgId);
+          setShowRegistration(false);
+          setShowLanding(false);
+          window.location.reload();
+        }} 
+      />
+    );
+  }
+
   if (showLanding && !currentUser) {
-    return <LandingPage onStart={() => setShowLanding(false)} />;
+    return (
+      <LandingPage 
+        onStart={() => setShowLanding(false)} 
+        onRegister={() => setShowRegistration(true)}
+      />
+    );
   }
 
   return (

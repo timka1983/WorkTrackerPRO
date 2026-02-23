@@ -3,9 +3,10 @@ import React from 'react';
 
 interface LandingPageProps {
   onStart: () => void;
+  onRegister: () => void;
 }
 
-const LandingPage: React.FC<LandingPageProps> = ({ onStart }) => {
+const LandingPage: React.FC<LandingPageProps> = ({ onStart, onRegister }) => {
   return (
     <div className="min-h-screen bg-white text-slate-900 selection:bg-blue-100">
       {/* Navigation */}
@@ -43,7 +44,7 @@ const LandingPage: React.FC<LandingPageProps> = ({ onStart }) => {
         </p>
         <div className="flex flex-col sm:flex-row gap-4 justify-center items-center">
           <button 
-            onClick={onStart}
+            onClick={onRegister}
             className="w-full sm:w-auto px-10 py-5 bg-blue-600 text-white rounded-[2rem] font-black text-lg shadow-2xl shadow-blue-200 hover:bg-blue-700 transition-all hover:-translate-y-1 active:scale-95 uppercase tracking-wide"
           >
             Начать бесплатно
@@ -133,7 +134,7 @@ const LandingPage: React.FC<LandingPageProps> = ({ onStart }) => {
                 </li>
               ))}
             </ul>
-            <button onClick={onStart} className="w-full py-4 bg-slate-100 text-slate-900 rounded-2xl font-black uppercase text-xs tracking-widest hover:bg-slate-200 transition-all">Начать бесплатно</button>
+            <button onClick={onRegister} className="w-full py-4 bg-slate-100 text-slate-900 rounded-2xl font-black uppercase text-xs tracking-widest hover:bg-slate-200 transition-all">Начать бесплатно</button>
           </div>
 
           {/* Plan 2 - Popular */}
@@ -152,7 +153,7 @@ const LandingPage: React.FC<LandingPageProps> = ({ onStart }) => {
                 </li>
               ))}
             </ul>
-            <button onClick={onStart} className="w-full py-5 bg-blue-600 text-white rounded-2xl font-black uppercase text-sm tracking-widest shadow-xl shadow-blue-200 hover:bg-blue-700 transition-all active:scale-95">Выбрать Профи</button>
+            <button onClick={onRegister} className="w-full py-5 bg-blue-600 text-white rounded-2xl font-black uppercase text-sm tracking-widest shadow-xl shadow-blue-200 hover:bg-blue-700 transition-all active:scale-95">Выбрать Профи</button>
           </div>
 
           {/* Plan 3 */}
@@ -170,7 +171,7 @@ const LandingPage: React.FC<LandingPageProps> = ({ onStart }) => {
                 </li>
               ))}
             </ul>
-            <button onClick={onStart} className="w-full py-4 bg-slate-900 text-white rounded-2xl font-black uppercase text-xs tracking-widest hover:bg-slate-800 transition-all">Связаться с нами</button>
+            <button onClick={onRegister} className="w-full py-4 bg-slate-900 text-white rounded-2xl font-black uppercase text-xs tracking-widest hover:bg-slate-800 transition-all">Связаться с нами</button>
           </div>
         </div>
       </section>

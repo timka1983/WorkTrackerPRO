@@ -521,5 +521,26 @@ export const db = {
   deletePromoCode: async (id: string) => {
     if (!checkConfig()) return;
     await supabase.from('promo_codes').delete().eq('id', id);
+  },
+  deleteOrganization: async (orgId: string) => {
+    if (!checkConfig()) return { error: 'Not configured' };
+    
+    try {
+      // Delete from all related tables
+      await Promise.all([
+        supabase.from('users').delete().eq('organization_id', orgId),
+        supabase.from('work_logs').delete().eq('organization_id', orgId),
+        supabase.from('machines').delete().eq('organization_id', orgId),
+        supabase.from('positions').delete().eq('organization_id', orgId),
+        supabase.from('active_shifts').delete().eq('organization_id', orgId)
+      ]);
+      
+      // Finally delete the organization itself
+      const { error } = await supabase.from('organizations').delete().eq('id', orgId);
+      return { error };
+    } catch (e: any) {
+      console.error('Error in deleteOrganization:', e);
+      return { error: e.message };
+    }
   }
 };

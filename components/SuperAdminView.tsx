@@ -1,6 +1,6 @@
 
 import React, { useState, useEffect } from 'react';
-import { Organization, PlanType, Plan, PromoCode, User } from '../types';
+import { Organization, PlanType, Plan, PromoCode, User, UserRole } from '../types';
 import { db } from '../lib/supabase';
 import { STORAGE_KEYS } from '../constants';
 import { Users, Building2, CreditCard, Activity, ShieldCheck, Search, RefreshCw, ExternalLink, Settings2, X, Check, Plus, LayoutGrid, Zap, Briefcase, Save, Camera, Moon, BarChart3, Megaphone, Ticket, Trash2 } from 'lucide-react';
@@ -35,6 +35,9 @@ const SuperAdminView: React.FC<SuperAdminViewProps> = ({ onLogout }) => {
     isActive: true
   });
   const [saving, setSaving] = useState(false);
+  const [confirmDeleteOrg, setConfirmDeleteOrg] = useState<Organization | null>(null);
+  const [deletePinInput, setDeletePinInput] = useState('');
+  const [deleteError, setDeleteError] = useState<string | null>(null);
   const [resetPinConfirm, setResetPinConfirm] = useState<{ orgId: string; pin: string } | null>(null);
   const [diagnostics, setDiagnostics] = useState<any>(null);
   const [checkingDiagnostics, setCheckingDiagnostics] = useState(false);
@@ -211,6 +214,20 @@ const SuperAdminView: React.FC<SuperAdminViewProps> = ({ onLogout }) => {
       } as Organization;
 
       await db.createOrganization(orgToCreate);
+
+      // Автоматически создаем первого сотрудника с правами Администратора
+      const adminUser: User = {
+        id: 'admin',
+        name: 'Администратор',
+        role: UserRole.EMPLOYER,
+        position: 'Администратор',
+        pin: '0000',
+        isAdmin: true,
+        organizationId: orgToCreate.id
+      };
+      
+      await db.upsertUser(adminUser, orgToCreate.id);
+
       setOrganizations(prev => [...prev, orgToCreate]);
       setIsCreating(false);
       setNewOrg({ plan: PlanType.FREE, status: 'active' });
@@ -274,6 +291,33 @@ const SuperAdminView: React.FC<SuperAdminViewProps> = ({ onLogout }) => {
     } catch (error) {
       console.error('Error resetting admin pin:', error);
       alert('Ошибка при сбросе пароля.');
+    } finally {
+      setSaving(false);
+    }
+  };
+
+  const handleDeleteOrg = async () => {
+    if (!confirmDeleteOrg) return;
+    if (deletePinInput !== '7777') {
+      setDeleteError('Неверный PIN супер-админа');
+      return;
+    }
+
+    setSaving(true);
+    try {
+      const { error } = await db.deleteOrganization(confirmDeleteOrg.id);
+      if (error) {
+        alert('Ошибка при удалении: ' + error);
+      } else {
+        setOrganizations(prev => prev.filter(o => o.id !== confirmDeleteOrg.id));
+        setConfirmDeleteOrg(null);
+        setDeletePinInput('');
+        setDeleteError(null);
+        alert('Организация и все связанные данные успешно удалены');
+      }
+    } catch (e) {
+      console.error(e);
+      alert('Произошла ошибка при удалении');
     } finally {
       setSaving(false);
     }
@@ -575,6 +619,13 @@ const SuperAdminView: React.FC<SuperAdminViewProps> = ({ onLogout }) => {
                                 title="Войти в организацию"
                               >
                                 <ExternalLink className="w-4 h-4" />
+                              </button>
+                              <button 
+                                onClick={() => setConfirmDeleteOrg(org)}
+                                className="p-2 text-slate-400 hover:text-rose-600 transition-colors rounded-lg hover:bg-rose-50"
+                                title="Удалить организацию"
+                              >
+                                <Trash2 className="w-4 h-4" />
                               </button>
                             </div>
                           </td>
@@ -1100,6 +1151,63 @@ const SuperAdminView: React.FC<SuperAdminViewProps> = ({ onLogout }) => {
       )}
 
       {/* Edit Modal */}
+      {/* Modals */}
+      {confirmDeleteOrg && (
+        <div className="fixed inset-0 z-[150] bg-slate-900/80 backdrop-blur-md flex items-center justify-center p-4 animate-fadeIn">
+          <div className="bg-white rounded-[2.5rem] shadow-2xl p-8 w-full max-w-md border border-slate-200">
+            <div className="flex justify-between items-center mb-6">
+              <div className="flex items-center gap-3">
+                <div className="p-2 bg-rose-100 text-rose-600 rounded-xl">
+                  <Trash2 className="w-6 h-6" />
+                </div>
+                <h3 className="text-lg font-black text-slate-900 uppercase tracking-tight">Удаление организации</h3>
+              </div>
+              <button onClick={() => { setConfirmDeleteOrg(null); setDeletePinInput(''); setDeleteError(null); }} className="text-slate-400 hover:text-slate-900 text-2xl">&times;</button>
+            </div>
+            
+            <div className="space-y-6">
+              <div className="p-4 bg-rose-50 border border-rose-100 rounded-2xl">
+                <p className="text-sm text-rose-800 font-bold leading-relaxed">
+                  Внимание! Это действие безвозвратно удалит организацию <span className="underline">{confirmDeleteOrg.name}</span> ({confirmDeleteOrg.id}) и ВСЕ связанные данные: сотрудников, логи, оборудование и настройки.
+                </p>
+              </div>
+
+              <div>
+                <label className="block text-[10px] font-black text-slate-400 uppercase ml-1 mb-1.5 tracking-wider">Введите PIN супер-админа для подтверждения</label>
+                <input 
+                  type="password"
+                  maxLength={4}
+                  value={deletePinInput}
+                  onChange={(e) => {
+                    setDeletePinInput(e.target.value.replace(/[^0-9]/g, ''));
+                    setDeleteError(null);
+                  }}
+                  placeholder="****"
+                  className="w-full bg-slate-50 border-2 border-slate-100 rounded-2xl px-5 py-3 text-center text-2xl font-black tracking-[0.5em] focus:border-rose-500 outline-none transition-all"
+                />
+                {deleteError && <p className="text-rose-600 text-[10px] font-bold mt-2 text-center uppercase">{deleteError}</p>}
+              </div>
+
+              <div className="flex gap-3 pt-2">
+                <button 
+                  onClick={() => { setConfirmDeleteOrg(null); setDeletePinInput(''); setDeleteError(null); }}
+                  className="flex-1 py-4 bg-slate-100 text-slate-600 rounded-2xl font-black uppercase text-xs tracking-widest hover:bg-slate-200 transition-all"
+                >
+                  Отмена
+                </button>
+                <button 
+                  onClick={handleDeleteOrg}
+                  disabled={saving || deletePinInput.length < 4}
+                  className="flex-1 py-4 bg-rose-600 text-white rounded-2xl font-black uppercase text-xs tracking-widest shadow-xl shadow-rose-100 hover:bg-rose-700 transition-all active:scale-95 disabled:opacity-50"
+                >
+                  {saving ? 'Удаление...' : 'Удалить всё'}
+                </button>
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
+
       {editingOrg && (
         <div className="fixed inset-0 z-[100] flex items-center justify-center p-4 bg-slate-900/60 backdrop-blur-sm animate-fadeIn">
           <div className="bg-white rounded-3xl shadow-2xl w-full max-w-md overflow-hidden border border-slate-200">
