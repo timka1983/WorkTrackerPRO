@@ -2,6 +2,7 @@
 import React, { useState, useEffect, useCallback, useMemo } from 'react';
 import { User, UserRole, WorkLog, Machine, PositionConfig, Organization, PlanType, PlanLimits, Plan, EntryType } from './types';
 import { STORAGE_KEYS, INITIAL_USERS, INITIAL_MACHINES, INITIAL_POSITIONS, INITIAL_LOGS, DEFAULT_PERMISSIONS, PLAN_LIMITS } from './constants';
+import { sendNotification } from './utils';
 import Layout from './components/Layout';
 import EmployeeView from './components/EmployeeView';
 import EmployerView from './components/EmployerView';
@@ -186,11 +187,9 @@ const App: React.FC = () => {
       if (dbPlans) setPlans(dbPlans);
 
       // Handle Logs
-      let finalLogs: WorkLog[] = dbLogs || [];
-      if (dbLogs) {
-        setLogs(dbLogs);
-        localStorage.setItem(STORAGE_KEYS.WORK_LOGS, JSON.stringify(dbLogs));
-      }
+      const finalLogs: WorkLog[] = dbLogs || [];
+      setLogs(finalLogs);
+      localStorage.setItem(STORAGE_KEYS.WORK_LOGS, JSON.stringify(finalLogs));
 
       // Handle Active Shifts - Isolation fix: only use DB data for new orgs
       const map: Record<string, any> = {};
@@ -203,23 +202,50 @@ const App: React.FC = () => {
       localStorage.setItem(STORAGE_KEYS.ACTIVE_SHIFTS, JSON.stringify(map));
 
       // Handle Users
-      if (dbUsers && dbUsers.length > 0) {
-        setUsers(dbUsers);
-        localStorage.setItem(STORAGE_KEYS.USERS_LIST, JSON.stringify(dbUsers));
-      } else if (orgId === DEFAULT_ORG_ID) {
-        // Only seed default org if empty
+      let finalUsers: User[] = dbUsers || [];
+      if (orgId === DEFAULT_ORG_ID && finalUsers.length === 0) {
+        // Seed default org if empty
         for (const u of INITIAL_USERS) await db.upsertUser(u, orgId);
-        setUsers(INITIAL_USERS);
-        localStorage.setItem(STORAGE_KEYS.USERS_LIST, JSON.stringify(INITIAL_USERS));
-      } else {
-        setUsers([]);
-        localStorage.removeItem(STORAGE_KEYS.USERS_LIST);
+        finalUsers = INITIAL_USERS;
+      } else if (finalUsers.length > 0) {
+        // Ensure admin user exists
+        const hasAdmin = finalUsers.some(u => u.id === 'admin');
+        if (!hasAdmin) {
+          const defaultAdmin: User = {
+            id: 'admin',
+            name: 'Администратор',
+            role: UserRole.EMPLOYER,
+            position: 'Администратор',
+            pin: '0000',
+            isAdmin: true,
+            organizationId: orgId
+          };
+          await db.upsertUser(defaultAdmin, orgId);
+          finalUsers.push(defaultAdmin);
+        }
+      } else if (orgId !== DEFAULT_ORG_ID && finalUsers.length === 0) {
+        // For new orgs, create admin if not exists
+        const defaultAdmin: User = {
+          id: 'admin',
+          name: 'Администратор',
+          role: UserRole.EMPLOYER,
+          position: 'Администратор',
+          pin: '0000',
+          isAdmin: true,
+          organizationId: orgId
+        };
+        await db.upsertUser(defaultAdmin, orgId);
+        finalUsers = [defaultAdmin];
       }
 
+      setUsers(finalUsers);
+      localStorage.setItem(STORAGE_KEYS.USERS_LIST, JSON.stringify(finalUsers));
+
       // Handle Machines
-      if (dbMachines && dbMachines.length > 0) {
-        setMachines(dbMachines);
-        localStorage.setItem(STORAGE_KEYS.MACHINES_LIST, JSON.stringify(dbMachines));
+      const finalMachines = dbMachines || [];
+      if (finalMachines.length > 0) {
+        setMachines(finalMachines);
+        localStorage.setItem(STORAGE_KEYS.MACHINES_LIST, JSON.stringify(finalMachines));
       } else if (orgId === DEFAULT_ORG_ID) {
         setMachines(INITIAL_MACHINES);
         await db.saveMachines(INITIAL_MACHINES, orgId);
@@ -539,6 +565,20 @@ const App: React.FC = () => {
       }
       return prev;
     });
+
+    // Push Notifications for Admin
+    if (currentOrg?.notificationSettings) {
+      logsToUpsert.forEach(log => {
+        const user = users.find(u => u.id === log.userId);
+        if (!user) return;
+
+        if (log.checkOut && currentOrg.notificationSettings?.onShiftEnd) {
+          sendNotification('Смена завершена', `${user.name} закончил работу.`);
+        } else if (!log.checkOut && currentOrg.notificationSettings?.onShiftStart) {
+          sendNotification('Смена начата', `${user.name} приступил к работе.`);
+        }
+      });
+    }
     
     // Пакетное обновление в БД
     if (logsToUpsert.length > 0) {

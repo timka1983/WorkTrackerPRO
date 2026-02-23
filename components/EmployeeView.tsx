@@ -16,6 +16,7 @@ interface EmployeeViewProps {
   onLogsUpsert: (logs: WorkLog[]) => void;
   activeShifts: Record<number, WorkLog | null>;
   onActiveShiftsUpdate: (shifts: Record<number, WorkLog | null>) => void;
+  onOvertime?: (user: User, slot: number) => void;
   machines: Machine[];
   positions: PositionConfig[];
   onUpdateUser: (user: User) => void;
@@ -32,6 +33,40 @@ const EmployeeView: React.FC<EmployeeViewProps> = ({
     const config = positions.find(p => p.name === user.position);
     return config?.permissions || DEFAULT_PERMISSIONS;
   }, [user.position, positions]);
+
+  const [overtimeAlerts, setOvertimeAlerts] = useState<Record<number, boolean>>({});
+
+  useEffect(() => {
+    const checkOvertime = () => {
+      if (!perms.maxShiftDurationMinutes) return;
+
+      const now = new Date();
+      const updatedAlerts = { ...overtimeAlerts };
+      let changed = false;
+
+      Object.entries(activeShifts).forEach(([slot, shift]) => {
+        if (shift && shift.checkIn) {
+          const duration = calculateMinutes(shift.checkIn, now.toISOString());
+          if (duration > perms.maxShiftDurationMinutes && !overtimeAlerts[Number(slot)]) {
+            updatedAlerts[Number(slot)] = true;
+            changed = true;
+            if (onOvertime) onOvertime(user, Number(slot));
+          } else if (duration <= perms.maxShiftDurationMinutes && overtimeAlerts[Number(slot)]) {
+            updatedAlerts[Number(slot)] = false;
+            changed = true;
+          }
+        }
+      });
+
+      if (changed) {
+        setOvertimeAlerts(updatedAlerts);
+      }
+    };
+
+    const interval = setInterval(checkOvertime, 60000);
+    checkOvertime();
+    return () => clearInterval(interval);
+  }, [activeShifts, perms.maxShiftDurationMinutes, overtimeAlerts]);
 
   const [slotMachineIds, setSlotMachineIds] = useState<Record<number, string>>({ 1: '', 2: '', 3: '' });
 
@@ -341,22 +376,33 @@ const EmployeeView: React.FC<EmployeeViewProps> = ({
     return (
       <div key={slot} className={`bg-slate-50 border-2 p-6 rounded-3xl flex flex-col items-center gap-4 transition-all ${isAbsentToday ? 'opacity-50 grayscale pointer-events-none' : 'hover:bg-white hover:border-blue-100 hover:shadow-xl'} ${active ? 'border-blue-500' : 'border-slate-100'}`}>
         <div className="flex items-center gap-2">
-           <span className={`w-2 h-2 rounded-full ${active ? 'bg-blue-500 animate-pulse' : 'bg-slate-300'}`}></span>
+           <span className={`w-2 h-2 rounded-full ${active ? (overtimeAlerts[slot] ? 'bg-rose-500 animate-pulse' : 'bg-blue-500 animate-pulse') : 'bg-slate-300'}`}></span>
            <h4 className="text-[10px] font-black text-slate-400 uppercase tracking-[0.2em]">Рабочее место №{slot}</h4>
         </div>
         
         {active ? (
           <div className="text-center space-y-4 w-full">
-            <div className="bg-blue-600 p-3 rounded-2xl shadow-lg shadow-blue-100 relative overflow-hidden">
+            <div className={`${overtimeAlerts[slot] ? 'bg-rose-600' : 'bg-blue-600'} p-3 rounded-2xl shadow-lg ${overtimeAlerts[slot] ? 'shadow-rose-100' : 'shadow-blue-100'} relative overflow-hidden transition-colors duration-500`}>
               {active.isNightShift && (
                 <div className="absolute top-1 right-1">
                    <svg className="w-3 h-3 text-white opacity-40" fill="currentColor" viewBox="0 0 20 20"><path d="M17.293 13.293A8 8 0 016.707 2.707a8.001 8.001 0 1010.586 10.586z"/></svg>
                 </div>
               )}
-              <p className="text-xs font-bold text-blue-100 uppercase mb-1">В процессе {active.isNightShift ? '(Ночь)' : ''}</p>
+              <p className="text-xs font-bold text-blue-100 uppercase mb-1">
+                {overtimeAlerts[slot] ? 'ПРЕВЫШЕН ЛИМИТ!' : `В процессе ${active.isNightShift ? '(Ночь)' : ''}`}
+              </p>
               <p className="text-sm font-black text-white truncate px-2">{getMachineName(active.machineId)}</p>
             </div>
-            <p className="text-3xl font-mono font-black text-slate-900 tabular-nums">{formatTime(active.checkIn)}</p>
+            <div className="space-y-1">
+              <p className={`text-3xl font-mono font-black tabular-nums transition-colors ${overtimeAlerts[slot] ? 'text-rose-600' : 'text-slate-900'}`}>
+                {formatTime(active.checkIn)}
+              </p>
+              {overtimeAlerts[slot] && (
+                <p className="text-[9px] font-black text-rose-500 uppercase tracking-widest animate-pulse">
+                  Смена длится более {perms.maxShiftDurationMinutes! / 60} ч.
+                </p>
+              )}
+            </div>
             <button onClick={() => processAction(slot, 'stop')} className="w-full py-4 bg-red-500 hover:bg-red-600 text-white rounded-2xl font-black text-sm shadow-lg shadow-red-100 transition-all active:scale-95 uppercase">Завершить</button>
           </div>
         ) : (

@@ -426,6 +426,35 @@ const EmployerView: React.FC<EmployerViewProps> = ({
                     </label>
                   );
                 })}
+
+                <div className="p-4 bg-slate-50 rounded-2xl border border-slate-100 space-y-2">
+                  <label className="block text-[10px] font-black text-slate-400 uppercase tracking-wider">Макс. длительность смены (часов)</label>
+                  <div className="flex items-center gap-3">
+                    <input 
+                      type="number" 
+                      min="0"
+                      max="24"
+                      value={configuringPosition.permissions.maxShiftDurationMinutes ? configuringPosition.permissions.maxShiftDurationMinutes / 60 : ''}
+                      onChange={(e) => {
+                        const hours = parseInt(e.target.value || '0');
+                        const next = {
+                          ...configuringPosition,
+                          permissions: {
+                            ...configuringPosition.permissions,
+                            maxShiftDurationMinutes: hours > 0 ? hours * 60 : undefined
+                          }
+                        };
+                        setConfiguringPosition(next);
+                        // Also update in the main list to ensure it saves
+                        onUpdatePositions(positions.map(p => p.name === next.name ? next : p));
+                      }}
+                      placeholder="Без ограничений"
+                      className="w-full bg-white border-2 border-slate-200 rounded-xl px-4 py-2 text-sm font-bold outline-none focus:border-blue-500"
+                    />
+                    <span className="text-[10px] font-bold text-slate-400 uppercase">Часов</span>
+                  </div>
+                  <p className="text-[9px] text-slate-400 leading-tight">Смена будет автоматически завершена или подсвечена при превышении этого времени.</p>
+                </div>
                 <button 
                   onClick={() => setConfiguringPosition(null)} 
                   className="w-full py-4 bg-slate-900 text-white rounded-2xl font-black uppercase tracking-widest text-xs mt-4 shadow-xl hover:bg-slate-800 transition-all active:scale-95 sticky bottom-0"
@@ -1180,21 +1209,71 @@ const EmployerView: React.FC<EmployerViewProps> = ({
                </div>
             )}
             <h3 className="font-black text-slate-900 mb-6 flex items-center gap-2 underline decoration-blue-500 decoration-4 underline-offset-8 uppercase text-xs tracking-widest">Параметры смен</h3>
-            <div className="max-w-md space-y-4">
-               <div className="space-y-2">
-                  <label className="text-[10px] font-black text-slate-400 uppercase ml-1">Бонус за ночную смену (часов)</label>
-                  <div className="flex items-center gap-4">
-                     <input 
-                        type="number" 
-                        min="0"
-                        max="24"
-                        value={nightShiftBonusMinutes / 60} 
-                        onChange={e => onUpdateNightBonus(parseInt(e.target.value || '0') * 60)}
-                        className="w-24 border-2 border-slate-100 rounded-2xl px-4 py-3 text-sm font-bold text-blue-600 outline-none focus:border-blue-500 transition-all"
-                     />
-                     <span className="text-xs text-slate-500 font-medium italic leading-tight">
-                        Количество часов, которые будут автоматически прибавлены к табелю, если сотрудник включит режим ночной смены.
-                     </span>
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
+               <div className="space-y-4">
+                  <div className="space-y-2">
+                     <label className="text-[10px] font-black text-slate-400 uppercase ml-1">Бонус за ночную смену (часов)</label>
+                     <div className="flex items-center gap-4">
+                        <input 
+                           type="number" 
+                           min="0"
+                           max="24"
+                           value={nightShiftBonusMinutes / 60} 
+                           onChange={e => onUpdateNightBonus(parseInt(e.target.value || '0') * 60)}
+                           className="w-24 border-2 border-slate-100 rounded-2xl px-4 py-3 text-sm font-bold text-blue-600 outline-none focus:border-blue-500 transition-all"
+                        />
+                        <span className="text-xs text-slate-500 font-medium italic leading-tight">
+                           Количество часов, которые будут автоматически прибавлены к табелю, если сотрудник включит режим ночной смены.
+                        </span>
+                     </div>
+                  </div>
+               </div>
+
+               <div className="space-y-4">
+                  <label className="text-[10px] font-black text-slate-400 uppercase ml-1">Push-уведомления администратора</label>
+                  <div className="space-y-2">
+                    {[
+                      { key: 'onShiftStart', label: 'Начало смены', desc: 'Уведомлять, когда сотрудник приступает к работе' },
+                      { key: 'onShiftEnd', label: 'Конец смены', desc: 'Уведомлять о завершении работы' },
+                      { key: 'onOvertime', label: 'Превышение лимита', desc: 'Уведомлять, если смена длится дольше нормы' },
+                    ].map(pref => (
+                      <label key={pref.key} className="flex items-center justify-between p-3 bg-slate-50 rounded-xl border border-slate-100 cursor-pointer hover:bg-white transition-all">
+                        <div>
+                          <p className="text-[11px] font-bold text-slate-800 uppercase tracking-tight">{pref.label}</p>
+                          <p className="text-[9px] text-slate-400">{pref.desc}</p>
+                        </div>
+                        <input 
+                          type="checkbox" 
+                          checked={(currentOrg?.notificationSettings as any)?.[pref.key] || false}
+                          onChange={(e) => {
+                            const settings = {
+                              ...(currentOrg?.notificationSettings || { onShiftStart: false, onShiftEnd: false, onOvertime: false }),
+                              [pref.key]: e.target.checked
+                            };
+                            if (currentOrg) {
+                              db.updateOrganization(currentOrg.id, { notificationSettings: settings });
+                              // Update local state if needed, though usually handled by parent
+                            }
+                          }}
+                          className="w-4 h-4 rounded accent-blue-600"
+                        />
+                      </label>
+                    ))}
+                    <button 
+                      onClick={async () => {
+                        if ('Notification' in window) {
+                          const permission = await Notification.requestPermission();
+                          if (permission === 'granted') {
+                            alert('Уведомления включены!');
+                          }
+                        } else {
+                          alert('Ваш браузер не поддерживает Push-уведомления');
+                        }
+                      }}
+                      className="w-full py-2 bg-slate-100 text-slate-600 rounded-xl text-[10px] font-black uppercase tracking-widest hover:bg-slate-200 transition-all"
+                    >
+                      Проверить разрешения браузера
+                    </button>
                   </div>
                </div>
             </div>

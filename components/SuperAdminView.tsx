@@ -16,6 +16,7 @@ const SuperAdminView: React.FC<SuperAdminViewProps> = ({ onLogout }) => {
   const [searchTerm, setSearchTerm] = useState('');
   const [refreshing, setRefreshing] = useState(false);
   const [editingOrg, setEditingOrg] = useState<Organization | null>(null);
+  const [editingAdmin, setEditingAdmin] = useState<User | null>(null);
   const [isCreating, setIsCreating] = useState(false);
   const [activeTab, setActiveTab] = useState<'orgs' | 'plans' | 'marketing' | 'diagnostics'>('orgs');
   const [viewingUsersOrg, setViewingUsersOrg] = useState<{ id: string; name: string } | null>(null);
@@ -166,13 +167,29 @@ const SuperAdminView: React.FC<SuperAdminViewProps> = ({ onLogout }) => {
     fetchData();
   };
 
+  useEffect(() => {
+    const fetchAdmin = async () => {
+      if (editingOrg) {
+        setLoadingUsers(true);
+        const users = await db.getUsers(editingOrg.id);
+        const admin = users?.find(u => u.id === 'admin');
+        setEditingAdmin(admin || null);
+        setLoadingUsers(false);
+      } else {
+        setEditingAdmin(null);
+      }
+    };
+    fetchAdmin();
+  }, [editingOrg]);
+
   const handleUpdateOrg = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!editingOrg) return;
     
     setSaving(true);
     try {
-      const { error } = await db.updateOrganization(editingOrg.id, {
+      // Update Organization
+      const { error: orgError } = await db.updateOrganization(editingOrg.id, {
         plan: editingOrg.plan,
         status: editingOrg.status,
         name: editingOrg.name,
@@ -180,16 +197,23 @@ const SuperAdminView: React.FC<SuperAdminViewProps> = ({ onLogout }) => {
         expiryDate: editingOrg.expiryDate
       });
       
-      if (error) {
-        alert('Ошибка при обновлении организации: ' + (error as any).message);
+      if (orgError) {
+        alert('Ошибка при обновлении организации: ' + (orgError as any).message);
+        setSaving(false);
         return;
       }
 
+      // Update Admin if changed
+      if (editingAdmin) {
+        await db.upsertUser(editingAdmin, editingOrg.id);
+      }
+      
       setOrganizations(prev => prev.map(o => o.id === editingOrg.id ? editingOrg : o));
       setEditingOrg(null);
-      alert('Организация успешно обновлена');
+      alert('Организация и администратор успешно обновлены');
     } catch (error) {
       console.error('Error updating org:', error);
+      alert('Произошла ошибка при сохранении');
     } finally {
       setSaving(false);
     }
@@ -1314,6 +1338,36 @@ const SuperAdminView: React.FC<SuperAdminViewProps> = ({ onLogout }) => {
                   Изменение тарифа мгновенно обновит лимиты (пользователи, оборудование) и доступные функции для всех сотрудников этой организации.
                 </p>
               </div>
+
+              {editingAdmin && (
+                <div className="pt-4 border-t border-slate-100 space-y-4">
+                  <h4 className="text-xs font-black text-slate-900 uppercase tracking-widest flex items-center gap-2">
+                    <ShieldCheck className="w-4 h-4 text-emerald-600" />
+                    Данные администратора
+                  </h4>
+                  <div className="grid grid-cols-2 gap-4">
+                    <div>
+                      <label className="block text-[10px] font-black text-slate-400 uppercase ml-1 mb-1.5 tracking-wider">Имя админа</label>
+                      <input 
+                        type="text"
+                        value={editingAdmin.name}
+                        onChange={(e) => setEditingAdmin({...editingAdmin, name: e.target.value})}
+                        className="w-full px-4 py-2 bg-slate-50 border border-slate-200 rounded-xl text-sm font-bold focus:ring-2 focus:ring-emerald-500 outline-none transition-all"
+                      />
+                    </div>
+                    <div>
+                      <label className="block text-[10px] font-black text-slate-400 uppercase ml-1 mb-1.5 tracking-wider">PIN админа</label>
+                      <input 
+                        type="text"
+                        maxLength={4}
+                        value={editingAdmin.pin}
+                        onChange={(e) => setEditingAdmin({...editingAdmin, pin: e.target.value.replace(/[^0-9]/g, '')})}
+                        className="w-full px-4 py-2 bg-slate-50 border border-slate-200 rounded-xl text-sm font-bold focus:ring-2 focus:ring-emerald-500 outline-none transition-all text-center tracking-widest"
+                      />
+                    </div>
+                  </div>
+                </div>
+              )}
 
               <div className="flex gap-3 pt-2">
                 <button 

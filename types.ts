@@ -57,6 +57,11 @@ export interface Organization {
   plan: PlanType;
   status: 'active' | 'trial' | 'expired';
   expiryDate?: string;
+  notificationSettings?: {
+    onShiftStart: boolean;
+    onShiftEnd: boolean;
+    onOvertime: boolean;
+  };
 }
 
 export const FIXED_POSITION_TURNER = 'Токарь';
@@ -70,6 +75,7 @@ export interface PositionPermissions {
   isFullAdmin: boolean;
   isLimitedAdmin: boolean;
   canUseNightShift: boolean;
+  maxShiftDurationMinutes?: number;
 }
 
 export interface PositionConfig {
@@ -95,6 +101,7 @@ export interface User {
   isAdmin?: boolean; // Admin privileges
   forcePinChange?: boolean; // Mandatory PIN change on next login
   organizationId?: string;
+  pushToken?: string;
 }
 
 export interface WorkLog {

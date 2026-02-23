@@ -52,7 +52,8 @@ export const db = {
     return {
       ...data,
       ownerId: data.owner_id,
-      expiryDate: data.expiry_date
+      expiryDate: data.expiry_date,
+      notificationSettings: data.notification_settings
     };
   },
   getLogs: async (orgId: string) => {
@@ -195,7 +196,8 @@ export const db = {
         requirePhoto: u.require_photo,
         isAdmin: u.is_admin,
         forcePinChange: u.force_pin_change,
-        organizationId: u.organization_id
+        organizationId: u.organization_id,
+        pushToken: u.push_token
       }));
     } catch (e) {
       return null;
@@ -213,7 +215,8 @@ export const db = {
       require_photo: user.requirePhoto,
       is_admin: user.isAdmin,
       force_pin_change: user.forcePinChange,
-      organization_id: orgId
+      organization_id: orgId,
+      push_token: user.pushToken
     });
     return { error };
   },
@@ -230,7 +233,8 @@ export const db = {
         require_photo: user.requirePhoto,
         is_admin: user.isAdmin,
         force_pin_change: user.forcePinChange,
-        organization_id: orgId
+        organization_id: orgId,
+        push_token: user.pushToken
       }))
     );
     return { error };
@@ -319,12 +323,7 @@ export const db = {
     if (!checkConfig()) return null;
     const { data, error } = await supabase.from('active_shifts').select('*').eq('organization_id', orgId);
     if (error) {
-      // Если ошибка в колонке, пробуем получить все и отфильтровать (или вернуть все если orgId дефолтный)
-      if (error.message?.includes('column') || error.code === '42703') {
-        const { data: allData, error: allErrors } = await supabase.from('active_shifts').select('*');
-        if (allErrors) return null;
-        return allData;
-      }
+      console.error('Error fetching active shifts:', error);
       return null;
     }
     return data;
@@ -394,6 +393,10 @@ export const db = {
       dbUpdates.expiry_date = updates.expiryDate;
       delete dbUpdates.expiryDate;
     }
+    if (updates.notificationSettings) {
+      dbUpdates.notification_settings = updates.notificationSettings;
+      delete dbUpdates.notificationSettings;
+    }
 
     const { error } = await supabase.from('organizations').update(dbUpdates).eq('id', orgId);
     if (error) console.error('Error updating organization:', error);
@@ -408,7 +411,8 @@ export const db = {
       owner_id: org.ownerId,
       plan: org.plan,
       status: org.status,
-      expiry_date: org.expiryDate
+      expiry_date: org.expiryDate,
+      notification_settings: org.notificationSettings
     }, { onConflict: 'id' });
     
     if (error && error.code !== '23505') {
@@ -422,7 +426,8 @@ export const db = {
     return {
       ...data,
       ownerId: data.owner_id,
-      expiryDate: data.expiry_date
+      expiryDate: data.expiry_date,
+      notificationSettings: data.notification_settings
     };
   },
   resetAdminPin: async (orgId: string, newPin: string) => {
