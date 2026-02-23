@@ -496,7 +496,9 @@ export const db = {
       usedCount: p.used_count,
       createdAt: p.created_at,
       expiresAt: p.expires_at,
-      isActive: p.is_active
+      isActive: p.is_active,
+      lastUsedBy: p.last_used_by,
+      lastUsedAt: p.last_used_at
     }));
   },
   savePromoCode: async (promo: any) => {
@@ -510,7 +512,9 @@ export const db = {
       used_count: promo.usedCount,
       created_at: promo.createdAt,
       expires_at: promo.expiresAt,
-      is_active: promo.isActive
+      is_active: promo.isActive,
+      last_used_by: promo.lastUsedBy,
+      last_used_at: promo.lastUsedAt
     });
     if (error) console.error('Error saving promo code:', error);
   },

@@ -45,6 +45,8 @@ export interface PromoCode {
   createdAt: string;
   expiresAt?: string;
   isActive: boolean;
+  lastUsedBy?: string; // ID or Name of the organization that last used it
+  lastUsedAt?: string; // ISO timestamp of last usage
 }
 
 export interface Organization {

@@ -33,11 +33,39 @@ const EmployeeView: React.FC<EmployeeViewProps> = ({
     return config?.permissions || DEFAULT_PERMISSIONS;
   }, [user.position, positions]);
 
-  const [slotMachineIds, setSlotMachineIds] = useState<Record<number, string>>({ 
-    1: machines[0]?.id || '', 
-    2: machines[1]?.id || machines[0]?.id || '', 
-    3: machines[2]?.id || machines[0]?.id || '' 
-  });
+  const [slotMachineIds, setSlotMachineIds] = useState<Record<number, string>>({ 1: '', 2: '', 3: '' });
+
+  // Синхронизируем выбранные ID машин при загрузке списка оборудования
+  useEffect(() => {
+    if (machines.length > 0) {
+      setSlotMachineIds(prev => {
+        const next = { ...prev };
+        let changed = false;
+        
+        [1, 2, 3].forEach((slot, idx) => {
+          // Если в слоте еще нет машины или она невалидна
+          if (!next[slot] || !machines.find(m => m.id === next[slot])) {
+            // Ищем первую свободную машину, которая не занята в других слотах ЭТОГО пользователя
+            const usedInOtherSlots = Object.entries(next)
+              .filter(([s]) => parseInt(s) !== slot)
+              .map(([, id]) => id);
+            
+            const firstAvailable = machines.find(m => 
+              !usedInOtherSlots.includes(m.id) && 
+              !busyMachineIds.includes(m.id)
+            );
+            if (firstAvailable) {
+              next[slot] = firstAvailable.id;
+              changed = true;
+            }
+          }
+        });
+        
+        return changed ? next : prev;
+      });
+    }
+  }, [machines]);
+
   const [filterMonth, setFilterMonth] = useState(new Date().toISOString().substring(0, 7));
   const [viewMode, setViewMode] = useState<'control' | 'matrix'>('control');
   const [showCamera, setShowCamera] = useState<{ slot: number; type: 'start' | 'stop' } | null>(null);
@@ -75,8 +103,10 @@ const EmployeeView: React.FC<EmployeeViewProps> = ({
   }, [logs, user.id, todayStr]);
 
   const isAnyShiftActiveInLogs = useMemo(() => {
+    // Если разрешено несколько слотов, то наличие активной смены не блокирует начало новой в другом слоте
+    if (perms.multiSlot) return false;
     return logs.some(l => l.userId === user.id && l.entryType === EntryType.WORK && !l.checkOut);
-  }, [logs, user.id]);
+  }, [logs, user.id, perms.multiSlot]);
 
   useEffect(() => {
     const hasAnyNight = Object.values(activeShifts).some(s => s && (s as WorkLog).isNightShift);
@@ -116,6 +146,10 @@ const EmployeeView: React.FC<EmployeeViewProps> = ({
   const processAction = (slot: number, type: 'start' | 'stop') => {
     if (type === 'start' && perms.useMachines) {
       const selectedMachineId = slotMachineIds[slot];
+      if (!selectedMachineId) {
+        alert("Пожалуйста, выберите оборудование перед началом смены!");
+        return;
+      }
       if (busyMachineIds.includes(selectedMachineId)) {
         alert("Это оборудование уже занято другим сотрудником!");
         return;
@@ -185,8 +219,8 @@ const EmployeeView: React.FC<EmployeeViewProps> = ({
       photoOut: photo
     };
     
-    const nextShifts = { ...activeShifts, [slot]: null };
-    onActiveShiftsUpdate(nextShifts);
+    // Обновляем логи. handleLogsUpsert в App.tsx теперь автоматически очистит 
+    // завершенную смену из карты активных смен.
     onLogsUpsert([completed]);
     setShowCamera(null);
   };
@@ -282,10 +316,8 @@ const EmployeeView: React.FC<EmployeeViewProps> = ({
   }, [machines, filteredLogs]);
 
   const getAvailableMachines = (currentSlot: number) => {
-    const usedIdsInOtherSlots = Object.entries(slotMachineIds)
-      .filter(([slotNum]) => parseInt(slotNum) !== currentSlot)
-      .map(([, id]) => id);
-    return machines.filter(m => !usedIdsInOtherSlots.includes(m.id));
+    // Возвращаем все доступные организации машины
+    return machines;
   };
 
   const downloadCalendarPDF = () => {
@@ -338,11 +370,17 @@ const EmployeeView: React.FC<EmployeeViewProps> = ({
                   onChange={e => setSlotMachineIds({ ...slotMachineIds, [slot]: e.target.value })}
                   className="w-full border-2 border-slate-200 rounded-2xl px-4 py-3 text-xs font-bold bg-white text-slate-700 outline-none focus:border-blue-500 transition-colors cursor-pointer disabled:bg-slate-100"
                 >
-                  {availableMachines.map(m => {
-                    const isBusy = busyMachineIds.includes(m.id);
+                  <option value="">-- Выберите оборудование --</option>
+                  {machines.map(m => {
+                    const isBusyByOthers = busyMachineIds.includes(m.id);
+                    const isSelectedInOtherSlot = Object.entries(slotMachineIds)
+                      .some(([s, id]) => parseInt(s) !== slot && id === m.id);
+                    
+                    const isDisabled = isBusyByOthers || isSelectedInOtherSlot;
+                    
                     return (
-                      <option key={m.id} value={m.id} disabled={isBusy} className={isBusy ? 'text-red-300' : ''}>
-                        {m.name} {isBusy ? '(ЗАНЯТ)' : ''}
+                      <option key={m.id} value={m.id} disabled={isDisabled} className={isDisabled ? 'text-slate-300' : ''}>
+                        {m.name} {isBusyByOthers ? '(ЗАНЯТ)' : isSelectedInOtherSlot ? '(ВЫБРАН В ДР. СЛОТЕ)' : ''}
                       </option>
                     );
                   })}
