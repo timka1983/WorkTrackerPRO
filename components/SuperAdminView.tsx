@@ -646,10 +646,10 @@ const SuperAdminView: React.FC<SuperAdminViewProps> = ({ onLogout }) => {
                           </td>
                           <td className="px-6 py-4">
                             <div className="flex flex-col gap-1">
-                              <code className={`text-xs px-2 py-1 rounded font-mono w-fit ${org.id === 'default_org' ? 'bg-amber-100 text-amber-700 border border-amber-200' : 'bg-slate-100 text-slate-600'}`}>
+                              <code className={`text-xs px-2 py-1 rounded font-mono w-fit ${org.id === 'demo_org' ? 'bg-amber-100 text-amber-700 border border-amber-200' : 'bg-slate-100 text-slate-600'}`}>
                                 {org.id}
                               </code>
-                              {org.id === 'default_org' && (
+                              {org.id === 'demo_org' && (
                                 <span className="text-[8px] font-black text-amber-600 uppercase tracking-tighter">Demo System ID</span>
                               )}
                             </div>
@@ -1509,9 +1509,9 @@ const SuperAdminView: React.FC<SuperAdminViewProps> = ({ onLogout }) => {
                   placeholder="Напр: vector-llc"
                   value={newOrg.id || ''}
                   onChange={(e) => setNewOrg({...newOrg, id: e.target.value.toLowerCase().replace(/\s+/g, '-')})}
-                  className={`w-full px-4 py-2.5 border rounded-xl focus:ring-2 focus:ring-indigo-500 outline-none transition-all font-mono text-sm ${newOrg.id === 'default_org' ? 'border-amber-500 bg-amber-50' : 'bg-slate-50 border-slate-200'}`}
+                  className={`w-full px-4 py-2.5 border rounded-xl focus:ring-2 focus:ring-indigo-500 outline-none transition-all font-mono text-sm ${newOrg.id === 'demo_org' ? 'border-amber-500 bg-amber-50' : 'bg-slate-50 border-slate-200'}`}
                 />
-                {newOrg.id === 'default_org' && (
+                {newOrg.id === 'demo_org' && (
                   <p className="text-[9px] text-amber-600 font-bold mt-1 uppercase">⚠️ Внимание: Этот ID зарезервирован для демо-данных</p>
                 )}
                 <p className="text-[10px] text-slate-400 mt-1">Будет использоваться в URL и для входа</p>

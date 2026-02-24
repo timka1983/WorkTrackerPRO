@@ -12,7 +12,7 @@ import SuperAdminView from './components/SuperAdminView';
 import { db } from './lib/supabase';
 
 const APP_VERSION = 'v1.9.0-PRO-SAAS';
-const DEFAULT_ORG_ID = 'default_org';
+const DEFAULT_ORG_ID = 'demo_org';
 
 const App: React.FC = () => {
   const [currentOrg, setCurrentOrg] = useState<Organization | null>(null);

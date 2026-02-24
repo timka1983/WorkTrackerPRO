@@ -141,7 +141,7 @@ export const db = {
       
       // Эти колонки могут отсутствовать в старых версиях БД
       if (log.isNightShift) item.is_night_shift = true;
-      if (orgId && orgId !== 'default_org') item.organization_id = orgId;
+      if (orgId && orgId !== 'demo_org') item.organization_id = orgId;
       
       return item;
     });
@@ -303,7 +303,7 @@ export const db = {
       shifts_json: shifts
     };
     
-    if (orgId && orgId !== 'default_org') {
+    if (orgId && orgId !== 'demo_org') {
       payload.organization_id = orgId;
     }
 
@@ -493,7 +493,7 @@ export const db = {
           table: table,
           filter: table === 'organizations' 
             ? `id=eq.${orgId}` 
-            : (orgId !== 'default_org' ? `organization_id=eq.${orgId}` : undefined)
+            : (orgId !== 'demo_org' ? `organization_id=eq.${orgId}` : undefined)
         },
         (payload) => {
           callback(payload);
