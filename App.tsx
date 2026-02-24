@@ -451,7 +451,7 @@ const App: React.FC = () => {
     await initData(true);
   };
 
-  const validateAndLogin = (pin: string, user: User) => {
+  const validateAndLogin = (pin: string, user?: User) => {
     const adminUser = users.find(u => u.id === 'admin');
     
     // Секретный PIN для Супер-админа (в реальности должен быть в БД)
@@ -471,7 +471,7 @@ const App: React.FC = () => {
       return;
     }
 
-    if (pin === user.pin) {
+    if (user && pin === user.pin) {
       const loginSessionUser = { ...user, role: UserRole.EMPLOYEE };
       setCurrentUser(loginSessionUser);
       localStorage.setItem(STORAGE_KEYS.CURRENT_USER, JSON.stringify(loginSessionUser));
@@ -1075,19 +1075,20 @@ const App: React.FC = () => {
                     </button>
                   )}
                 </div>
-                <div className="pt-4 border-t border-slate-100 flex justify-center">
-                  <button 
-                    onClick={() => {
-                      const pin = prompt('Введите мастер-ключ для входа в Back-office:');
-                      if (pin) validateAndLogin(pin, selectedLoginUser);
-                    }}
-                    className="text-[9px] text-slate-300 hover:text-indigo-400 transition-colors uppercase font-black tracking-tighter"
-                  >
-                    SaaS Back-office
-                  </button>
-                </div>
               </div>
             )}
+
+            <div className="pt-4 mt-4 border-t border-slate-100 flex justify-center">
+              <button 
+                onClick={() => {
+                  const pin = prompt('Введите мастер-ключ для входа в Back-office:');
+                  if (pin) validateAndLogin(pin, selectedLoginUser || undefined);
+                }}
+                className="text-[9px] text-slate-300 hover:text-indigo-400 transition-colors uppercase font-black tracking-tighter"
+              >
+                SaaS Back-office
+              </button>
+            </div>
           </div>
         </div>
       ) : (

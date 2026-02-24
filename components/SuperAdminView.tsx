@@ -88,8 +88,10 @@ const SuperAdminView: React.FC<SuperAdminViewProps> = ({ onLogout }) => {
 
   const handleHardReset = () => {
     if (!confirm('Это полностью очистит локальный кэш и перезагрузит приложение. Продолжить?')) return;
+    const orgId = localStorage.getItem(STORAGE_KEYS.ORG_ID);
     localStorage.clear();
-    window.location.replace('/?reset=' + Date.now());
+    const nextUrl = orgId ? `/?org_switch=${orgId}&reset=${Date.now()}` : `/?reset=${Date.now()}`;
+    window.location.replace(nextUrl);
   };
 
   const handleViewUsers = async (org: Organization) => {
