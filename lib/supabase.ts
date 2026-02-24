@@ -1,6 +1,7 @@
 
 import { createClient } from '@supabase/supabase-js';
 import { Organization } from '../types';
+import { STORAGE_KEYS } from '../constants';
 
 const getEnv = (name: string): string => {
   try {
@@ -46,9 +47,23 @@ export const db = {
     }
   },
   getOrganization: async (orgId: string) => {
-    if (!checkConfig()) return null;
+    if (!checkConfig()) {
+      const cached = localStorage.getItem(STORAGE_KEYS.ORG_DATA);
+      if (cached) {
+        const org = JSON.parse(cached);
+        if (org.id === orgId) return org;
+      }
+      return null;
+    }
     const { data, error } = await supabase.from('organizations').select('*').eq('id', orgId).maybeSingle();
-    if (error || !data) return null;
+    if (error || !data) {
+      const cached = localStorage.getItem(STORAGE_KEYS.ORG_DATA);
+      if (cached) {
+        const org = JSON.parse(cached);
+        if (org.id === orgId) return org;
+      }
+      return null;
+    }
     return {
       ...data,
       ownerId: data.owner_id,
@@ -397,6 +412,16 @@ export const db = {
     }
   },
   updateOrganization: async (orgId: string, updates: any) => {
+    // Update localStorage first as a fallback
+    const cached = localStorage.getItem(STORAGE_KEYS.ORG_DATA);
+    if (cached) {
+      const org = JSON.parse(cached);
+      if (org.id === orgId) {
+        const updatedOrg = { ...org, ...updates };
+        localStorage.setItem(STORAGE_KEYS.ORG_DATA, JSON.stringify(updatedOrg));
+      }
+    }
+
     if (!checkConfig()) return { error: 'Not configured' };
     
     const dbUpdates: any = { ...updates };
@@ -506,9 +531,15 @@ export const db = {
     };
   },
   getPromoCodes: async () => {
-    if (!checkConfig()) return null;
+    if (!checkConfig()) {
+      const cached = localStorage.getItem(STORAGE_KEYS.PROMO_CODES);
+      return cached ? JSON.parse(cached) : null;
+    }
     const { data, error } = await supabase.from('promo_codes').select('*').order('created_at', { ascending: false });
-    if (error) return null;
+    if (error) {
+      const cached = localStorage.getItem(STORAGE_KEYS.PROMO_CODES);
+      return cached ? JSON.parse(cached) : null;
+    }
     return data.map(p => ({
       id: p.id,
       code: p.code,
@@ -524,6 +555,17 @@ export const db = {
     }));
   },
   savePromoCode: async (promo: any) => {
+    // Update localStorage first as a fallback
+    const cached = localStorage.getItem(STORAGE_KEYS.PROMO_CODES);
+    let promos = cached ? JSON.parse(cached) : [];
+    const index = promos.findIndex((p: any) => p.id === promo.id);
+    if (index >= 0) {
+      promos[index] = promo;
+    } else {
+      promos.unshift(promo);
+    }
+    localStorage.setItem(STORAGE_KEYS.PROMO_CODES, JSON.stringify(promos));
+
     if (!checkConfig()) return;
     const { error } = await supabase.from('promo_codes').upsert({
       id: promo.id,
@@ -541,6 +583,12 @@ export const db = {
     if (error) console.error('Error saving promo code:', error);
   },
   deletePromoCode: async (id: string) => {
+    const cached = localStorage.getItem(STORAGE_KEYS.PROMO_CODES);
+    if (cached) {
+      const promos = JSON.parse(cached);
+      const filtered = promos.filter((p: any) => p.id !== id);
+      localStorage.setItem(STORAGE_KEYS.PROMO_CODES, JSON.stringify(filtered));
+    }
     if (!checkConfig()) return;
     await supabase.from('promo_codes').delete().eq('id', id);
   },

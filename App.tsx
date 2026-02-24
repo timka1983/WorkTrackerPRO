@@ -386,9 +386,14 @@ const App: React.FC = () => {
 
     const unsubOrg = db.subscribeToChanges(orgId, 'organizations', (payload) => {
       if (payload.eventType === 'UPDATE' && payload.new.id === orgId) {
-        setCurrentOrg(prev => prev ? { ...prev, ...payload.new, 
-          notificationSettings: payload.new.notification_settings // Map snake_case to camelCase
-        } : prev);
+        const updatedOrg = { 
+          ...payload.new, 
+          ownerId: payload.new.owner_id,
+          expiryDate: payload.new.expiry_date,
+          notificationSettings: payload.new.notification_settings 
+        };
+        setCurrentOrg(prev => prev ? { ...prev, ...updatedOrg } : updatedOrg);
+        localStorage.setItem(STORAGE_KEYS.ORG_DATA, JSON.stringify(updatedOrg));
       }
     });
 
@@ -470,6 +475,13 @@ const App: React.FC = () => {
   const isSuperAdmin = useMemo(() => {
     return currentUser?.role === UserRole.SUPER_ADMIN;
   }, [currentUser]);
+
+  // Persist currentOrg to localStorage
+  useEffect(() => {
+    if (currentOrg) {
+      localStorage.setItem(STORAGE_KEYS.ORG_DATA, JSON.stringify(currentOrg));
+    }
+  }, [currentOrg]);
 
   const handleRefresh = async () => {
     await initData(true);

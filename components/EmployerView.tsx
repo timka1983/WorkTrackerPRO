@@ -329,7 +329,7 @@ const EmployerView: React.FC<EmployerViewProps> = ({
     
     try {
       const promos = await db.getPromoCodes();
-      const promo = promos?.find(p => p.code.toUpperCase() === promoCode.toUpperCase() && p.isActive);
+      const promo = promos?.find((p: any) => p.code.toUpperCase() === promoCode.toUpperCase() && p.isActive);
       
       if (!promo) {
         setPromoMessage({ text: 'Промокод не найден или неактивен', type: 'error' });
