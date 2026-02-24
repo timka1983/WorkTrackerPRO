@@ -30,12 +30,13 @@ interface EmployerViewProps {
   onUpdateNightBonus: (minutes: number) => void;
   currentOrg: Organization | null;
   plans: Plan[];
+  onUpdateOrg: (org: Organization) => void;
 }
 
 const EmployerView: React.FC<EmployerViewProps> = ({ 
   logs, users, onAddUser, onUpdateUser, onDeleteUser, 
   machines, onUpdateMachines, positions, onUpdatePositions, onImportData, onLogsUpsert, activeShiftsMap = {}, onActiveShiftsUpdate, onDeleteLog,
-  onRefresh, isSyncing = false, nightShiftBonusMinutes, onUpdateNightBonus, currentOrg, plans
+  onRefresh, isSyncing = false, nightShiftBonusMinutes, onUpdateNightBonus, currentOrg, plans, onUpdateOrg
 }) => {
   const [filterMonth, setFilterMonth] = useState(format(new Date(), 'yyyy-MM'));
   const [viewMode, setViewMode] = useState<'matrix' | 'team' | 'analytics' | 'settings' | 'billing'>('analytics');
@@ -1251,8 +1252,9 @@ const EmployerView: React.FC<EmployerViewProps> = ({
                               [pref.key]: e.target.checked
                             };
                             if (currentOrg) {
+                              const updatedOrg = { ...currentOrg, notificationSettings: settings };
+                              onUpdateOrg(updatedOrg);
                               db.updateOrganization(currentOrg.id, { notificationSettings: settings });
-                              // Update local state if needed, though usually handled by parent
                             }
                           }}
                           className="w-4 h-4 rounded accent-blue-600"

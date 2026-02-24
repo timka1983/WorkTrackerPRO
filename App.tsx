@@ -1134,6 +1134,7 @@ const App: React.FC = () => {
               onUpdateNightBonus={setNightShiftBonus}
               currentOrg={currentOrg}
               plans={plans}
+              onUpdateOrg={setCurrentOrg}
             />
           ) : (
             <div className="text-center py-20">
