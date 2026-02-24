@@ -261,18 +261,33 @@ export const db = {
   },
   getPositions: async (orgId: string) => {
     if (!checkConfig()) return null;
-    const { data } = await supabase.from('positions').select('name').eq('organization_id', orgId).order('name');
-    return data?.map(p => p.name) || null;
+    const { data } = await supabase.from('positions').select('*').eq('organization_id', orgId).order('name');
+    return data?.map(p => ({
+      name: p.name,
+      permissions: p.permissions || {}
+    })) || null;
   },
-  savePositions: async (positions: string[], orgId: string) => {
+  savePositions: async (positions: any[], orgId: string) => {
     if (!checkConfig()) return;
     
-    // Для позиций upsert сложнее, так как у них может не быть ID в массиве строк
-    // Но мы можем оптимизировать, удаляя только те, которых нет в новом списке
+    // Для позиций upsert
     await supabase.from('positions').delete().eq('organization_id', orgId);
     if (positions.length > 0) {
-      await supabase.from('positions').insert(positions.map(p => ({ name: p, organization_id: orgId })));
+      await supabase.from('positions').insert(positions.map(p => ({ 
+        name: p.name, 
+        permissions: p.permissions,
+        organization_id: orgId 
+      })));
     }
+  },
+  getSystemConfig: async () => {
+    if (!checkConfig()) return null;
+    const { data } = await supabase.from('system_config').select('*').single();
+    return data;
+  },
+  updateSystemConfig: async (config: any) => {
+    if (!checkConfig()) return;
+    await supabase.from('system_config').upsert({ id: 'global', ...config });
   },
   getActiveShifts: async (userId: string, orgId: string) => {
     if (!isConfigured()) return null;
@@ -476,7 +491,9 @@ export const db = {
           event: '*',
           schema: 'public',
           table: table,
-          filter: orgId !== 'default_org' ? `organization_id=eq.${orgId}` : undefined
+          filter: table === 'organizations' 
+            ? `id=eq.${orgId}` 
+            : (orgId !== 'default_org' ? `organization_id=eq.${orgId}` : undefined)
         },
         (payload) => {
           callback(payload);

@@ -42,6 +42,8 @@ const SuperAdminView: React.FC<SuperAdminViewProps> = ({ onLogout }) => {
   const [resetPinConfirm, setResetPinConfirm] = useState<{ orgId: string; pin: string } | null>(null);
   const [diagnostics, setDiagnostics] = useState<any>(null);
   const [checkingDiagnostics, setCheckingDiagnostics] = useState(false);
+  const [systemConfig, setSystemConfig] = useState<any>(null);
+  const [newSuperAdminPin, setNewSuperAdminPin] = useState('');
 
   const runDiagnostics = async () => {
     setCheckingDiagnostics(true);
@@ -94,6 +96,23 @@ const SuperAdminView: React.FC<SuperAdminViewProps> = ({ onLogout }) => {
     window.location.replace(nextUrl);
   };
 
+  const handleUpdateSystemConfig = async () => {
+    if (newSuperAdminPin.length !== 4) {
+      alert('PIN должен состоять из 4 цифр');
+      return;
+    }
+    setSaving(true);
+    try {
+      await db.updateSystemConfig({ super_admin_pin: newSuperAdminPin });
+      setSystemConfig({ ...systemConfig, super_admin_pin: newSuperAdminPin });
+      alert('Настройки системы обновлены');
+    } catch (e) {
+      alert('Ошибка при обновлении настроек');
+    } finally {
+      setSaving(false);
+    }
+  };
+
   const handleViewUsers = async (org: Organization) => {
     setViewingUsersOrg({ id: org.id, name: org.name });
     setLoadingUsers(true);
@@ -110,11 +129,12 @@ const SuperAdminView: React.FC<SuperAdminViewProps> = ({ onLogout }) => {
   const fetchData = async () => {
     setLoading(true);
     try {
-      const [orgs, globalStats, dbPlans, dbPromoCodes] = await Promise.all([
+      const [orgs, globalStats, dbPlans, dbPromoCodes, dbConfig] = await Promise.all([
         db.getAllOrganizations(),
         db.getGlobalStats(),
         db.getPlans(),
-        db.getPromoCodes()
+        db.getPromoCodes(),
+        db.getSystemConfig()
       ]);
       if (orgs) setOrganizations(orgs);
       if (globalStats) setStats(globalStats);
@@ -124,6 +144,11 @@ const SuperAdminView: React.FC<SuperAdminViewProps> = ({ onLogout }) => {
       } else {
         const cachedPromos = localStorage.getItem(STORAGE_KEYS.PROMO_CODES);
         if (cachedPromos) setPromoCodes(JSON.parse(cachedPromos));
+      }
+
+      if (dbConfig) {
+        setSystemConfig(dbConfig);
+        setNewSuperAdminPin(dbConfig.super_admin_pin || '7777');
       }
 
       if (dbPlans && dbPlans.length > 0) {
@@ -358,8 +383,12 @@ const SuperAdminView: React.FC<SuperAdminViewProps> = ({ onLogout }) => {
 
     setSaving(true);
     try {
+      const promoId = typeof crypto.randomUUID === 'function' 
+        ? crypto.randomUUID() 
+        : Math.random().toString(36).substring(2, 15) + Math.random().toString(36).substring(2, 15);
+
       const promo: PromoCode = {
-        id: crypto.randomUUID(),
+        id: promoId,
         code: newPromo.code.toUpperCase(),
         planType: newPromo.planType || PlanType.PRO,
         durationDays: newPromo.durationDays || 14,
@@ -464,6 +493,15 @@ const SuperAdminView: React.FC<SuperAdminViewProps> = ({ onLogout }) => {
           >
             <Activity className="w-4 h-4" />
             Диагностика БД
+          </button>
+          <button 
+            onClick={() => setActiveTab('system' as any)}
+            className={`px-6 py-2.5 rounded-xl text-sm font-bold transition-all flex items-center gap-2 ${
+              activeTab === ('system' as any) ? 'bg-white text-indigo-600 shadow-sm' : 'text-slate-600 hover:text-slate-900'
+            }`}
+          >
+            <ShieldCheck className="w-4 h-4" />
+            Система
           </button>
         </div>
 
@@ -674,6 +712,40 @@ const SuperAdminView: React.FC<SuperAdminViewProps> = ({ onLogout }) => {
               </button>
             </div>
           </>
+        ) : activeTab === ('system' as any) ? (
+          <div className="max-w-2xl mx-auto space-y-8 animate-fadeIn">
+            <div className="bg-white rounded-[2.5rem] shadow-sm border border-slate-200 overflow-hidden">
+              <div className="p-8 border-b border-slate-100 bg-slate-50/50">
+                <h3 className="text-xl font-black text-slate-900 uppercase tracking-tight">Безопасность системы</h3>
+                <p className="text-sm text-slate-500">Настройки доступа к панели Супер-Администратора</p>
+              </div>
+              <div className="p-8 space-y-6">
+                <div>
+                  <label className="block text-[10px] font-black text-slate-400 uppercase tracking-widest mb-3 ml-1">PIN-код Супер-Админа</label>
+                  <div className="flex gap-4">
+                    <input 
+                      type="text"
+                      maxLength={4}
+                      value={newSuperAdminPin}
+                      onChange={(e) => setNewSuperAdminPin(e.target.value.replace(/\D/g, ''))}
+                      className="flex-1 bg-slate-50 border-2 border-slate-100 rounded-2xl px-6 py-4 text-2xl font-black text-indigo-600 tracking-[0.5em] outline-none focus:border-indigo-500 transition-all"
+                      placeholder="7777"
+                    />
+                    <button 
+                      onClick={handleUpdateSystemConfig}
+                      disabled={saving}
+                      className="px-8 bg-indigo-600 text-white rounded-2xl font-black uppercase text-xs tracking-widest hover:bg-indigo-700 transition-all shadow-lg shadow-indigo-100 disabled:opacity-50"
+                    >
+                      {saving ? '...' : 'Сохранить'}
+                    </button>
+                  </div>
+                  <p className="text-[10px] text-slate-400 mt-3 font-medium italic">
+                    Этот PIN используется для входа в Back-office через мастер-ключ.
+                  </p>
+                </div>
+              </div>
+            </div>
+          </div>
         ) : activeTab === 'plans' ? (
           <div className="space-y-8 animate-fadeIn">
             <div className="grid grid-cols-1 md:grid-cols-3 gap-8">

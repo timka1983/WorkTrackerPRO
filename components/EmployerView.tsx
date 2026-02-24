@@ -350,11 +350,21 @@ const EmployerView: React.FC<EmployerViewProps> = ({
       const expiryDate = new Date();
       expiryDate.setDate(expiryDate.getDate() + promo.durationDays);
       
-      await db.updateOrganization(currentOrg.id, {
+      const updateData = {
         plan: promo.planType,
-        status: 'active',
+        status: 'active' as const,
         expiryDate: expiryDate.toISOString()
-      });
+      };
+
+      await db.updateOrganization(currentOrg.id, updateData);
+      
+      // Обновляем локальное состояние немедленно
+      if (onUpdateOrg) {
+        onUpdateOrg({
+          ...currentOrg,
+          ...updateData
+        });
+      }
       
       // Обновляем счетчик использований
       await db.savePromoCode({ ...promo, usedCount: promo.usedCount + 1 });

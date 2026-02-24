@@ -24,6 +24,7 @@ const App: React.FC = () => {
   const [machines, setMachines] = useState<Machine[]>([]);
   const [positions, setPositions] = useState<PositionConfig[]>([]);
   const [plans, setPlans] = useState<Plan[]>([]);
+  const [superAdminPin, setSuperAdminPin] = useState('7777');
   
   // Состояние для регистрации
   const [showRegistration, setShowRegistration] = useState(false);
@@ -175,14 +176,19 @@ const App: React.FC = () => {
       }
 
       // Parallel fetch of all other data
-      const [dbLogs, dbUsers, dbMachines, dbPositions, dbPlans, dbActiveShifts] = await Promise.all([
+      const [dbLogs, dbUsers, dbMachines, dbPositions, dbPlans, dbActiveShifts, dbConfig] = await Promise.all([
         db.getLogs(orgId),
         db.getUsers(orgId),
         db.getMachines(orgId),
         db.getPositions(orgId),
         db.getPlans(),
-        db.getAllActiveShifts(orgId)
+        db.getAllActiveShifts(orgId),
+        db.getSystemConfig()
       ]);
+
+      if (dbConfig?.super_admin_pin) {
+        setSuperAdminPin(dbConfig.super_admin_pin);
+      }
 
       if (dbPlans) setPlans(dbPlans);
 
@@ -378,10 +384,28 @@ const App: React.FC = () => {
       }
     });
 
+    const unsubOrg = db.subscribeToChanges(orgId, 'organizations', (payload) => {
+      if (payload.eventType === 'UPDATE' && payload.new.id === orgId) {
+        setCurrentOrg(prev => prev ? { ...prev, ...payload.new, 
+          notificationSettings: payload.new.notification_settings // Map snake_case to camelCase
+        } : prev);
+      }
+    });
+
+    const unsubPositions = db.subscribeToChanges(orgId, 'positions', async () => {
+      const dbPositions = await db.getPositions(orgId);
+      if (dbPositions) {
+        setPositions(dbPositions);
+        localStorage.setItem(STORAGE_KEYS.POSITIONS_LIST, JSON.stringify(dbPositions));
+      }
+    });
+
     return () => {
       unsubLogs();
       unsubUsers();
       unsubActiveShifts();
+      unsubOrg();
+      unsubPositions();
     };
   }, [isInitialized, currentOrg?.id]);
 
@@ -455,13 +479,13 @@ const App: React.FC = () => {
     const adminUser = users.find(u => u.id === 'admin');
     
     // Секретный PIN для Супер-админа (в реальности должен быть в БД)
-    if (pin === '7777') {
+    if (pin === superAdminPin) {
       const superAdminUser: User = {
         id: 'super-admin',
         name: 'Главный Администратор',
         role: UserRole.SUPER_ADMIN,
         position: 'Super Admin',
-        pin: '7777'
+        pin: superAdminPin
       };
       setCurrentUser(superAdminUser);
       localStorage.setItem(STORAGE_KEYS.CURRENT_USER, JSON.stringify(superAdminUser));
@@ -738,7 +762,7 @@ const App: React.FC = () => {
     const orgId = localStorage.getItem(STORAGE_KEYS.ORG_ID) || DEFAULT_ORG_ID;
     setPositions(newPositions);
     localStorage.setItem(STORAGE_KEYS.POSITIONS_LIST, JSON.stringify(newPositions));
-    db.savePositions(newPositions.map(p => p.name), orgId);
+    db.savePositions(newPositions, orgId);
   };
 
   const handleImportData = async (jsonStr: string) => {
