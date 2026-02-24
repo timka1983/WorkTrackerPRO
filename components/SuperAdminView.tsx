@@ -382,6 +382,12 @@ const SuperAdminView: React.FC<SuperAdminViewProps> = ({ onLogout }) => {
       return;
     }
 
+    const existingPromo = promoCodes.find(p => p.code.toUpperCase() === newPromo.code?.toUpperCase());
+    if (existingPromo) {
+      alert('Промокод с таким кодом уже существует');
+      return;
+    }
+
     setSaving(true);
     try {
       const promoId = typeof crypto.randomUUID === 'function' 
@@ -420,6 +426,11 @@ const SuperAdminView: React.FC<SuperAdminViewProps> = ({ onLogout }) => {
   };
 
   const handleDeletePromo = async (id: string) => {
+    const promo = promoCodes.find(p => p.id === id);
+    if (promo && promo.usedCount > 0) {
+      alert('Нельзя удалить промокод, который уже был использован');
+      return;
+    }
     if (!confirm('Удалить этот промокод?')) return;
     try {
       await db.deletePromoCode(id);
@@ -1080,6 +1091,12 @@ const SuperAdminView: React.FC<SuperAdminViewProps> = ({ onLogout }) => {
                               <div className="text-xs text-slate-500">
                                 {promo.planType} • {promo.durationDays} дн. • Исп: {promo.usedCount}/{promo.maxUses}
                               </div>
+                              {promo.usedCount > 0 && promo.lastUsedBy && (
+                                <div className="text-[10px] text-slate-400 mt-1">
+                                  Активирован: {promo.lastUsedBy}
+                                  {promo.lastUsedAt && ` (с ${new Date(promo.lastUsedAt).toLocaleDateString()} по ${new Date(new Date(promo.lastUsedAt).getTime() + promo.durationDays * 24 * 60 * 60 * 1000).toLocaleDateString()})`}
+                                </div>
+                              )}
                             </div>
                           </div>
                           <button 

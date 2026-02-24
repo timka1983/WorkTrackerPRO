@@ -372,7 +372,12 @@ const EmployerView: React.FC<EmployerViewProps> = ({
       }
       
       // Обновляем счетчик использований
-      await db.savePromoCode({ ...promo, usedCount: promo.usedCount + 1 });
+      await db.savePromoCode({ 
+        ...promo, 
+        usedCount: promo.usedCount + 1,
+        lastUsedBy: currentOrg.name || currentOrg.id,
+        lastUsedAt: new Date().toISOString()
+      });
       
       setPromoMessage({ text: `Промокод успешно применен! Тариф ${promo.planType} активирован на ${promo.durationDays} дней.`, type: 'success' });
       setPromoCode('');

@@ -139,9 +139,10 @@ const App: React.FC = () => {
       if (!isConnected) {
         setDbError('Нет подключения к базе данных. Проверьте настройки Supabase.');
         if (isRefresh) setIsSyncing(false);
-        return;
+        // Do not return early, allow local fallback to work
+      } else {
+        setDbError(null);
       }
-      setDbError(null);
 
       // Fetch organization first to ensure we have the right context
       const dbOrg = await db.getOrganization(orgId);

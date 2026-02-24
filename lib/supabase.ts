@@ -308,35 +308,53 @@ export const db = {
     if (!isConfigured()) return null;
     const { data, error } = await supabase.from('active_shifts').select('shifts, shifts_json').eq('user_id', userId).eq('organization_id', orgId).maybeSingle();
     if (error) return null;
-    return data?.shifts || data?.shifts_json || { 1: null, 2: null, 3: null };
+    
+    let parsedShifts = data?.shifts || data?.shifts_json || { 1: null, 2: null, 3: null };
+    if (typeof parsedShifts === 'string') {
+      try { parsedShifts = JSON.parse(parsedShifts); } catch (e) {}
+    }
+    return parsedShifts;
   },
   saveActiveShifts: async (userId: string, shifts: any, orgId: string) => {
     if (!isConfigured()) return { error: 'Not configured' };
     
+    // Create a base payload with shifts_json which we know exists
     const payload: any = { 
       user_id: userId, 
-      shifts: shifts,
-      shifts_json: shifts // Keep for backward compatibility if column exists
+      shifts_json: shifts
     };
     
+    // Add optional columns
     if (orgId && orgId !== 'demo_org') {
       payload.organization_id = orgId;
     }
+    
+    // Also try to set 'shifts' if it exists
+    payload.shifts = shifts;
 
     try {
-      // Пробуем с явным указанием onConflict по user_id
+      // Try with everything
       const { error } = await supabase.from('active_shifts').upsert(payload, { onConflict: 'user_id' });
       
       if (error) {
         console.warn('First upsert attempt failed, trying fallback:', error);
-        // Если ошибка в колонке organization_id
-        if (error.message?.includes('column') || error.code === '42703') {
-          const { organization_id, ...minimalPayload } = payload;
-          const { error: retryError } = await supabase.from('active_shifts').upsert(minimalPayload, { onConflict: 'user_id' });
-          return { error: retryError };
+        
+        // If error is about missing columns (42703)
+        if (error.code === '42703' || error.message?.includes('column')) {
+          // Try removing 'shifts' first
+          const { shifts, ...payloadNoShifts } = payload;
+          const { error: error2 } = await supabase.from('active_shifts').upsert(payloadNoShifts, { onConflict: 'user_id' });
+          
+          if (error2 && (error2.code === '42703' || error2.message?.includes('column'))) {
+            // If still failing, remove organization_id too
+            const { organization_id, ...minimalPayload } = payloadNoShifts;
+            const { error: error3 } = await supabase.from('active_shifts').upsert(minimalPayload, { onConflict: 'user_id' });
+            return { error: error3 };
+          }
+          return { error: error2 };
         }
         
-        // Если ошибка в onConflict (например, нет индекса по user_id, но есть по (user_id, organization_id))
+        // Handle conflict errors
         if (error.code === '42P10' || error.message?.includes('conflict')) {
            const { error: retryError2 } = await supabase.from('active_shifts').upsert(payload);
            return { error: retryError2 };
@@ -352,8 +370,17 @@ export const db = {
   },
   getAllActiveShifts: async (orgId: string) => {
     if (!checkConfig()) return null;
+    
+    // Try with organization_id filter
     const { data, error } = await supabase.from('active_shifts').select('*').eq('organization_id', orgId);
+    
     if (error) {
+      // If organization_id column is missing, fetch all and we'll filter in memory or just use all
+      if (error.code === '42703' || error.message?.includes('column')) {
+        const { data: allData, error: allErrors } = await supabase.from('active_shifts').select('*');
+        if (allErrors) return null;
+        return allData;
+      }
       console.error('Error fetching active shifts:', error);
       return null;
     }
@@ -552,13 +579,14 @@ CREATE POLICY "Allow public update" ON promo_codes FOR UPDATE USING (true);
         results.sqlFixes.push(`ALTER TABLE organizations ADD COLUMN IF NOT EXISTS email TEXT;`);
       }
 
-      const promoCols = ['plan_type', 'duration_days', 'max_uses', 'used_count'];
+      const promoCols = ['plan_type', 'duration_days', 'max_uses', 'used_count', 'last_used_by', 'last_used_at'];
       for (const col of promoCols) {
         const { error } = await supabase.from('promo_codes').select(col).limit(0);
         if (error && results.tables['promo_codes'].status !== 'error') {
            results.columns[`promo_codes.${col}`] = 'missing';
            // Add individual column fix if table exists but column doesn't
-           results.sqlFixes.push(`ALTER TABLE promo_codes ADD COLUMN IF NOT EXISTS ${col} ${col.includes('count') || col.includes('days') || col.includes('uses') ? 'INTEGER' : 'TEXT'};`);
+           const colType = col.includes('count') || col.includes('days') || col.includes('uses') ? 'INTEGER' : (col.includes('at') ? 'TIMESTAMPTZ' : 'TEXT');
+           results.sqlFixes.push(`ALTER TABLE promo_codes ADD COLUMN IF NOT EXISTS ${col} ${colType};`);
         } else {
            results.columns[`promo_codes.${col}`] = error ? 'error' : 'ok';
         }

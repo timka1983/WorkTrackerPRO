@@ -266,6 +266,10 @@ const EmployeeView: React.FC<EmployeeViewProps> = ({
       photoOut: photo
     };
     
+    // Explicitly update active shifts first
+    const nextShifts = { ...activeShifts, [slot]: null };
+    onActiveShiftsUpdate(nextShifts);
+    
     // Обновляем логи. handleLogsUpsert в App.tsx теперь автоматически очистит 
     // завершенную смену из карты активных смен.
     onLogsUpsert([completed]);
