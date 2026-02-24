@@ -917,19 +917,26 @@ const SuperAdminView: React.FC<SuperAdminViewProps> = ({ onLogout }) => {
                   {diagnostics.columns && Object.keys(diagnostics.columns).length > 0 && (
                     <div>
                       <h4 className="text-sm font-bold text-slate-900 mb-4 uppercase tracking-wider">Статус полей (колонок)</h4>
-                      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
-                        {Object.entries(diagnostics.columns).map(([col, status]: [string, any]) => (
-                          <div key={col} className={`p-4 rounded-xl border ${status === 'ok' ? 'bg-white border-slate-200' : 'bg-amber-50 border-amber-200'}`}>
-                            <div className="flex items-center justify-between">
-                              <span className="text-[10px] font-mono font-bold text-slate-700">{col}</span>
-                              {status === 'ok' ? <Check className="w-3 h-3 text-emerald-500" /> : <X className="w-3 h-3 text-amber-500" />}
-                            </div>
-                            {status === 'missing' && (
+                      {Object.values(diagnostics.columns).every(status => status === 'ok') ? (
+                        <div className="p-4 rounded-xl border bg-emerald-50 border-emerald-200 flex items-center gap-3">
+                          <Check className="w-5 h-5 text-emerald-600" />
+                          <span className="text-sm font-bold text-emerald-900">Диагностика проведена - все поля и колонки в порядке</span>
+                        </div>
+                      ) : (
+                        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
+                          {Object.entries(diagnostics.columns)
+                            .filter(([_, status]) => status === 'missing')
+                            .map(([col, status]: [string, any]) => (
+                            <div key={col} className="p-4 rounded-xl border bg-amber-50 border-amber-200">
+                              <div className="flex items-center justify-between">
+                                <span className="text-[10px] font-mono font-bold text-slate-700">{col}</span>
+                                <X className="w-3 h-3 text-amber-500" />
+                              </div>
                               <p className="text-[9px] text-amber-600 mt-1">Поле отсутствует</p>
-                            )}
-                          </div>
-                        ))}
-                      </div>
+                            </div>
+                          ))}
+                        </div>
+                      )}
                     </div>
                   )}
 
@@ -983,7 +990,7 @@ const SuperAdminView: React.FC<SuperAdminViewProps> = ({ onLogout }) => {
                 <h4 className="font-bold text-indigo-900 mb-1">Как исправить ошибки?</h4>
                 <ul className="text-sm text-indigo-700 space-y-2 list-disc ml-4 mt-2">
                   <li>Проверьте переменные окружения в настройках AI Studio.</li>
-                  <li>Убедитесь, что в Supabase созданы все таблицы (organizations, users, work_logs, machines, positions, plans, promo_codes, active_shifts).</li>
+                  <li>Убедитесь, что в Supabase созданы все таблицы (organizations, users, work_logs, machines, positions, plans, promo_codes, active_shifts, system_config).</li>
                   <li>Проверьте политики RLS (Row Level Security) — для тестов можно временно разрешить анонимный доступ.</li>
                   <li>Убедитесь, что вы не используете прокси или VPN, блокирующие запросы к Supabase.</li>
                 </ul>

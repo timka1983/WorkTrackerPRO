@@ -534,7 +534,7 @@ export const db = {
       return { ...results, status: 'error', message: 'Supabase URL or Key is not configured in environment variables.' };
     }
 
-    const tablesToCheck = ['organizations', 'users', 'work_logs', 'machines', 'positions', 'plans', 'promo_codes', 'active_shifts'];
+    const tablesToCheck = ['organizations', 'users', 'work_logs', 'machines', 'positions', 'plans', 'promo_codes', 'active_shifts', 'system_config'];
     
     try {
       for (const table of tablesToCheck) {
@@ -562,33 +562,52 @@ CREATE POLICY "Allow public read" ON promo_codes FOR SELECT USING (true);
 CREATE POLICY "Allow public insert" ON promo_codes FOR INSERT WITH CHECK (true);
 CREATE POLICY "Allow public update" ON promo_codes FOR UPDATE USING (true);
             `);
+          } else if (table === 'system_config') {
+            results.sqlFixes.push(`
+CREATE TABLE IF NOT EXISTS system_config (
+  id TEXT PRIMARY KEY,
+  super_admin_pin TEXT
+);
+ALTER TABLE system_config ENABLE ROW LEVEL SECURITY;
+CREATE POLICY "Allow public read" ON system_config FOR SELECT USING (true);
+CREATE POLICY "Allow public update" ON system_config FOR UPDATE USING (true);
+CREATE POLICY "Allow public insert" ON system_config FOR INSERT WITH CHECK (true);
+            `);
           }
         }
       }
 
       // Check specific columns
-      const { error: orgNotifError } = await supabase.from('organizations').select('notification_settings').limit(0);
-      results.columns['organizations.notification_settings'] = orgNotifError ? 'missing' : 'ok';
-      if (orgNotifError) {
-        results.sqlFixes.push(`ALTER TABLE organizations ADD COLUMN IF NOT EXISTS notification_settings JSONB DEFAULT '{"onShiftStart": false, "onShiftEnd": false, "onOvertime": false}';`);
-      }
+      const expectedSchema: Record<string, string[]> = {
+        organizations: ['id', 'name', 'email', 'owner_id', 'plan', 'status', 'expiry_date', 'notification_settings'],
+        users: ['id', 'organization_id', 'name', 'role', 'department', 'position', 'pin', 'require_photo', 'is_admin', 'force_pin_change', 'push_token'],
+        work_logs: ['id', 'user_id', 'organization_id', 'date', 'entry_type', 'machine_id', 'check_in', 'check_out', 'duration_minutes', 'photo_in', 'photo_out', 'is_corrected', 'correction_note', 'correction_timestamp', 'is_night_shift'],
+        machines: ['id', 'organization_id', 'name'],
+        positions: ['name', 'organization_id', 'permissions'],
+        plans: ['type', 'name', 'limits', 'price'],
+        promo_codes: ['id', 'code', 'plan_type', 'duration_days', 'max_uses', 'used_count', 'created_at', 'expires_at', 'is_active', 'last_used_by', 'last_used_at'],
+        active_shifts: ['user_id', 'organization_id', 'shifts', 'shifts_json'],
+        system_config: ['id', 'super_admin_pin']
+      };
 
-      const { error: orgEmailError } = await supabase.from('organizations').select('email').limit(0);
-      results.columns['organizations.email'] = orgEmailError ? 'missing' : 'ok';
-      if (orgEmailError) {
-        results.sqlFixes.push(`ALTER TABLE organizations ADD COLUMN IF NOT EXISTS email TEXT;`);
-      }
-
-      const promoCols = ['plan_type', 'duration_days', 'max_uses', 'used_count', 'last_used_by', 'last_used_at'];
-      for (const col of promoCols) {
-        const { error } = await supabase.from('promo_codes').select(col).limit(0);
-        if (error && results.tables['promo_codes'].status !== 'error') {
-           results.columns[`promo_codes.${col}`] = 'missing';
-           // Add individual column fix if table exists but column doesn't
-           const colType = col.includes('count') || col.includes('days') || col.includes('uses') ? 'INTEGER' : (col.includes('at') ? 'TIMESTAMPTZ' : 'TEXT');
-           results.sqlFixes.push(`ALTER TABLE promo_codes ADD COLUMN IF NOT EXISTS ${col} ${colType};`);
-        } else {
-           results.columns[`promo_codes.${col}`] = error ? 'error' : 'ok';
+      for (const [table, columns] of Object.entries(expectedSchema)) {
+        if (results.tables[table]?.status === 'ok') {
+          for (const col of columns) {
+            const { error } = await supabase.from(table).select(col).limit(0);
+            if (error) {
+              results.columns[`${table}.${col}`] = 'missing';
+              // Generate basic SQL fix
+              let colType = 'TEXT';
+              if (col.includes('count') || col.includes('days') || col.includes('uses') || col.includes('minutes') || col === 'price') colType = 'INTEGER';
+              else if (col.includes('date') || col.includes('at') || col.includes('timestamp') || col === 'check_in' || col === 'check_out') colType = 'TIMESTAMPTZ';
+              else if (col.startsWith('is_') || col.startsWith('require_') || col.startsWith('force_')) colType = 'BOOLEAN';
+              else if (col === 'notification_settings' || col === 'permissions' || col === 'limits' || col === 'shifts_json' || col === 'shifts') colType = 'JSONB';
+              
+              results.sqlFixes.push(`ALTER TABLE ${table} ADD COLUMN IF NOT EXISTS ${col} ${colType};`);
+            } else {
+              results.columns[`${table}.${col}`] = 'ok';
+            }
+          }
         }
       }
       
