@@ -1108,7 +1108,7 @@ const App: React.FC = () => {
             onUpdateUser={handleUpdateUser}
             nightShiftBonusMinutes={nightShiftBonus}
             onRefresh={handleRefresh}
-            planLimits={planLimits}
+            planLimits={PLAN_LIMITS[currentOrg?.plan || PlanType.FREE]}
             currentOrg={currentOrg}
           />
         ) : (

@@ -184,7 +184,13 @@ const EmployeeView: React.FC<EmployeeViewProps> = ({
     return canvas.toDataURL('image/jpeg', 0.5);
   };
 
-  const processAction = (slot: number, type: 'start' | 'stop') => {
+  const processAction = async (slot: number, type: 'start' | 'stop') => {
+    if (type === 'start') {
+      if ('Notification' in window && Notification.permission === 'default') {
+        await Notification.requestPermission();
+      }
+    }
+
     if (type === 'start' && perms.useMachines) {
       const selectedMachineId = slotMachineIds[slot];
       if (!selectedMachineId) {
