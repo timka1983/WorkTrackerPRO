@@ -306,16 +306,17 @@ export const db = {
   },
   getActiveShifts: async (userId: string, orgId: string) => {
     if (!isConfigured()) return null;
-    const { data, error } = await supabase.from('active_shifts').select('shifts_json').eq('user_id', userId).eq('organization_id', orgId).maybeSingle();
+    const { data, error } = await supabase.from('active_shifts').select('shifts, shifts_json').eq('user_id', userId).eq('organization_id', orgId).maybeSingle();
     if (error) return null;
-    return data?.shifts_json || { 1: null, 2: null, 3: null };
+    return data?.shifts || data?.shifts_json || { 1: null, 2: null, 3: null };
   },
   saveActiveShifts: async (userId: string, shifts: any, orgId: string) => {
     if (!isConfigured()) return { error: 'Not configured' };
     
     const payload: any = { 
       user_id: userId, 
-      shifts_json: shifts
+      shifts: shifts,
+      shifts_json: shifts // Keep for backward compatibility if column exists
     };
     
     if (orgId && orgId !== 'demo_org') {

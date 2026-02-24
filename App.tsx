@@ -201,7 +201,7 @@ const App: React.FC = () => {
       const map: Record<string, any> = {};
       if (dbActiveShifts) {
         dbActiveShifts.forEach((s: any) => {
-          map[s.user_id] = s.shifts_json;
+          map[s.user_id] = s.shifts || s.shifts_json;
         });
       }
       setActiveShiftsMap(map);
@@ -379,7 +379,7 @@ const App: React.FC = () => {
       if (payload.eventType === 'INSERT' || payload.eventType === 'UPDATE') {
         setActiveShiftsMap(prev => ({
           ...prev,
-          [payload.new.user_id]: payload.new.shifts_json
+          [payload.new.user_id]: payload.new.shifts || payload.new.shifts_json
         }));
       }
     });
