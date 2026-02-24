@@ -1098,11 +1098,18 @@ const App: React.FC = () => {
             onLogsUpsert={handleLogsUpsert} 
             activeShifts={activeShiftsMap[currentUser.id] || { 1: null, 2: null, 3: null }}
             onActiveShiftsUpdate={(shifts) => handleActiveShiftsUpdate(currentUser.id, shifts)}
+            onOvertime={(user, slot) => {
+              if (currentOrg?.notificationSettings?.onOvertime) {
+                sendNotification('Превышение лимита', `Сотрудник ${user.name} превысил лимит времени смены.`);
+              }
+            }}
             machines={machines} 
             positions={positions} 
             onUpdateUser={handleUpdateUser}
             nightShiftBonusMinutes={nightShiftBonus}
             onRefresh={handleRefresh}
+            planLimits={planLimits}
+            currentOrg={currentOrg}
           />
         ) : (
           isEmployerAuthorized ? (

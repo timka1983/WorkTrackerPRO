@@ -1,7 +1,7 @@
 
 import React, { useState, useEffect, useMemo, useRef } from 'react';
-import { WorkLog, User, EntryType, Machine, PositionConfig } from '../types';
-import { formatTime, formatDate, formatDuration, calculateMinutes, getDaysInMonthArray, formatDurationShort } from '../utils';
+import { WorkLog, User, EntryType, Machine, PositionConfig, PlanLimits, Organization } from '../types';
+import { formatTime, formatDate, formatDuration, calculateMinutes, getDaysInMonthArray, formatDurationShort, sendNotification } from '../utils';
 import { STORAGE_KEYS, DEFAULT_PERMISSIONS } from '../constants';
 import { format, isAfter, endOfMonth, eachDayOfInterval, getDay, addMonths } from 'date-fns';
 import { startOfDay } from 'date-fns/startOfDay';
@@ -22,10 +22,12 @@ interface EmployeeViewProps {
   onUpdateUser: (user: User) => void;
   nightShiftBonusMinutes: number;
   onRefresh?: () => Promise<void>;
+  planLimits: PlanLimits;
+  currentOrg: Organization | null;
 }
 
 const EmployeeView: React.FC<EmployeeViewProps> = ({ 
-  user, logs, onLogsUpsert, activeShifts, onActiveShiftsUpdate, machines, positions, onUpdateUser, nightShiftBonusMinutes, onRefresh
+  user, logs, onLogsUpsert, activeShifts, onActiveShiftsUpdate, onOvertime, machines, positions, onUpdateUser, nightShiftBonusMinutes, onRefresh, planLimits, currentOrg
 }) => {
   const orgId = localStorage.getItem(STORAGE_KEYS.ORG_ID) || 'default_org';
 
@@ -38,7 +40,7 @@ const EmployeeView: React.FC<EmployeeViewProps> = ({
 
   useEffect(() => {
     const checkOvertime = () => {
-      if (!perms.maxShiftDurationMinutes) return;
+      if (!perms.maxShiftDurationMinutes || !planLimits.features.advancedAnalytics) return; // Only for paid plans (using advancedAnalytics as a proxy for paid features, or we can just check plan !== FREE)
 
       const now = new Date();
       const updatedAlerts = { ...overtimeAlerts };
@@ -47,11 +49,15 @@ const EmployeeView: React.FC<EmployeeViewProps> = ({
       Object.entries(activeShifts).forEach(([slot, shift]) => {
         if (shift && shift.checkIn) {
           const duration = calculateMinutes(shift.checkIn, now.toISOString());
-          if (duration > perms.maxShiftDurationMinutes && !overtimeAlerts[Number(slot)]) {
+          // Add 15 minutes buffer
+          const limitWithBuffer = perms.maxShiftDurationMinutes! + 15;
+          
+          if (duration > limitWithBuffer && !overtimeAlerts[Number(slot)]) {
             updatedAlerts[Number(slot)] = true;
             changed = true;
             if (onOvertime) onOvertime(user, Number(slot));
-          } else if (duration <= perms.maxShiftDurationMinutes && overtimeAlerts[Number(slot)]) {
+            sendNotification('Смена не завершена', `Вы работаете уже более ${Math.floor(limitWithBuffer / 60)} часов. Не забудьте завершить смену!`);
+          } else if (duration <= limitWithBuffer && overtimeAlerts[Number(slot)]) {
             updatedAlerts[Number(slot)] = false;
             changed = true;
           }
@@ -66,7 +72,7 @@ const EmployeeView: React.FC<EmployeeViewProps> = ({
     const interval = setInterval(checkOvertime, 60000);
     checkOvertime();
     return () => clearInterval(interval);
-  }, [activeShifts, perms.maxShiftDurationMinutes, overtimeAlerts]);
+  }, [activeShifts, perms.maxShiftDurationMinutes, overtimeAlerts, planLimits, user, onOvertime]);
 
   const [slotMachineIds, setSlotMachineIds] = useState<Record<number, string>>({ 1: '', 2: '', 3: '' });
 
