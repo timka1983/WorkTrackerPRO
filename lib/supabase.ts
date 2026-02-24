@@ -415,31 +415,47 @@ export const db = {
     // Update localStorage first as a fallback
     const cached = localStorage.getItem(STORAGE_KEYS.ORG_DATA);
     if (cached) {
-      const org = JSON.parse(cached);
-      if (org.id === orgId) {
-        const updatedOrg = { ...org, ...updates };
-        localStorage.setItem(STORAGE_KEYS.ORG_DATA, JSON.stringify(updatedOrg));
+      try {
+        const org = JSON.parse(cached);
+        if (org.id === orgId) {
+          const updatedOrg = { ...org, ...updates };
+          localStorage.setItem(STORAGE_KEYS.ORG_DATA, JSON.stringify(updatedOrg));
+        }
+      } catch (e) {
+        console.error('Error updating local org data:', e);
       }
     }
 
     if (!checkConfig()) return { error: 'Not configured' };
     
     const dbUpdates: any = { ...updates };
-    if (updates.ownerId) {
+    if (updates.ownerId !== undefined) {
       dbUpdates.owner_id = updates.ownerId;
       delete dbUpdates.ownerId;
     }
-    if (updates.expiryDate) {
+    if (updates.expiryDate !== undefined) {
       dbUpdates.expiry_date = updates.expiryDate;
       delete dbUpdates.expiryDate;
     }
-    if (updates.notificationSettings) {
+    if (updates.notificationSettings !== undefined) {
       dbUpdates.notification_settings = updates.notificationSettings;
       delete dbUpdates.notificationSettings;
     }
 
     const { error } = await supabase.from('organizations').update(dbUpdates).eq('id', orgId);
-    if (error) console.error('Error updating organization:', error);
+    
+    if (error) {
+      console.error('Error updating organization:', error);
+      
+      // If column doesn't exist, try without notification_settings
+      if ((error.code === '42703' || error.message?.includes('column')) && dbUpdates.notification_settings) {
+        console.warn('Retrying organization update without notification_settings...');
+        const { notification_settings, ...minimalUpdates } = dbUpdates;
+        const { error: retryError } = await supabase.from('organizations').update(minimalUpdates).eq('id', orgId);
+        return { error: retryError };
+      }
+    }
+    
     return { error };
   },
   createOrganization: async (org: Organization) => {
@@ -481,7 +497,9 @@ export const db = {
         urlSet: SUPABASE_URL !== 'https://placeholder-project.supabase.co' && SUPABASE_URL.trim() !== '',
         keySet: SUPABASE_ANON_KEY !== 'placeholder-anon-key' && SUPABASE_ANON_KEY.trim() !== '',
       },
-      tables: {}
+      tables: {},
+      columns: {},
+      sqlFixes: []
     };
 
     if (!results.config.urlSet || !results.config.keySet) {
@@ -494,9 +512,59 @@ export const db = {
       for (const table of tablesToCheck) {
         const { error } = await supabase.from(table).select('count', { count: 'exact', head: true }).limit(0);
         results.tables[table] = error ? { status: 'error', message: error.message } : { status: 'ok' };
+        
+        if (error && (error.message.includes('does not exist') || error.code === '42P01')) {
+          if (table === 'promo_codes') {
+            results.sqlFixes.push(`
+CREATE TABLE IF NOT EXISTS promo_codes (
+  id TEXT PRIMARY KEY,
+  code TEXT UNIQUE NOT NULL,
+  plan_type TEXT NOT NULL,
+  duration_days INTEGER NOT NULL,
+  max_uses INTEGER DEFAULT 1,
+  used_count INTEGER DEFAULT 0,
+  created_at TIMESTAMPTZ DEFAULT now(),
+  expires_at TIMESTAMPTZ,
+  is_active BOOLEAN DEFAULT true,
+  last_used_by TEXT,
+  last_used_at TIMESTAMPTZ
+);
+ALTER TABLE promo_codes ENABLE ROW LEVEL SECURITY;
+CREATE POLICY "Allow public read" ON promo_codes FOR SELECT USING (true);
+CREATE POLICY "Allow public insert" ON promo_codes FOR INSERT WITH CHECK (true);
+CREATE POLICY "Allow public update" ON promo_codes FOR UPDATE USING (true);
+            `);
+          }
+        }
+      }
+
+      // Check specific columns
+      const { error: orgNotifError } = await supabase.from('organizations').select('notification_settings').limit(0);
+      results.columns['organizations.notification_settings'] = orgNotifError ? 'missing' : 'ok';
+      if (orgNotifError) {
+        results.sqlFixes.push(`ALTER TABLE organizations ADD COLUMN IF NOT EXISTS notification_settings JSONB DEFAULT '{"onShiftStart": false, "onShiftEnd": false, "onOvertime": false}';`);
+      }
+
+      const { error: orgEmailError } = await supabase.from('organizations').select('email').limit(0);
+      results.columns['organizations.email'] = orgEmailError ? 'missing' : 'ok';
+      if (orgEmailError) {
+        results.sqlFixes.push(`ALTER TABLE organizations ADD COLUMN IF NOT EXISTS email TEXT;`);
+      }
+
+      const promoCols = ['plan_type', 'duration_days', 'max_uses', 'used_count'];
+      for (const col of promoCols) {
+        const { error } = await supabase.from('promo_codes').select(col).limit(0);
+        if (error && results.tables['promo_codes'].status !== 'error') {
+           results.columns[`promo_codes.${col}`] = 'missing';
+           // Add individual column fix if table exists but column doesn't
+           results.sqlFixes.push(`ALTER TABLE promo_codes ADD COLUMN IF NOT EXISTS ${col} ${col.includes('count') || col.includes('days') || col.includes('uses') ? 'INTEGER' : 'TEXT'};`);
+        } else {
+           results.columns[`promo_codes.${col}`] = error ? 'error' : 'ok';
+        }
       }
       
-      const hasErrors = Object.values(results.tables).some((t: any) => t.status === 'error');
+      const hasErrors = Object.values(results.tables).some((t: any) => t.status === 'error') || 
+                        Object.values(results.columns).some((c: any) => c === 'missing');
       results.status = hasErrors ? 'partial' : 'ok';
       return results;
     } catch (e: any) {
@@ -566,8 +634,9 @@ export const db = {
     }
     localStorage.setItem(STORAGE_KEYS.PROMO_CODES, JSON.stringify(promos));
 
-    if (!checkConfig()) return;
-    const { error } = await supabase.from('promo_codes').upsert({
+    if (!checkConfig()) return { error: 'Not configured' };
+    
+    const payload = {
       id: promo.id,
       code: promo.code,
       plan_type: promo.planType,
@@ -579,8 +648,30 @@ export const db = {
       is_active: promo.isActive,
       last_used_by: promo.lastUsedBy,
       last_used_at: promo.lastUsedAt
-    });
-    if (error) console.error('Error saving promo code:', error);
+    };
+
+    const { error } = await supabase.from('promo_codes').upsert(payload);
+    
+    if (error) {
+      console.error('Error saving promo code:', error);
+      
+      // If column error, try minimal payload
+      if (error.code === '42703' || error.message?.includes('column')) {
+        console.warn('Retrying promo code save with minimal payload...');
+        const minimalPayload = {
+          id: promo.id,
+          code: promo.code,
+          plan_type: promo.planType,
+          duration_days: promo.durationDays,
+          max_uses: promo.maxUses,
+          used_count: promo.usedCount
+        };
+        const { error: retryError } = await supabase.from('promo_codes').upsert(minimalPayload);
+        return { error: retryError };
+      }
+    }
+    
+    return { error };
   },
   deletePromoCode: async (id: string) => {
     const cached = localStorage.getItem(STORAGE_KEYS.PROMO_CODES);

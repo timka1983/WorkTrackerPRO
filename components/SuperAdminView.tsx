@@ -139,8 +139,9 @@ const SuperAdminView: React.FC<SuperAdminViewProps> = ({ onLogout }) => {
       if (orgs) setOrganizations(orgs);
       if (globalStats) setStats(globalStats);
       
-      if (dbPromoCodes) {
+      if (dbPromoCodes && dbPromoCodes.length > 0) {
         setPromoCodes(dbPromoCodes);
+        localStorage.setItem(STORAGE_KEYS.PROMO_CODES, JSON.stringify(dbPromoCodes));
       } else {
         const cachedPromos = localStorage.getItem(STORAGE_KEYS.PROMO_CODES);
         if (cachedPromos) setPromoCodes(JSON.parse(cachedPromos));
@@ -398,7 +399,12 @@ const SuperAdminView: React.FC<SuperAdminViewProps> = ({ onLogout }) => {
         isActive: true
       };
 
-      await db.savePromoCode(promo);
+      const { error } = await db.savePromoCode(promo);
+      if (error) {
+        const msg = typeof error === 'string' ? error : error.message;
+        alert('Ошибка при сохранении промокода в БД: ' + msg);
+        // Still update local state so it works in the current session
+      }
       setPromoCodes(prev => [promo, ...prev]);
       setNewPromo({
         planType: PlanType.PRO,
@@ -895,6 +901,50 @@ const SuperAdminView: React.FC<SuperAdminViewProps> = ({ onLogout }) => {
                       ))}
                     </div>
                   </div>
+
+                  {/* Columns Section */}
+                  {diagnostics.columns && Object.keys(diagnostics.columns).length > 0 && (
+                    <div>
+                      <h4 className="text-sm font-bold text-slate-900 mb-4 uppercase tracking-wider">Статус полей (колонок)</h4>
+                      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
+                        {Object.entries(diagnostics.columns).map(([col, status]: [string, any]) => (
+                          <div key={col} className={`p-4 rounded-xl border ${status === 'ok' ? 'bg-white border-slate-200' : 'bg-amber-50 border-amber-200'}`}>
+                            <div className="flex items-center justify-between">
+                              <span className="text-[10px] font-mono font-bold text-slate-700">{col}</span>
+                              {status === 'ok' ? <Check className="w-3 h-3 text-emerald-500" /> : <X className="w-3 h-3 text-amber-500" />}
+                            </div>
+                            {status === 'missing' && (
+                              <p className="text-[9px] text-amber-600 mt-1">Поле отсутствует</p>
+                            )}
+                          </div>
+                        ))}
+                      </div>
+                    </div>
+                  )}
+
+                  {/* SQL Fixes Section */}
+                  {diagnostics.sqlFixes && diagnostics.sqlFixes.length > 0 && (
+                    <div className="space-y-4">
+                      <h4 className="text-sm font-bold text-slate-900 uppercase tracking-wider">SQL для исправления</h4>
+                      <div className="p-4 bg-slate-900 rounded-2xl overflow-hidden">
+                        <div className="flex justify-between items-center mb-2">
+                          <span className="text-[10px] text-slate-400 font-mono">Скопируйте и выполните в SQL Editor в Supabase</span>
+                          <button 
+                            onClick={() => {
+                              navigator.clipboard.writeText(diagnostics.sqlFixes.join('\n\n'));
+                              alert('SQL скопирован в буфер обмена');
+                            }}
+                            className="text-[10px] text-indigo-400 hover:text-indigo-300 font-bold"
+                          >
+                            Копировать всё
+                          </button>
+                        </div>
+                        <pre className="text-[10px] text-slate-300 font-mono overflow-x-auto p-2 max-h-60">
+                          {diagnostics.sqlFixes.join('\n\n')}
+                        </pre>
+                      </div>
+                    </div>
+                  )}
 
                   {diagnostics.status === 'partial' && (
                     <div className="p-6 bg-amber-50 border border-amber-200 rounded-2xl flex items-start gap-4">

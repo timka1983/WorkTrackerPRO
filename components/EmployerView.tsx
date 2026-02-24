@@ -356,7 +356,12 @@ const EmployerView: React.FC<EmployerViewProps> = ({
         expiryDate: expiryDate.toISOString()
       };
 
-      await db.updateOrganization(currentOrg.id, updateData);
+      const { error } = await db.updateOrganization(currentOrg.id, updateData);
+      if (error) {
+        const msg = typeof error === 'string' ? error : error.message;
+        setPromoMessage({ text: 'Ошибка при активации: ' + msg, type: 'error' });
+        return;
+      }
       
       // Обновляем локальное состояние немедленно
       if (onUpdateOrg) {
@@ -1264,7 +1269,12 @@ const EmployerView: React.FC<EmployerViewProps> = ({
                             if (currentOrg) {
                               const updatedOrg = { ...currentOrg, notificationSettings: settings };
                               onUpdateOrg(updatedOrg);
-                              db.updateOrganization(currentOrg.id, { notificationSettings: settings });
+                              db.updateOrganization(currentOrg.id, { notificationSettings: settings }).then(({ error }) => {
+                                if (error) {
+                                  console.error('Failed to save notification settings:', error);
+                                  // Rollback if needed, but usually we just log it
+                                }
+                              });
                             }
                           }}
                           className="w-4 h-4 rounded accent-blue-600"
