@@ -1,5 +1,5 @@
 
-import React, { useState, useEffect, useCallback, useMemo } from 'react';
+import React, { useState, useEffect, useCallback, useMemo, useRef } from 'react';
 import { User, UserRole, WorkLog, Machine, PositionConfig, Organization, PlanType, PlanLimits, Plan, EntryType } from './types';
 import { STORAGE_KEYS, INITIAL_USERS, INITIAL_MACHINES, INITIAL_POSITIONS, INITIAL_LOGS, DEFAULT_PERMISSIONS, PLAN_LIMITS } from './constants';
 import { sendNotification } from './utils';
@@ -57,6 +57,17 @@ const App: React.FC = () => {
   const [resetStep, setResetStep] = useState<'email' | 'newPin'>('email');
   const [resetStatus, setResetStatus] = useState<{ text: string, type: 'success' | 'error' } | null>(null);
   const [tempNewPin, setTempNewPin] = useState('');
+  
+  // Refs for real-time notifications
+  const currentUserRef = useRef<User | null>(null);
+  const usersRef = useRef<User[]>([]);
+  const currentOrgRef = useRef<Organization | null>(null);
+
+  useEffect(() => {
+    currentUserRef.current = currentUser;
+    usersRef.current = users;
+    currentOrgRef.current = currentOrg;
+  }, [currentUser, users, currentOrg]);
 
   useEffect(() => {
     localStorage.setItem('timesheet_night_bonus', nightShiftBonus.toString());
@@ -362,6 +373,26 @@ const App: React.FC = () => {
         
         setLogs(prev => {
           const exists = prev.find(l => l.id === newLog.id);
+          
+          // Notification Logic
+          const currentUser = currentUserRef.current;
+          const users = usersRef.current;
+          const org = currentOrgRef.current;
+          
+          if (currentUser && (currentUser.role === UserRole.EMPLOYER || currentUser.isAdmin) && newLog.userId !== currentUser.id) {
+             const logUser = users.find(u => u.id === newLog.userId);
+             if (logUser && org?.notificationSettings) {
+                // Shift Start: New log entry with no checkOut
+                if (!exists && !newLog.checkOut && org.notificationSettings.onShiftStart) {
+                   sendNotification('Смена начата', `${logUser.name} приступил к работе.`);
+                }
+                // Shift End: Existing log entry didn't have checkOut, but new one does
+                if (exists && !exists.checkOut && newLog.checkOut && org.notificationSettings.onShiftEnd) {
+                   sendNotification('Смена завершена', `${logUser.name} закончил работу.`);
+                }
+             }
+          }
+
           if (exists && JSON.stringify(exists) === JSON.stringify(newLog)) return prev;
           
           const filtered = prev.filter(l => l.id !== newLog.id);
