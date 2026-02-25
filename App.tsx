@@ -1257,6 +1257,7 @@ const App: React.FC = () => {
               currentOrg={currentOrg}
               plans={plans}
               onUpdateOrg={setCurrentOrg}
+              currentUser={currentUser}
             />
           ) : (
             <div className="text-center py-20">

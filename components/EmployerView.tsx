@@ -31,12 +31,13 @@ interface EmployerViewProps {
   currentOrg: Organization | null;
   plans: Plan[];
   onUpdateOrg: (org: Organization) => void;
+  currentUser?: User | null;
 }
 
 const EmployerView: React.FC<EmployerViewProps> = ({ 
   logs, users, onAddUser, onUpdateUser, onDeleteUser, 
   machines, onUpdateMachines, positions, onUpdatePositions, onImportData, onLogsUpsert, activeShiftsMap = {}, onActiveShiftsUpdate, onDeleteLog,
-  onRefresh, isSyncing = false, nightShiftBonusMinutes, onUpdateNightBonus, currentOrg, plans, onUpdateOrg
+  onRefresh, isSyncing = false, nightShiftBonusMinutes, onUpdateNightBonus, currentOrg, plans, onUpdateOrg, currentUser: propCurrentUser
 }) => {
   const [filterMonth, setFilterMonth] = useState(format(new Date(), 'yyyy-MM'));
   const [viewMode, setViewMode] = useState<'matrix' | 'team' | 'analytics' | 'settings' | 'billing'>('analytics');
@@ -78,9 +79,14 @@ const EmployerView: React.FC<EmployerViewProps> = ({
   const today = startOfDay(new Date());
 
   const currentUser = useMemo(() => {
-    const cached = localStorage.getItem('timesheet_current_user');
-    return cached ? JSON.parse(cached) as User : null;
-  }, []);
+    if (propCurrentUser) return propCurrentUser;
+    try {
+      const cached = localStorage.getItem(STORAGE_KEYS.CURRENT_USER);
+      return cached ? JSON.parse(cached) as User : null;
+    } catch (e) {
+      return null;
+    }
+  }, [propCurrentUser, users]);
 
   const userPerms = useMemo(() => {
     if (currentUser?.id === 'admin') return { isFullAdmin: true, isLimitedAdmin: false };
