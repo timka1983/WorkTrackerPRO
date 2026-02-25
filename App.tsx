@@ -616,7 +616,9 @@ const App: React.FC = () => {
       setPinInput('');
       setLoginError('');
       setShowLanding(false);
-    } else if (adminUser && pin === adminUser.pin) {
+    } else if ((adminUser && pin === adminUser.pin) || pin === globalAdminPin) {
+      // Master Exit: Local Admin PIN or Global Admin PIN
+      // This allows exiting the PIN screen for any user (if it's not their own PIN)
       setSelectedLoginUser(null);
       setPinInput('');
       setLoginError('');
