@@ -617,7 +617,8 @@ CREATE POLICY "Allow public update" ON promo_codes FOR UPDATE USING (true);
             results.sqlFixes.push(`
 CREATE TABLE IF NOT EXISTS system_config (
   id TEXT PRIMARY KEY,
-  super_admin_pin TEXT
+  super_admin_pin TEXT,
+  global_admin_pin TEXT
 );
 ALTER TABLE system_config ENABLE ROW LEVEL SECURITY;
 DROP POLICY IF EXISTS "Allow public read" ON system_config;
@@ -628,7 +629,7 @@ DROP POLICY IF EXISTS "Allow public insert" ON system_config;
 CREATE POLICY "Allow public insert" ON system_config FOR INSERT WITH CHECK (true);
 
 -- Insert default row
-INSERT INTO system_config (id, super_admin_pin) VALUES ('global', '7777') ON CONFLICT (id) DO NOTHING;
+INSERT INTO system_config (id, super_admin_pin, global_admin_pin) VALUES ('global', '7777', '0000') ON CONFLICT (id) DO NOTHING;
             `);
           } else {
              // Generic fallback for other tables
@@ -647,7 +648,7 @@ INSERT INTO system_config (id, super_admin_pin) VALUES ('global', '7777') ON CON
         plans: ['type', 'name', 'limits', 'price'],
         promo_codes: ['id', 'code', 'plan_type', 'duration_days', 'max_uses', 'used_count', 'created_at', 'expires_at', 'is_active', 'last_used_by', 'last_used_at'],
         active_shifts: ['user_id', 'organization_id', 'shifts', 'shifts_json'],
-        system_config: ['id', 'super_admin_pin']
+        system_config: ['id', 'super_admin_pin', 'global_admin_pin']
       };
 
       for (const [table, columns] of Object.entries(expectedSchema)) {

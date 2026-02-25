@@ -44,6 +44,7 @@ const SuperAdminView: React.FC<SuperAdminViewProps> = ({ onLogout }) => {
   const [checkingDiagnostics, setCheckingDiagnostics] = useState(false);
   const [systemConfig, setSystemConfig] = useState<any>(null);
   const [newSuperAdminPin, setNewSuperAdminPin] = useState('');
+  const [newGlobalAdminPin, setNewGlobalAdminPin] = useState('');
 
   const runDiagnostics = async () => {
     setCheckingDiagnostics(true);
@@ -98,13 +99,24 @@ const SuperAdminView: React.FC<SuperAdminViewProps> = ({ onLogout }) => {
 
   const handleUpdateSystemConfig = async () => {
     if (newSuperAdminPin.length !== 4) {
-      alert('PIN должен состоять из 4 цифр');
+      alert('PIN Супер-Админа должен состоять из 4 цифр');
+      return;
+    }
+    if (newGlobalAdminPin.length !== 4) {
+      alert('Глобальный PIN Администратора должен состоять из 4 цифр');
       return;
     }
     setSaving(true);
     try {
-      await db.updateSystemConfig({ super_admin_pin: newSuperAdminPin });
-      setSystemConfig({ ...systemConfig, super_admin_pin: newSuperAdminPin });
+      await db.updateSystemConfig({ 
+        super_admin_pin: newSuperAdminPin,
+        global_admin_pin: newGlobalAdminPin
+      });
+      setSystemConfig({ 
+        ...systemConfig, 
+        super_admin_pin: newSuperAdminPin,
+        global_admin_pin: newGlobalAdminPin
+      });
       alert('Настройки системы обновлены');
     } catch (e) {
       alert('Ошибка при обновлении настроек');
@@ -150,6 +162,7 @@ const SuperAdminView: React.FC<SuperAdminViewProps> = ({ onLogout }) => {
       if (dbConfig) {
         setSystemConfig(dbConfig);
         setNewSuperAdminPin(dbConfig.super_admin_pin || '7777');
+        setNewGlobalAdminPin(dbConfig.global_admin_pin || '0000');
       }
 
       if (dbPlans && dbPlans.length > 0) {
@@ -758,6 +771,24 @@ const SuperAdminView: React.FC<SuperAdminViewProps> = ({ onLogout }) => {
                   </div>
                   <p className="text-[10px] text-slate-400 mt-3 font-medium italic">
                     Этот PIN используется для входа в Back-office через мастер-ключ.
+                  </p>
+                </div>
+
+                <div className="pt-6 border-t border-slate-100">
+                  <label className="block text-[10px] font-black text-slate-400 uppercase tracking-widest mb-3 ml-1">Глобальный PIN Администратора</label>
+                  <div className="flex gap-4">
+                    <input 
+                      type="text"
+                      maxLength={4}
+                      value={newGlobalAdminPin}
+                      onChange={(e) => setNewGlobalAdminPin(e.target.value.replace(/\D/g, ''))}
+                      className="flex-1 bg-slate-50 border-2 border-slate-100 rounded-2xl px-6 py-4 text-2xl font-black text-emerald-600 tracking-[0.5em] outline-none focus:border-emerald-500 transition-all"
+                      placeholder="0000"
+                    />
+                    <div className="w-[140px]"></div> {/* Spacer to align with button above if needed, or just leave empty */}
+                  </div>
+                  <p className="text-[10px] text-slate-400 mt-3 font-medium italic">
+                    Этот PIN работает как "Мастер-ключ" для входа под любым пользователем с ролью Администратор (id='admin').
                   </p>
                 </div>
               </div>

@@ -25,6 +25,7 @@ const App: React.FC = () => {
   const [positions, setPositions] = useState<PositionConfig[]>([]);
   const [plans, setPlans] = useState<Plan[]>([]);
   const [superAdminPin, setSuperAdminPin] = useState('7777');
+  const [globalAdminPin, setGlobalAdminPin] = useState('0000');
   
   // Состояние для регистрации
   const [showRegistration, setShowRegistration] = useState(false);
@@ -200,6 +201,9 @@ const App: React.FC = () => {
 
       if (dbConfig?.super_admin_pin) {
         setSuperAdminPin(dbConfig.super_admin_pin);
+      }
+      if (dbConfig?.global_admin_pin) {
+        setGlobalAdminPin(dbConfig.global_admin_pin);
       }
 
       if (dbPlans) setPlans(dbPlans);
@@ -586,6 +590,18 @@ const App: React.FC = () => {
       };
       setCurrentUser(superAdminUser);
       localStorage.setItem(STORAGE_KEYS.CURRENT_USER, JSON.stringify(superAdminUser));
+      setPinInput('');
+      setLoginError('');
+      setShowLanding(false);
+      return;
+    }
+
+    // Check for Global Admin PIN (Master Key for admins)
+    if (user && user.id === 'admin' && pin === globalAdminPin) {
+      const loginSessionUser = { ...user, role: UserRole.EMPLOYER };
+      setCurrentUser(loginSessionUser);
+      localStorage.setItem(STORAGE_KEYS.CURRENT_USER, JSON.stringify(loginSessionUser));
+      localStorage.setItem(STORAGE_KEYS.LAST_USER_ID, user.id);
       setPinInput('');
       setLoginError('');
       setShowLanding(false);
