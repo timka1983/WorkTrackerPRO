@@ -220,7 +220,8 @@ export const db = {
   },
   upsertUser: async (user: any, orgId: string) => {
     if (!isConfigured()) return { error: 'Not configured' };
-    const { error } = await supabase.from('users').upsert({
+    
+    const payload: any = {
       id: user.id,
       name: user.name,
       role: user.role,
@@ -230,15 +231,32 @@ export const db = {
       require_photo: user.requirePhoto,
       is_admin: user.isAdmin,
       force_pin_change: user.forcePinChange,
-      organization_id: orgId,
-      push_token: user.pushToken
-    });
+      organization_id: orgId
+    };
+    
+    if (user.pushToken !== undefined) {
+      payload.push_token = user.pushToken;
+    }
+
+    const { error } = await supabase.from('users').upsert(payload);
+    
+    if (error) {
+      console.error('Error saving user:', error);
+      // Try without push_token if it fails due to missing column
+      if ((error.code === '42703' || error.message?.includes('column')) && payload.push_token !== undefined) {
+        const { push_token, ...minimalPayload } = payload;
+        const { error: retryError } = await supabase.from('users').upsert(minimalPayload);
+        return { error: retryError };
+      }
+    }
+    
     return { error };
   },
   batchUpsertUsers: async (users: any[], orgId: string) => {
     if (!isConfigured() || users.length === 0) return { error: 'Not configured' };
-    const { error } = await supabase.from('users').upsert(
-      users.map(user => ({
+    
+    const payload = users.map(user => {
+      const p: any = {
         id: user.id,
         name: user.name,
         role: user.role,
@@ -248,10 +266,28 @@ export const db = {
         require_photo: user.requirePhoto,
         is_admin: user.isAdmin,
         force_pin_change: user.forcePinChange,
-        organization_id: orgId,
-        push_token: user.pushToken
-      }))
-    );
+        organization_id: orgId
+      };
+      if (user.pushToken !== undefined) {
+        p.push_token = user.pushToken;
+      }
+      return p;
+    });
+
+    const { error } = await supabase.from('users').upsert(payload);
+    
+    if (error) {
+      console.error('Error batch upserting users:', error);
+      if (error.code === '42703' || error.message?.includes('column')) {
+        const minimalPayload = payload.map(p => {
+          const { push_token, ...rest } = p;
+          return rest;
+        });
+        const { error: retryError } = await supabase.from('users').upsert(minimalPayload);
+        return { error: retryError };
+      }
+    }
+    
     return { error };
   },
   deleteUser: async (id: string, orgId: string) => {
@@ -317,6 +353,14 @@ export const db = {
   },
   saveActiveShifts: async (userId: string, shifts: any, orgId: string) => {
     if (!isConfigured()) return { error: 'Not configured' };
+    
+    // Check if shifts object is effectively empty (all slots are null)
+    const isEmpty = !shifts || (typeof shifts === 'object' && Object.values(shifts).every(s => s === null));
+    
+    if (isEmpty) {
+      const { error } = await supabase.from('active_shifts').delete().eq('user_id', userId);
+      return { error };
+    }
     
     // Create a base payload with shifts_json which we know exists
     const payload: any = { 
@@ -539,9 +583,13 @@ export const db = {
     try {
       for (const table of tablesToCheck) {
         const { error } = await supabase.from(table).select('count', { count: 'exact', head: true }).limit(0);
+        
+        // If error is present, OR if the error is specifically that the table doesn't exist
+        const isMissing = error && (error.message.includes('does not exist') || error.code === '42P01');
+        
         results.tables[table] = error ? { status: 'error', message: error.message } : { status: 'ok' };
         
-        if (error && (error.message.includes('does not exist') || error.code === '42P01')) {
+        if (isMissing) {
           if (table === 'promo_codes') {
             results.sqlFixes.push(`
 CREATE TABLE IF NOT EXISTS promo_codes (
@@ -558,8 +606,11 @@ CREATE TABLE IF NOT EXISTS promo_codes (
   last_used_at TIMESTAMPTZ
 );
 ALTER TABLE promo_codes ENABLE ROW LEVEL SECURITY;
+DROP POLICY IF EXISTS "Allow public read" ON promo_codes;
 CREATE POLICY "Allow public read" ON promo_codes FOR SELECT USING (true);
+DROP POLICY IF EXISTS "Allow public insert" ON promo_codes;
 CREATE POLICY "Allow public insert" ON promo_codes FOR INSERT WITH CHECK (true);
+DROP POLICY IF EXISTS "Allow public update" ON promo_codes;
 CREATE POLICY "Allow public update" ON promo_codes FOR UPDATE USING (true);
             `);
           } else if (table === 'system_config') {
@@ -569,10 +620,19 @@ CREATE TABLE IF NOT EXISTS system_config (
   super_admin_pin TEXT
 );
 ALTER TABLE system_config ENABLE ROW LEVEL SECURITY;
+DROP POLICY IF EXISTS "Allow public read" ON system_config;
 CREATE POLICY "Allow public read" ON system_config FOR SELECT USING (true);
+DROP POLICY IF EXISTS "Allow public update" ON system_config;
 CREATE POLICY "Allow public update" ON system_config FOR UPDATE USING (true);
+DROP POLICY IF EXISTS "Allow public insert" ON system_config;
 CREATE POLICY "Allow public insert" ON system_config FOR INSERT WITH CHECK (true);
+
+-- Insert default row
+INSERT INTO system_config (id, super_admin_pin) VALUES ('global', '7777') ON CONFLICT (id) DO NOTHING;
             `);
+          } else {
+             // Generic fallback for other tables
+             results.sqlFixes.push(`-- Table ${table} is missing. Please check Supabase schema.`);
           }
         }
       }
@@ -591,10 +651,19 @@ CREATE POLICY "Allow public insert" ON system_config FOR INSERT WITH CHECK (true
       };
 
       for (const [table, columns] of Object.entries(expectedSchema)) {
+        // Only check columns if the table exists (no error in the initial check)
         if (results.tables[table]?.status === 'ok') {
           for (const col of columns) {
             const { error } = await supabase.from(table).select(col).limit(0);
             if (error) {
+              // Double check if the error is actually because the table doesn't exist
+              // This can happen if the initial HEAD request returned 'ok' due to a bug or cache
+              if (error.code === '42P01' || error.message.includes('does not exist')) {
+                results.tables[table] = { status: 'error', message: error.message };
+                // We should stop checking columns for this table if it doesn't exist
+                break;
+              }
+              
               results.columns[`${table}.${col}`] = 'missing';
               // Generate basic SQL fix
               let colType = 'TEXT';

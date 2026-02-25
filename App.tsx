@@ -205,6 +205,45 @@ const App: React.FC = () => {
           map[s.user_id] = s.shifts || s.shifts_json;
         });
       }
+
+      // RECOVERY: If a user has an open log but no active shift in map, add it.
+      // This handles the case where active_shifts table is out of sync or cleared.
+      if (finalLogs) {
+         const openLogs = finalLogs.filter(l => !l.checkOut && l.entryType === EntryType.WORK);
+         openLogs.forEach(log => {
+            if (!map[log.userId]) {
+               // We found an open log but no active shift record.
+               // We need to reconstruct the active shift object.
+               // We assume slot 1 if we can't determine it, but let's try to parse ID.
+               // ID format: shift-{userId}-{timestamp}-{slot}
+               let slot = 1;
+               const parts = log.id.split('-');
+               if (parts.length >= 4) {
+                  const lastPart = parts[parts.length - 1];
+                  const parsedSlot = parseInt(lastPart);
+                  if (!isNaN(parsedSlot)) slot = parsedSlot;
+               }
+               
+               // Reconstruct the shifts object (e.g. { 1: log, 2: null })
+               map[log.userId] = { [slot]: log };
+            } else {
+               // If map exists but might be missing this specific slot
+               const userShifts = map[log.userId];
+               let slot = 1;
+               const parts = log.id.split('-');
+               if (parts.length >= 4) {
+                  const lastPart = parts[parts.length - 1];
+                  const parsedSlot = parseInt(lastPart);
+                  if (!isNaN(parsedSlot)) slot = parsedSlot;
+               }
+               
+               if (!userShifts[slot]) {
+                  userShifts[slot] = log;
+               }
+            }
+         });
+      }
+
       setActiveShiftsMap(map);
       localStorage.setItem(STORAGE_KEYS.ACTIVE_SHIFTS, JSON.stringify(map));
 
@@ -378,10 +417,21 @@ const App: React.FC = () => {
 
     const unsubActiveShifts = db.subscribeToChanges(orgId, 'active_shifts', (payload) => {
       if (payload.eventType === 'INSERT' || payload.eventType === 'UPDATE') {
-        setActiveShiftsMap(prev => ({
-          ...prev,
-          [payload.new.user_id]: payload.new.shifts || payload.new.shifts_json
-        }));
+        setActiveShiftsMap(prev => {
+          const updated = {
+            ...prev,
+            [payload.new.user_id]: payload.new.shifts || payload.new.shifts_json
+          };
+          localStorage.setItem(STORAGE_KEYS.ACTIVE_SHIFTS, JSON.stringify(updated));
+          return updated;
+        });
+      } else if (payload.eventType === 'DELETE' && payload.old && payload.old.user_id) {
+        setActiveShiftsMap(prev => {
+          const updated = { ...prev };
+          delete updated[payload.old.user_id];
+          localStorage.setItem(STORAGE_KEYS.ACTIVE_SHIFTS, JSON.stringify(updated));
+          return updated;
+        });
       }
     });
 
