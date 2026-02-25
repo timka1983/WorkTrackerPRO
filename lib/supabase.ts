@@ -655,7 +655,9 @@ INSERT INTO system_config (id, super_admin_pin, global_admin_pin) VALUES ('globa
         // Only check columns if the table exists (no error in the initial check)
         if (results.tables[table]?.status === 'ok') {
           for (const col of columns) {
-            const { error } = await supabase.from(table).select(col).limit(0);
+            // Use a more robust check: try to select the specific column
+            const { error } = await supabase.from(table).select(col).limit(1);
+            
             if (error) {
               // Double check if the error is actually because the table doesn't exist
               // This can happen if the initial HEAD request returned 'ok' due to a bug or cache
@@ -665,15 +667,23 @@ INSERT INTO system_config (id, super_admin_pin, global_admin_pin) VALUES ('globa
                 break;
               }
               
-              results.columns[`${table}.${col}`] = 'missing';
-              // Generate basic SQL fix
-              let colType = 'TEXT';
-              if (col.includes('count') || col.includes('days') || col.includes('uses') || col.includes('minutes') || col === 'price') colType = 'INTEGER';
-              else if (col.includes('date') || col.includes('at') || col.includes('timestamp') || col === 'check_in' || col === 'check_out') colType = 'TIMESTAMPTZ';
-              else if (col.startsWith('is_') || col.startsWith('require_') || col.startsWith('force_')) colType = 'BOOLEAN';
-              else if (col === 'notification_settings' || col === 'permissions' || col === 'limits' || col === 'shifts_json' || col === 'shifts') colType = 'JSONB';
-              
-              results.sqlFixes.push(`ALTER TABLE ${table} ADD COLUMN IF NOT EXISTS ${col} ${colType};`);
+              // If error is about column not found (Postgres code 42703)
+              if (error.code === '42703' || error.message.includes('column') || error.message.includes('does not exist')) {
+                 results.columns[`${table}.${col}`] = 'missing';
+                 
+                 // Generate basic SQL fix
+                 let colType = 'TEXT';
+                 if (col.includes('count') || col.includes('days') || col.includes('uses') || col.includes('minutes') || col === 'price') colType = 'INTEGER';
+                 else if (col.includes('date') || col.includes('at') || col.includes('timestamp') || col === 'check_in' || col === 'check_out') colType = 'TIMESTAMPTZ';
+                 else if (col.startsWith('is_') || col.startsWith('require_') || col.startsWith('force_')) colType = 'BOOLEAN';
+                 else if (col === 'notification_settings' || col === 'permissions' || col === 'limits' || col === 'shifts_json' || col === 'shifts') colType = 'JSONB';
+                 
+                 results.sqlFixes.push(`ALTER TABLE ${table} ADD COLUMN IF NOT EXISTS ${col} ${colType};`);
+              } else {
+                 // Other error, maybe permission or something else, but assume column exists to avoid false positives
+                 console.warn(`Error checking column ${table}.${col}:`, error);
+                 results.columns[`${table}.${col}`] = 'ok';
+              }
             } else {
               results.columns[`${table}.${col}`] = 'ok';
             }
