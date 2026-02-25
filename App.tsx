@@ -223,46 +223,49 @@ const App: React.FC = () => {
       const map: Record<string, any> = {};
       if (dbActiveShifts) {
         dbActiveShifts.forEach((s: any) => {
-          map[s.user_id] = s.shifts || s.shifts_json;
+          let parsed = s.shifts || s.shifts_json;
+          if (typeof parsed === 'string') {
+            try { parsed = JSON.parse(parsed); } catch (e) { parsed = {}; }
+          }
+          map[s.user_id] = parsed || {};
         });
       }
 
-      // RECOVERY: If a user has an open log but no active shift in map, add it.
-      // This handles the case where active_shifts table is out of sync or cleared.
       if (finalLogs) {
-         const openLogs = finalLogs.filter(l => !l.checkOut && l.entryType === EntryType.WORK);
-         openLogs.forEach(log => {
-            if (!map[log.userId]) {
-               // We found an open log but no active shift record.
-               // We need to reconstruct the active shift object.
-               // We assume slot 1 if we can't determine it, but let's try to parse ID.
-               // ID format: shift-{userId}-{timestamp}-{slot}
-               let slot = 1;
-               const parts = log.id.split('-');
-               if (parts.length >= 4) {
-                  const lastPart = parts[parts.length - 1];
-                  const parsedSlot = parseInt(lastPart);
-                  if (!isNaN(parsedSlot)) slot = parsedSlot;
-               }
-               
-               // Reconstruct the shifts object (e.g. { 1: log, 2: null })
-               map[log.userId] = { [slot]: log };
-            } else {
-               // If map exists but might be missing this specific slot
-               const userShifts = map[log.userId];
-               let slot = 1;
-               const parts = log.id.split('-');
-               if (parts.length >= 4) {
-                  const lastPart = parts[parts.length - 1];
-                  const parsedSlot = parseInt(lastPart);
-                  if (!isNaN(parsedSlot)) slot = parsedSlot;
-               }
-               
-               if (!userShifts[slot]) {
-                  userShifts[slot] = log;
-               }
-            }
-         });
+        // CLEANUP: Remove shifts from map that are already completed in logs
+        Object.keys(map).forEach(userId => {
+          const userShifts = map[userId];
+          if (userShifts && typeof userShifts === 'object') {
+            Object.keys(userShifts).forEach(slot => {
+              const shift = userShifts[slot];
+              if (shift && shift.id) {
+                const log = finalLogs.find(l => l.id === shift.id);
+                if (log && log.checkOut) {
+                  userShifts[slot] = null;
+                }
+              }
+            });
+          }
+        });
+
+        // RECOVERY: If a user has an open log but no active shift in map, add it.
+        const openLogs = finalLogs.filter(l => !l.checkOut && l.entryType === EntryType.WORK);
+        openLogs.forEach(log => {
+          if (!map[log.userId] || typeof map[log.userId] !== 'object') {
+            map[log.userId] = {};
+          }
+          const userShifts = map[log.userId];
+          let slot = 1;
+          const parts = log.id.split('-');
+          if (parts.length >= 4) {
+            const parsedSlot = parseInt(parts[parts.length - 1]);
+            if (!isNaN(parsedSlot)) slot = parsedSlot;
+          }
+          
+          if (!userShifts[slot] || userShifts[slot].id !== log.id) {
+            userShifts[slot] = log;
+          }
+        });
       }
 
       setActiveShiftsMap(map);

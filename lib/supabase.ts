@@ -674,7 +674,7 @@ INSERT INTO system_config (id, super_admin_pin, global_admin_pin) VALUES ('globa
                  // Generate basic SQL fix
                  let colType = 'TEXT';
                  if (col.includes('count') || col.includes('days') || col.includes('uses') || col.includes('minutes') || col === 'price') colType = 'INTEGER';
-                 else if (col.includes('date') || col.includes('at') || col.includes('timestamp') || col === 'check_in' || col === 'check_out') colType = 'TIMESTAMPTZ';
+                 else if (col.includes('date') || col.includes('_at') || col.includes('timestamp') || col === 'check_in' || col === 'check_out') colType = 'TIMESTAMPTZ';
                  else if (col.startsWith('is_') || col.startsWith('require_') || col.startsWith('force_')) colType = 'BOOLEAN';
                  else if (col === 'notification_settings' || col === 'permissions' || col === 'limits' || col === 'shifts_json' || col === 'shifts') colType = 'JSONB';
                  
