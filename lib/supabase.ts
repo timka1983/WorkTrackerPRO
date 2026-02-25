@@ -678,7 +678,12 @@ INSERT INTO system_config (id, super_admin_pin, global_admin_pin) VALUES ('globa
                  else if (col.startsWith('is_') || col.startsWith('require_') || col.startsWith('force_')) colType = 'BOOLEAN';
                  else if (col === 'notification_settings' || col === 'permissions' || col === 'limits' || col === 'shifts_json' || col === 'shifts') colType = 'JSONB';
                  
-                 results.sqlFixes.push(`ALTER TABLE ${table} ADD COLUMN IF NOT EXISTS ${col} ${colType};`);
+                 // Explicitly handle global_admin_pin to ensure it gets generated
+                 if (col === 'global_admin_pin') {
+                    results.sqlFixes.push(`ALTER TABLE system_config ADD COLUMN IF NOT EXISTS global_admin_pin TEXT DEFAULT '0000';`);
+                 } else {
+                    results.sqlFixes.push(`ALTER TABLE ${table} ADD COLUMN IF NOT EXISTS ${col} ${colType};`);
+                 }
               } else {
                  // Other error, maybe permission or something else, but assume column exists to avoid false positives
                  console.warn(`Error checking column ${table}.${col}:`, error);
