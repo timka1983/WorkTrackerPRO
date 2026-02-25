@@ -249,7 +249,9 @@ const App: React.FC = () => {
 
       // Handle Users
       let finalUsers: User[] = dbUsers || [];
-      if (orgId === DEFAULT_ORG_ID && finalUsers.length === 0) {
+      
+      // Only seed if we successfully fetched (dbUsers is not null) and list is empty
+      if (dbUsers !== null && orgId === DEFAULT_ORG_ID && finalUsers.length === 0) {
         // Seed default org if empty
         for (const u of INITIAL_USERS) await db.upsertUser(u, orgId);
         finalUsers = INITIAL_USERS;
@@ -269,8 +271,9 @@ const App: React.FC = () => {
           await db.upsertUser(defaultAdmin, orgId);
           finalUsers.push(defaultAdmin);
         }
-      } else if (orgId !== DEFAULT_ORG_ID && finalUsers.length === 0) {
+      } else if (dbUsers !== null && orgId !== DEFAULT_ORG_ID && finalUsers.length === 0) {
         // For new orgs, create admin if not exists
+        // Only if fetch was successful
         const defaultAdmin: User = {
           id: 'admin',
           name: 'Администратор',
