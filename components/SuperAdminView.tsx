@@ -173,7 +173,11 @@ const SuperAdminView: React.FC<SuperAdminViewProps> = ({ onLogout, onUpdateSyste
       }
 
       if (dbPlans && dbPlans.length > 0) {
-        setPlans(dbPlans);
+        const sortedPlans = [...dbPlans].sort((a: any, b: any) => {
+          const order: Record<string, number> = { [PlanType.FREE]: 0, [PlanType.PRO]: 1, [PlanType.BUSINESS]: 2 };
+          return (order[a.type] ?? 99) - (order[b.type] ?? 99);
+        });
+        setPlans(sortedPlans);
       } else {
         // Fallback to default plans if none in DB
         const defaultPlans: Plan[] = [

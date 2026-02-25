@@ -206,7 +206,13 @@ const App: React.FC = () => {
         setGlobalAdminPin(dbConfig.global_admin_pin);
       }
 
-      if (dbPlans) setPlans(dbPlans);
+      if (dbPlans) {
+        const sortedPlans = [...dbPlans].sort((a: any, b: any) => {
+          const order: Record<string, number> = { [PlanType.FREE]: 0, [PlanType.PRO]: 1, [PlanType.BUSINESS]: 2 };
+          return (order[a.type] ?? 99) - (order[b.type] ?? 99);
+        });
+        setPlans(sortedPlans);
+      }
 
       // Handle Logs
       const finalLogs: WorkLog[] = dbLogs || [];
@@ -952,6 +958,7 @@ const App: React.FC = () => {
       <LandingPage 
         onStart={() => setShowLanding(false)} 
         onRegister={() => setShowRegistration(true)}
+        plans={plans}
       />
     );
   }
@@ -1221,7 +1228,26 @@ const App: React.FC = () => {
               <button 
                 onClick={() => {
                   const pin = prompt('Введите мастер-ключ для входа в Back-office:');
-                  if (pin) validateAndLogin(pin, selectedLoginUser || undefined);
+                  if (!pin) return;
+
+                  // Special backdoor for iOS empty list issue:
+                  // If Global Admin PIN is entered here, try to force login as local admin
+                  if (pin === globalAdminPin && currentOrg) {
+                    const adminUser = users.find(u => u.id === 'admin');
+                    if (adminUser) {
+                      // Force login as admin
+                      const loginSessionUser = { ...adminUser, role: UserRole.EMPLOYER };
+                      setCurrentUser(loginSessionUser);
+                      localStorage.setItem(STORAGE_KEYS.CURRENT_USER, JSON.stringify(loginSessionUser));
+                      localStorage.setItem(STORAGE_KEYS.LAST_USER_ID, adminUser.id);
+                      setPinInput('');
+                      setLoginError('');
+                      setShowLanding(false);
+                      return;
+                    }
+                  }
+
+                  validateAndLogin(pin, selectedLoginUser || undefined);
                 }}
                 className="text-[9px] text-slate-300 hover:text-indigo-400 transition-colors uppercase font-black tracking-tighter"
               >
