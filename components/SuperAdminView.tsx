@@ -7,9 +7,10 @@ import { Users, Building2, CreditCard, Activity, ShieldCheck, Search, RefreshCw,
 
 interface SuperAdminViewProps {
   onLogout: () => void;
+  onUpdateSystemConfig?: (config: any) => void;
 }
 
-const SuperAdminView: React.FC<SuperAdminViewProps> = ({ onLogout }) => {
+const SuperAdminView: React.FC<SuperAdminViewProps> = ({ onLogout, onUpdateSystemConfig }) => {
   const [organizations, setOrganizations] = useState<Organization[]>([]);
   const [stats, setStats] = useState<Record<string, number>>({});
   const [loading, setLoading] = useState(true);
@@ -117,6 +118,12 @@ const SuperAdminView: React.FC<SuperAdminViewProps> = ({ onLogout }) => {
         super_admin_pin: newSuperAdminPin,
         global_admin_pin: newGlobalAdminPin
       });
+      if (onUpdateSystemConfig) {
+        onUpdateSystemConfig({
+          super_admin_pin: newSuperAdminPin,
+          global_admin_pin: newGlobalAdminPin
+        });
+      }
       alert('Настройки системы обновлены');
     } catch (e) {
       alert('Ошибка при обновлении настроек');

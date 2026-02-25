@@ -1145,7 +1145,7 @@ const App: React.FC = () => {
                 <div className="p-5 bg-blue-50 rounded-[2rem] border border-blue-100">
                   <p className="text-[11px] text-blue-800 font-semibold leading-relaxed">
                      <span className="font-black uppercase block mb-1">Важно:</span> 
-                     Используйте ваш PIN-код. Для новых сотрудников по умолчанию <span className="underline">0000</span>.
+                     Используйте ваш PIN-код для входа в систему.
                   </p>
                 </div>
               </div>
