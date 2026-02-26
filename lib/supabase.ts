@@ -71,17 +71,25 @@ export const db = {
       notificationSettings: data.notification_settings
     };
   },
-  getLogs: async (orgId: string) => {
+  getLogs: async (orgId: string, monthPrefix?: string) => {
     if (!checkConfig()) return null;
     try {
-      // Добавляем сортировку по check_in как tie-breaker для одинаковых дат
-      const { data, error } = await supabase
+      let query = supabase
         .from('work_logs')
         .select('*')
         .eq('organization_id', orgId)
         .order('date', { ascending: false })
-        .order('check_in', { ascending: false })
-        .limit(1000);
+        .order('check_in', { ascending: false });
+        
+      if (monthPrefix) {
+        // monthPrefix is like '2023-10'
+        query = query.like('date', `${monthPrefix}%`);
+      } else {
+        // Fallback to limit if no month specified
+        query = query.limit(1000);
+      }
+
+      const { data, error } = await query;
         
       if (error) {
         console.error('Error fetching logs:', error);
@@ -129,6 +137,21 @@ export const db = {
       is_night_shift: log.isNightShift
     });
     if (error) console.error('Error upserting log:', error);
+  },
+  getDashboardStats: async (orgId: string, monthPrefix: string, last7Days: string[]) => {
+    if (!checkConfig()) return null;
+    try {
+      const { data, error } = await supabase.rpc('get_dashboard_stats', {
+        p_org_id: orgId,
+        p_month: monthPrefix,
+        p_last_7_days: last7Days
+      });
+      if (error) throw error;
+      return data;
+    } catch (e) {
+      console.warn('RPC get_dashboard_stats failed, falling back to local calculation', e);
+      return null;
+    }
   },
   uploadPhoto: async (base64Data: string, orgId: string, userId: string): Promise<string | null> => {
     if (!isConfigured() || !base64Data.startsWith('data:image')) return base64Data;
@@ -767,6 +790,52 @@ CREATE POLICY "Public Access" ON storage.objects FOR SELECT USING (bucket_id = '
 CREATE POLICY "Allow Uploads" ON storage.objects FOR INSERT WITH CHECK (bucket_id = 'photos');
           `);
         }
+      }
+
+      // Check RPC for dashboard stats
+      const { error: rpcError } = await supabase.rpc('get_dashboard_stats', { 
+        p_org_id: 'test', 
+        p_month: '2023-01', 
+        p_last_7_days: ['2023-01-01'] 
+      });
+      
+      if (rpcError && (rpcError.code === '42883' || rpcError.message.includes('Could not find'))) {
+        results.sqlFixes.push(`
+-- Create RPC for dashboard stats
+CREATE OR REPLACE FUNCTION get_dashboard_stats(p_org_id text, p_month text, p_last_7_days text[])
+RETURNS json AS $$
+DECLARE
+    v_total_weekly_minutes bigint;
+    v_absences json;
+BEGIN
+    SELECT COALESCE(SUM(duration_minutes), 0)
+    INTO v_total_weekly_minutes
+    FROM work_logs
+    WHERE organization_id = p_org_id 
+      AND date = ANY(p_last_7_days)
+      AND entry_type = 'WORK';
+
+    SELECT json_agg(t)
+    INTO v_absences
+    FROM (
+        SELECT u.name, COUNT(w.id) as count
+        FROM users u
+        JOIN work_logs w ON u.id = w.user_id
+        WHERE w.organization_id = p_org_id 
+          AND w.date LIKE p_month || '%'
+          AND w.entry_type IN ('SICK', 'VACATION')
+        GROUP BY u.id, u.name
+        ORDER BY count DESC
+        LIMIT 3
+    ) t;
+
+    RETURN json_build_object(
+        'total_weekly_minutes', v_total_weekly_minutes,
+        'top_absences', COALESCE(v_absences, '[]'::json)
+    );
+END;
+$$ LANGUAGE plpgsql SECURITY DEFINER;
+        `);
       }
       
       const hasErrors = Object.values(results.tables).some((t: any) => t.status === 'error') || 

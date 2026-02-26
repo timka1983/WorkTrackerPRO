@@ -1,5 +1,5 @@
 
-import React, { useState, useMemo } from 'react';
+import React, { useState, useMemo, memo, useEffect } from 'react';
 import { WorkLog, User, EntryType, UserRole, Machine, FIXED_POSITION_TURNER, PositionConfig, PositionPermissions, Organization, PlanType, Plan } from '../types';
 import { formatDuration, getDaysInMonthArray, formatDurationShort, exportToCSV, formatTime, calculateMinutes } from '../utils';
 import { format, isAfter } from 'date-fns';
@@ -8,6 +8,135 @@ import { subDays } from 'date-fns/subDays';
 import { ru } from 'date-fns/locale/ru';
 import { DEFAULT_PERMISSIONS, STORAGE_KEYS, PLAN_LIMITS } from '../constants';
 import { db } from '../lib/supabase';
+
+// --- Memoized Row Component ---
+const MemoizedUserMatrixRow = memo(({ 
+  emp, 
+  empLogs, 
+  days, 
+  today, 
+  filterMonth, 
+  machines, 
+  isExpanded, 
+  toggleTurnerRow, 
+  setEditingLog 
+}: { 
+  emp: User, 
+  empLogs: WorkLog[], 
+  days: Date[], 
+  today: Date, 
+  filterMonth: string, 
+  machines: Machine[], 
+  isExpanded: boolean, 
+  toggleTurnerRow: (id: string) => void, 
+  setEditingLog: (data: {userId: string, date: string}) => void 
+}) => {
+  const totalMinutes = empLogs.filter(l => l.checkOut || l.entryType !== EntryType.WORK).reduce((s, l) => s + l.durationMinutes, 0);
+  const usedMachineIds = [...new Set(empLogs.filter(l => l.machineId).map(l => l.machineId!))];
+
+  return (
+    <React.Fragment>
+      <tr className="border-b border-slate-200 group bg-slate-50/30">
+        <td className="sticky left-0 z-10 bg-white border-r px-3 py-3 font-black text-slate-900 text-[11px] truncate w-[140px] min-w-[140px] max-w-[140px]">
+          <div className="flex items-center justify-between group/name">
+            <span className="truncate pr-1">{emp.name}</span>
+            {usedMachineIds.length > 0 && (
+              <button 
+                onClick={() => toggleTurnerRow(emp.id)}
+                className={`flex-shrink-0 p-1 rounded-md transition-all ${isExpanded ? 'bg-blue-600 text-white' : 'text-blue-500 hover:bg-blue-100'}`}
+              >
+                <svg className={`w-3 h-3 transition-transform ${isExpanded ? 'rotate-180' : ''}`} fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={3} d="M19 9l-7 7-7-7" /></svg>
+              </button>
+            )}
+          </div>
+          <div className="flex items-center gap-1.5 mt-0.5">
+            <div className="text-[8px] text-blue-600 font-black uppercase">{emp.position}</div>
+          </div>
+        </td>
+        {days.map(day => {
+          const dateStr = format(day, 'yyyy-MM-dd');
+          if (isAfter(day, today)) {
+            const planned = emp.plannedShifts?.[dateStr];
+            return (
+              <td key={dateStr} className="border-r p-1 h-12 text-center align-middle">
+                {planned && (
+                  <span className={`text-[10px] font-black ${
+                    planned === 'Р' ? 'text-blue-400' :
+                    planned === 'В' ? 'text-slate-300' :
+                    planned === 'Д' ? 'text-amber-400' :
+                    planned === 'О' ? 'text-purple-400' :
+                    planned === 'Н' ? 'text-indigo-400' : 'text-slate-300'
+                  }`}>
+                    {planned}
+                  </span>
+                )}
+              </td>
+            );
+          }
+
+          const dayLogs = empLogs.filter(l => l.date === dateStr);
+          const workEntries = dayLogs.filter(l => l.entryType === EntryType.WORK);
+          const workMins = workEntries.reduce((s, l) => s + l.durationMinutes, 0);
+          const hasWork = workEntries.length > 0;
+          const absence = dayLogs.find(l => l.entryType !== EntryType.WORK);
+          const anyCorrected = dayLogs.some(l => l.isCorrected);
+          const anyNight = dayLogs.some(l => l.isNightShift);
+          
+          let content: React.ReactNode = null;
+          if (absence) {
+             content = <span className="font-black text-blue-600">{absence.entryType === EntryType.SICK ? 'Б' : absence.entryType === EntryType.VACATION ? 'О' : 'В'}{anyCorrected && '*'}</span>;
+          } else if (hasWork) {
+             const isPending = workEntries.some(l => !l.checkOut);
+             content = (
+               <div className="flex flex-col items-center justify-center">
+                  <span className={`text-[11px] font-black ${isPending ? 'text-blue-500 italic' : 'text-slate-900'}`}>
+                    {workMins > 0 ? formatDurationShort(workMins) : (isPending ? '--:--' : '0:00')}{(isPending || anyCorrected) && '*'}
+                  </span>
+                  {anyNight && <svg className="w-2 h-2 text-slate-400 mt-0.5" fill="currentColor" viewBox="0 0 20 20"><path d="M17.293 13.293A8 8 0 016.707 2.707a8.001 8.001 0 1010.586 10.586z"/></svg>}
+               </div>
+             );
+          } else {
+             content = <span className="text-[10px] font-bold text-slate-300">В</span>;
+          }
+
+          return (
+            <td key={dateStr} onClick={() => setEditingLog({ userId: emp.id, date: dateStr })} className="border-r p-1 text-center h-12 tabular-nums cursor-pointer hover:bg-blue-50 transition-colors">
+              {content}
+            </td>
+          );
+        })}
+        <td className="sticky right-0 z-10 px-4 py-3 text-center font-black text-slate-900 text-xs bg-slate-50 border-l border-slate-300">{formatDuration(totalMinutes)}</td>
+      </tr>
+
+      {isExpanded && usedMachineIds.map(mId => {
+         const machineName = machines.find(m => m.id === mId)?.name || 'Работа';
+         return (
+           <tr key={`${emp.id}-${mId}`} className="border-b border-slate-100 bg-blue-50/20">
+             <td className="sticky left-0 z-10 bg-slate-50/80 border-r px-3 py-2 text-[10px] font-bold text-slate-500 italic pl-6 truncate w-[140px] min-w-[140px] max-w-[140px]">
+               ↳ {machineName}
+             </td>
+             {days.map(day => {
+               const dateStr = format(day, 'yyyy-MM-dd');
+               if (isAfter(day, today)) return <td key={dateStr} className="border-r p-1 h-8"></td>;
+               const mLogs = empLogs.filter(l => l.date === dateStr && l.machineId === mId && l.entryType === EntryType.WORK);
+               const mMins = mLogs.reduce((s, l) => s + l.durationMinutes, 0);
+               const hasMLogs = mLogs.length > 0;
+               return (
+                 <td key={dateStr} className="border-r p-1 text-center h-8 text-[9px] font-bold text-slate-400 tabular-nums italic">
+                   {hasMLogs ? formatDurationShort(mMins) : ''}
+                 </td>
+               );
+             })}
+             <td className="sticky right-0 z-10 px-4 py-2 text-center font-bold text-slate-400 text-[10px] bg-slate-50 border-l border-slate-200 italic">
+               {formatDuration(empLogs.filter(l => l.machineId === mId).reduce((s, l) => s + l.durationMinutes, 0))}
+             </td>
+           </tr>
+         );
+      })}
+    </React.Fragment>
+  );
+});
+// --- End Memoized Row Component ---
 
 interface EmployerViewProps {
   logs: WorkLog[];
@@ -60,6 +189,25 @@ const EmployerView: React.FC<EmployerViewProps> = ({
   const [newUser, setNewUser] = useState({ name: '', position: positions[0]?.name || '', department: '', pin: '0000', requirePhoto: false });
   const [newMachineName, setNewMachineName] = useState('');
   const [newPositionName, setNewPositionName] = useState('');
+  
+  const [serverStats, setServerStats] = useState<{ avgWeeklyHours: number, absenceCounts: any[] } | null>(null);
+
+  useEffect(() => {
+    const fetchStats = async () => {
+      if (!currentOrg) return;
+      const last7Days = Array.from({ length: 7 }, (_, i) => format(subDays(new Date(), i), 'yyyy-MM-dd'));
+      const stats = await db.getDashboardStats(currentOrg.id, filterMonth, last7Days);
+      if (stats) {
+        setServerStats({
+          avgWeeklyHours: (stats.total_weekly_minutes / 60) / 7,
+          absenceCounts: stats.top_absences || []
+        });
+      } else {
+        setServerStats(null);
+      }
+    };
+    fetchStats();
+  }, [currentOrg, filterMonth, logs]);
 
   const employees = useMemo(() => {
     return [...users].sort((a, b) => a.name.localeCompare(b.name));
@@ -144,16 +292,25 @@ const EmployerView: React.FC<EmployerViewProps> = ({
 
     const finishedToday = todayLogs.filter(l => l.entryType === EntryType.WORK && l.checkOut);
     
-    const last7Days = Array.from({ length: 7 }, (_, i) => format(subDays(new Date(), i), 'yyyy-MM-dd'));
-    const weekLogs = logs.filter(l => last7Days.includes(l.date) && l.entryType === EntryType.WORK);
-    const totalWeeklyMinutes = weekLogs.reduce((s, l) => s + l.durationMinutes, 0);
-    const avgWeeklyHours = (totalWeeklyMinutes / 60) / 7;
+    let avgWeeklyHours = 0;
+    let absenceCounts: any[] = [];
 
-    const monthLogs = logs.filter(l => l.date.startsWith(filterMonth));
-    const absenceCounts = employees.map(emp => {
-      const absences = monthLogs.filter(l => l.userId === emp.id && (l.entryType === EntryType.SICK || l.entryType === EntryType.VACATION)).length;
-      return { name: emp.name, count: absences };
-    }).sort((a, b) => b.count - a.count).filter(a => a.count > 0).slice(0, 3);
+    if (serverStats) {
+      avgWeeklyHours = serverStats.avgWeeklyHours;
+      absenceCounts = serverStats.absenceCounts;
+    } else {
+      // Fallback local calculation
+      const last7Days = Array.from({ length: 7 }, (_, i) => format(subDays(new Date(), i), 'yyyy-MM-dd'));
+      const weekLogs = logs.filter(l => last7Days.includes(l.date) && l.entryType === EntryType.WORK);
+      const totalWeeklyMinutes = weekLogs.reduce((s, l) => s + l.durationMinutes, 0);
+      avgWeeklyHours = (totalWeeklyMinutes / 60) / 7;
+
+      const monthLogs = logs.filter(l => l.date.startsWith(filterMonth));
+      absenceCounts = employees.map(emp => {
+        const absences = monthLogs.filter(l => l.userId === emp.id && (l.entryType === EntryType.SICK || l.entryType === EntryType.VACATION)).length;
+        return { name: emp.name, count: absences };
+      }).sort((a, b) => b.count - a.count).filter(a => a.count > 0).slice(0, 3);
+    }
 
     const activeLogsMap: Record<string, WorkLog[]> = {};
     activeShifts.forEach(log => {
@@ -162,7 +319,7 @@ const EmployerView: React.FC<EmployerViewProps> = ({
     });
 
     return { activeShifts, finishedToday, avgWeeklyHours, absenceCounts, activeLogsMap, todayStr };
-  }, [logs, employees, filterMonth, activeShiftsMap]);
+  }, [logs, employees, filterMonth, activeShiftsMap, serverStats]);
 
   // Функция для принудительного завершения смены администратором
   const handleForceFinish = async (log: WorkLog) => {
@@ -865,110 +1022,21 @@ const EmployerView: React.FC<EmployerViewProps> = ({
               <tbody>
                 {employees.map(emp => {
                   const empLogs = logs.filter(l => l.userId === emp.id && l.date.startsWith(filterMonth));
-                  const totalMinutes = empLogs.filter(l => l.checkOut || l.entryType !== EntryType.WORK).reduce((s, l) => s + l.durationMinutes, 0);
-                  const usedMachineIds = [...new Set(empLogs.filter(l => l.machineId).map(l => l.machineId!))];
                   const isExpanded = expandedTurnerRows.has(emp.id);
 
                   return (
-                    <React.Fragment key={emp.id}>
-                      <tr className="border-b border-slate-200 group bg-slate-50/30">
-                        <td className="sticky left-0 z-10 bg-white border-r px-3 py-3 font-black text-slate-900 text-[11px] truncate w-[140px] min-w-[140px] max-w-[140px]">
-                          <div className="flex items-center justify-between group/name">
-                            <span className="truncate pr-1">{emp.name}</span>
-                            {usedMachineIds.length > 0 && (
-                              <button 
-                                onClick={() => toggleTurnerRow(emp.id)}
-                                className={`flex-shrink-0 p-1 rounded-md transition-all ${isExpanded ? 'bg-blue-600 text-white' : 'text-blue-500 hover:bg-blue-100'}`}
-                              >
-                                <svg className={`w-3 h-3 transition-transform ${isExpanded ? 'rotate-180' : ''}`} fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={3} d="M19 9l-7 7-7-7" /></svg>
-                              </button>
-                            )}
-                          </div>
-                          <div className="flex items-center gap-1.5 mt-0.5">
-                            <div className="text-[8px] text-blue-600 font-black uppercase">{emp.position}</div>
-                          </div>
-                        </td>
-                        {days.map(day => {
-                          const dateStr = format(day, 'yyyy-MM-dd');
-                          if (isAfter(day, today)) {
-                            const planned = emp.plannedShifts?.[dateStr];
-                            return (
-                              <td key={dateStr} className="border-r p-1 h-12 text-center align-middle">
-                                {planned && (
-                                  <span className={`text-[10px] font-black ${
-                                    planned === 'Р' ? 'text-blue-400' :
-                                    planned === 'В' ? 'text-slate-300' :
-                                    planned === 'Д' ? 'text-amber-400' :
-                                    planned === 'О' ? 'text-purple-400' :
-                                    planned === 'Н' ? 'text-indigo-400' : 'text-slate-300'
-                                  }`}>
-                                    {planned}
-                                  </span>
-                                )}
-                              </td>
-                            );
-                          }
-
-                          const dayLogs = empLogs.filter(l => l.date === dateStr);
-                          const workEntries = dayLogs.filter(l => l.entryType === EntryType.WORK);
-                          const workMins = workEntries.reduce((s, l) => s + l.durationMinutes, 0);
-                          const hasWork = workEntries.length > 0;
-                          const absence = dayLogs.find(l => l.entryType !== EntryType.WORK);
-                          const anyCorrected = dayLogs.some(l => l.isCorrected);
-                          const anyNight = dayLogs.some(l => l.isNightShift);
-                          
-                          let content: React.ReactNode = null;
-                          if (absence) {
-                             content = <span className="font-black text-blue-600">{absence.entryType === EntryType.SICK ? 'Б' : absence.entryType === EntryType.VACATION ? 'О' : 'В'}{anyCorrected && '*'}</span>;
-                          } else if (hasWork) {
-                             const isPending = workEntries.some(l => !l.checkOut);
-                             content = (
-                               <div className="flex flex-col items-center justify-center">
-                                  <span className={`text-[11px] font-black ${isPending ? 'text-blue-500 italic' : 'text-slate-900'}`}>
-                                    {workMins > 0 ? formatDurationShort(workMins) : (isPending ? '--:--' : '0:00')}{(isPending || anyCorrected) && '*'}
-                                  </span>
-                                  {anyNight && <svg className="w-2 h-2 text-slate-400 mt-0.5" fill="currentColor" viewBox="0 0 20 20"><path d="M17.293 13.293A8 8 0 016.707 2.707a8.001 8.001 0 1010.586 10.586z"/></svg>}
-                               </div>
-                             );
-                          } else {
-                             content = <span className="text-[10px] font-bold text-slate-300">В</span>;
-                          }
-
-                          return (
-                            <td key={dateStr} onClick={() => setEditingLog({ userId: emp.id, date: dateStr })} className="border-r p-1 text-center h-12 tabular-nums cursor-pointer hover:bg-blue-50 transition-colors">
-                              {content}
-                            </td>
-                          );
-                        })}
-                        <td className="sticky right-0 z-10 px-4 py-3 text-center font-black text-slate-900 text-xs bg-slate-50 border-l border-slate-300">{formatDuration(totalMinutes)}</td>
-                      </tr>
-
-                      {isExpanded && usedMachineIds.map(mId => {
-                         const machineName = machines.find(m => m.id === mId)?.name || 'Работа';
-                         return (
-                           <tr key={`${emp.id}-${mId}`} className="border-b border-slate-100 bg-blue-50/20">
-                             <td className="sticky left-0 z-10 bg-slate-50/80 border-r px-3 py-2 text-[10px] font-bold text-slate-500 italic pl-6 truncate w-[140px] min-w-[140px] max-w-[140px]">
-                               ↳ {machineName}
-                             </td>
-                             {days.map(day => {
-                               const dateStr = format(day, 'yyyy-MM-dd');
-                               if (isAfter(day, today)) return <td key={dateStr} className="border-r p-1 h-8"></td>;
-                               const mLogs = empLogs.filter(l => l.date === dateStr && l.machineId === mId && l.entryType === EntryType.WORK);
-                               const mMins = mLogs.reduce((s, l) => s + l.durationMinutes, 0);
-                               const hasMLogs = mLogs.length > 0;
-                               return (
-                                 <td key={dateStr} className="border-r p-1 text-center h-8 text-[9px] font-bold text-slate-400 tabular-nums italic">
-                                   {hasMLogs ? formatDurationShort(mMins) : ''}
-                                 </td>
-                               );
-                             })}
-                             <td className="sticky right-0 z-10 px-4 py-2 text-center font-bold text-slate-400 text-[10px] bg-slate-50 border-l border-slate-200 italic">
-                               {formatDuration(empLogs.filter(l => l.machineId === mId).reduce((s, l) => s + l.durationMinutes, 0))}
-                             </td>
-                           </tr>
-                         );
-                      })}
-                    </React.Fragment>
+                    <MemoizedUserMatrixRow
+                      key={emp.id}
+                      emp={emp}
+                      empLogs={empLogs}
+                      days={days}
+                      today={today}
+                      filterMonth={filterMonth}
+                      machines={machines}
+                      isExpanded={isExpanded}
+                      toggleTurnerRow={toggleTurnerRow}
+                      setEditingLog={setEditingLog}
+                    />
                   );
                 })}
               </tbody>

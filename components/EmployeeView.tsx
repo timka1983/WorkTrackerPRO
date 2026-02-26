@@ -1,5 +1,5 @@
 
-import React, { useState, useEffect, useMemo, useRef } from 'react';
+import React, { useState, useEffect, useMemo, useRef, memo } from 'react';
 import { WorkLog, User, EntryType, Machine, PositionConfig, PlanLimits, Organization } from '../types';
 import { formatTime, formatDate, formatDuration, calculateMinutes, getDaysInMonthArray, formatDurationShort, sendNotification } from '../utils';
 import { STORAGE_KEYS, DEFAULT_PERMISSIONS } from '../constants';
@@ -9,6 +9,53 @@ import { startOfMonth } from 'date-fns/startOfMonth';
 import { subMonths } from 'date-fns/subMonths';
 import { ru } from 'date-fns/locale/ru';
 import { db } from '../lib/supabase';
+
+// --- Memoized Row Component ---
+const MemoizedEmployeeMatrixRow = memo(({ 
+  machine, 
+  daysInMonth, 
+  today, 
+  filteredLogs 
+}: { 
+  machine: Machine | null, 
+  daysInMonth: Date[], 
+  today: Date, 
+  filteredLogs: WorkLog[] 
+}) => {
+  return (
+    <tr className="border-b border-slate-100">
+      <td className="sticky left-0 z-10 bg-white border-r px-4 py-3 text-[11px] font-bold text-slate-700">
+        {machine ? machine.name : 'Отработано'}
+      </td>
+      {daysInMonth.map(day => {
+        const dateStr = format(day, 'yyyy-MM-dd');
+        if (isAfter(day, today)) return <td key={dateStr} className="border-r p-1 h-12"></td>;
+        
+        const workEntries = filteredLogs.filter(l => 
+          l.date === dateStr && 
+          l.entryType === EntryType.WORK && 
+          (!machine || l.machineId === machine.id)
+        );
+        
+        const mins = workEntries.reduce((sum, l) => sum + l.durationMinutes, 0);
+        const hasWork = workEntries.length > 0;
+        const absence = filteredLogs.find(l => l.date === dateStr && l.entryType !== EntryType.WORK);
+        
+        let content = absence ? 
+          <span className="font-black text-blue-600">{absence.entryType === EntryType.SICK ? 'Б' : absence.entryType === EntryType.VACATION ? 'О' : 'В'}</span> : 
+          (hasWork ? 
+            <span className={`text-[11px] font-black ${workEntries.some(l => !l.checkOut) ? 'text-blue-500 italic' : 'text-slate-900'}`}>
+              {mins > 0 ? formatDurationShort(mins) : (workEntries.some(l => !l.checkOut) ? '--:--' : '0:00')}
+            </span> : 
+            <span className="text-[10px] font-bold text-slate-300">В</span>
+          );
+          
+        return <td key={dateStr} className="border-r p-1 text-center h-12 tabular-nums">{content}</td>;
+      })}
+    </tr>
+  );
+});
+// --- End Memoized Row Component ---
 
 interface EmployeeViewProps {
   user: User;
@@ -895,48 +942,21 @@ const EmployeeView: React.FC<EmployeeViewProps> = ({
                   </tr>
                   {perms.useMachines ? (
                     usedMachines.map(m => (
-                      <tr key={m.id} className="border-b border-slate-100">
-                        <td className="sticky left-0 z-10 bg-white border-r px-4 py-3 text-[11px] font-bold text-slate-700">{m.name}</td>
-                        {daysInMonth.map(day => {
-                          const dateStr = format(day, 'yyyy-MM-dd');
-                          if (isAfter(day, today)) return <td key={dateStr} className="border-r p-1 h-12"></td>;
-                          const workEntries = filteredLogs.filter(l => l.date === dateStr && l.entryType === EntryType.WORK && l.machineId === m.id);
-                          const mins = workEntries.reduce((sum, l) => sum + l.durationMinutes, 0);
-                          const hasWork = workEntries.length > 0;
-                          const absence = filteredLogs.find(l => l.date === dateStr && l.entryType !== EntryType.WORK);
-                          let content = absence ? 
-                            <span className="font-black text-blue-600">{absence.entryType === EntryType.SICK ? 'Б' : absence.entryType === EntryType.VACATION ? 'О' : 'В'}</span> : 
-                            (hasWork ? 
-                              <span className={`text-[11px] font-black ${workEntries.some(l => !l.checkOut) ? 'text-blue-500 italic' : 'text-slate-900'}`}>
-                                {mins > 0 ? formatDurationShort(mins) : (workEntries.some(l => !l.checkOut) ? '--:--' : '0:00')}
-                              </span> : 
-                              <span className="text-[10px] font-bold text-slate-300">В</span>
-                            );
-                          return <td key={dateStr} className="border-r p-1 text-center h-12 tabular-nums">{content}</td>;
-                        })}
-                      </tr>
+                      <MemoizedEmployeeMatrixRow
+                        key={m.id}
+                        machine={m}
+                        daysInMonth={daysInMonth}
+                        today={today}
+                        filteredLogs={filteredLogs}
+                      />
                     ))
                   ) : (
-                    <tr className="border-b border-slate-100">
-                      <td className="sticky left-0 z-10 bg-white border-r px-4 py-3 text-[11px] font-bold text-slate-700">Отработано</td>
-                      {daysInMonth.map(day => {
-                        const dateStr = format(day, 'yyyy-MM-dd');
-                        if (isAfter(day, today)) return <td key={dateStr} className="border-r p-1 h-12"></td>;
-                        const workEntries = filteredLogs.filter(l => l.date === dateStr && l.entryType === EntryType.WORK);
-                        const mins = workEntries.reduce((sum, l) => sum + l.durationMinutes, 0);
-                        const hasWork = workEntries.length > 0;
-                        const absence = filteredLogs.find(l => l.date === dateStr && l.entryType !== EntryType.WORK);
-                        let content = absence ? 
-                          <span className="font-black text-blue-600">{absence.entryType === EntryType.SICK ? 'Б' : absence.entryType === EntryType.VACATION ? 'О' : 'В'}</span> : 
-                          (hasWork ? 
-                            <span className={`text-[11px] font-black ${workEntries.some(l => !l.checkOut) ? 'text-blue-500 italic' : 'text-slate-900'}`}>
-                              {mins > 0 ? formatDurationShort(mins) : (workEntries.some(l => !l.checkOut) ? '--:--' : '0:00')}
-                            </span> : 
-                            <span className="text-[10px] font-bold text-slate-300">В</span>
-                          );
-                        return <td key={dateStr} className="border-r p-1 text-center h-12 tabular-nums">{content}</td>;
-                      })}
-                    </tr>
+                    <MemoizedEmployeeMatrixRow
+                      machine={null}
+                      daysInMonth={daysInMonth}
+                      today={today}
+                      filteredLogs={filteredLogs}
+                    />
                   )}
                 </tbody>
               </table>

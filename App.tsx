@@ -3,6 +3,7 @@ import React, { useState, useEffect, useCallback, useMemo, useRef } from 'react'
 import { User, UserRole, WorkLog, Machine, PositionConfig, Organization, PlanType, PlanLimits, Plan, EntryType } from './types';
 import { STORAGE_KEYS, INITIAL_USERS, INITIAL_MACHINES, INITIAL_POSITIONS, INITIAL_LOGS, DEFAULT_PERMISSIONS, PLAN_LIMITS } from './constants';
 import { sendNotification } from './utils';
+import { format } from 'date-fns';
 import Layout from './components/Layout';
 import EmployeeView from './components/EmployeeView';
 import EmployerView from './components/EmployerView';
@@ -189,8 +190,9 @@ const App: React.FC = () => {
       }
 
       // Parallel fetch of all other data
+      const currentMonth = format(new Date(), 'yyyy-MM');
       const [dbLogs, dbUsers, dbMachines, dbPositions, dbPlans, dbActiveShifts, dbConfig] = await Promise.all([
-        db.getLogs(orgId),
+        db.getLogs(orgId, currentMonth),
         db.getUsers(orgId),
         db.getMachines(orgId),
         db.getPositions(orgId),
