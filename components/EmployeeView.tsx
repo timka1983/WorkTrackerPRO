@@ -109,6 +109,21 @@ const EmployeeView: React.FC<EmployeeViewProps> = ({
 
   const [filterMonth, setFilterMonth] = useState(new Date().toISOString().substring(0, 7));
   const [viewMode, setViewMode] = useState<'control' | 'matrix'>('control');
+  
+  const shiftCounts = useMemo(() => {
+    const counts = { 'Р': 0, 'В': 0, 'Д': 0, 'О': 0, 'Н': 0 };
+    if (!user.plannedShifts) return counts;
+    
+    Object.entries(user.plannedShifts).forEach(([date, val]) => {
+      if (date.startsWith(filterMonth)) {
+        if (val in counts) {
+          counts[val as keyof typeof counts]++;
+        }
+      }
+    });
+    return counts;
+  }, [user.plannedShifts, filterMonth]);
+
   const [showCamera, setShowCamera] = useState<{ slot: number; type: 'start' | 'stop' } | null>(null);
   
   const [showPinChange, setShowPinChange] = useState(user.forcePinChange || false);
@@ -807,12 +822,22 @@ const EmployeeView: React.FC<EmployeeViewProps> = ({
               </div>
               <input type="month" value={filterMonth} onChange={(e) => setFilterMonth(e.target.value)} className="border border-slate-200 rounded-xl p-2 text-sm font-bold" />
             </div>
+
+            <div className="p-4 bg-slate-50/30 border-b border-slate-100 no-print">
+              <div className="flex flex-wrap gap-4 text-[10px] font-bold text-slate-500">
+                <span className="flex items-center gap-1.5"><span className="w-5 h-5 rounded bg-blue-100 text-blue-700 flex items-center justify-center text-[9px]">Р</span> Рабочий - {shiftCounts['Р']}</span>
+                <span className="flex items-center gap-1.5"><span className="w-5 h-5 rounded bg-slate-100 text-slate-400 flex items-center justify-center text-[9px]">В</span> Выходной - {shiftCounts['В']}</span>
+                <span className="flex items-center gap-1.5"><span className="w-5 h-5 rounded bg-amber-100 text-amber-700 flex items-center justify-center text-[9px]">Д</span> День - {shiftCounts['Д']}</span>
+                <span className="flex items-center gap-1.5"><span className="w-5 h-5 rounded bg-purple-100 text-purple-700 flex items-center justify-center text-[9px]">О</span> Отпуск - {shiftCounts['О']}</span>
+                <span className="flex items-center gap-1.5"><span className="w-5 h-5 rounded bg-indigo-100 text-indigo-700 flex items-center justify-center text-[9px]">Н</span> Ночь - {shiftCounts['Н']}</span>
+              </div>
+            </div>
             
             <div className="overflow-x-auto">
               <table className="w-full border-collapse">
                 <thead>
                   <tr className="bg-slate-50 border-b border-slate-200">
-                    <th className="sticky left-0 z-20 bg-slate-50 px-4 py-4 text-left text-[10px] font-bold text-slate-600 uppercase border-r min-w-[160px]">Ресурс</th>
+                    <th className="sticky left-0 z-20 bg-slate-50 px-4 py-4 text-left text-[10px] font-bold text-slate-600 uppercase border-r min-w-[160px]">День</th>
                     {daysInMonth.map(day => (
                       <th key={day.toString()} className={`px-1 py-2 text-center text-[9px] font-bold border-r min-w-[40px] ${[0, 6].includes(day.getDay()) ? 'text-red-500 bg-red-50/20' : 'text-slate-500'}`}>
                         <div className="flex flex-col items-center">
@@ -824,6 +849,42 @@ const EmployeeView: React.FC<EmployeeViewProps> = ({
                   </tr>
                 </thead>
                 <tbody>
+                  <tr className="border-b border-slate-100 bg-slate-50/50">
+                    <td className="sticky left-0 z-10 bg-slate-50 border-r px-4 py-3 text-[11px] font-black text-blue-600">График</td>
+                    {daysInMonth.map(day => {
+                      const dateStr = format(day, 'yyyy-MM-dd');
+                      const planned = user.plannedShifts?.[dateStr];
+                      const isFuture = isAfter(day, today);
+                      
+                      const handleClick = () => {
+                        if (!isFuture) return;
+                        const cycle = ['', 'Р', 'В', 'Д', 'О', 'Н'];
+                        const currentVal = planned || '';
+                        const nextIdx = (cycle.indexOf(currentVal) + 1) % cycle.length;
+                        const nextVal = cycle[nextIdx];
+                        const newPlannedShifts = { ...(user.plannedShifts || {}) };
+                        if (nextVal === '') delete newPlannedShifts[dateStr];
+                        else newPlannedShifts[dateStr] = nextVal;
+                        onUpdateUser({ ...user, plannedShifts: newPlannedShifts });
+                      };
+
+                      return (
+                        <td key={dateStr} onClick={handleClick} className={`border-r p-1 text-center h-12 tabular-nums transition-colors ${isFuture ? 'cursor-pointer hover:bg-blue-50' : ''}`}>
+                          {planned && (
+                            <span className={`text-[10px] font-black ${
+                              planned === 'Р' ? 'text-blue-600' :
+                              planned === 'В' ? 'text-slate-400' :
+                              planned === 'Д' ? 'text-amber-600' :
+                              planned === 'О' ? 'text-purple-600' :
+                              planned === 'Н' ? 'text-indigo-600' : 'text-slate-400'
+                            }`}>
+                              {planned}
+                            </span>
+                          )}
+                        </td>
+                      );
+                    })}
+                  </tr>
                   {perms.useMachines ? (
                     usedMachines.map(m => (
                       <tr key={m.id} className="border-b border-slate-100">

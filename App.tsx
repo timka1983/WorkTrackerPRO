@@ -328,14 +328,19 @@ const App: React.FC = () => {
       }
 
       // Handle Positions
-      if (dbPositions) {
-        const normalized = dbPositions.map((p: any) => 
-          typeof p === 'string' 
-            ? (INITIAL_POSITIONS.find(ip => ip.name === p) || { name: p, permissions: DEFAULT_PERMISSIONS }) 
-            : p
-        );
-        setPositions(normalized);
-        localStorage.setItem(STORAGE_KEYS.POSITIONS_LIST, JSON.stringify(normalized));
+      if (dbPositions !== null) {
+        if (dbPositions.length > 0) {
+          const normalized = dbPositions.map((p: any) => 
+            typeof p === 'string' 
+              ? (INITIAL_POSITIONS.find(ip => ip.name === p) || { name: p, permissions: DEFAULT_PERMISSIONS }) 
+              : p
+          );
+          setPositions(normalized);
+          localStorage.setItem(STORAGE_KEYS.POSITIONS_LIST, JSON.stringify(normalized));
+        } else {
+          setPositions(INITIAL_POSITIONS);
+          await db.savePositions(INITIAL_POSITIONS, orgId);
+        }
       }
     } catch (err) {
       console.error("Sync error:", err);

@@ -890,7 +890,24 @@ const EmployerView: React.FC<EmployerViewProps> = ({
                         </td>
                         {days.map(day => {
                           const dateStr = format(day, 'yyyy-MM-dd');
-                          if (isAfter(day, today)) return <td key={dateStr} className="border-r p-1 h-12"></td>;
+                          if (isAfter(day, today)) {
+                            const planned = emp.plannedShifts?.[dateStr];
+                            return (
+                              <td key={dateStr} className="border-r p-1 h-12 text-center align-middle">
+                                {planned && (
+                                  <span className={`text-[10px] font-black ${
+                                    planned === 'Р' ? 'text-blue-400' :
+                                    planned === 'В' ? 'text-slate-300' :
+                                    planned === 'Д' ? 'text-amber-400' :
+                                    planned === 'О' ? 'text-purple-400' :
+                                    planned === 'Н' ? 'text-indigo-400' : 'text-slate-300'
+                                  }`}>
+                                    {planned}
+                                  </span>
+                                )}
+                              </td>
+                            );
+                          }
 
                           const dayLogs = empLogs.filter(l => l.date === dateStr);
                           const workEntries = dayLogs.filter(l => l.entryType === EntryType.WORK);

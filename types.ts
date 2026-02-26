@@ -102,6 +102,7 @@ export interface User {
   forcePinChange?: boolean; // Mandatory PIN change on next login
   organizationId?: string;
   pushToken?: string;
+  plannedShifts?: Record<string, string>; // YYYY-MM-DD -> 'Р' | 'В' | 'Д' | 'О' | 'Н'
 }
 
 export interface WorkLog {

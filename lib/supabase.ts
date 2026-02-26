@@ -212,7 +212,8 @@ export const db = {
         isAdmin: u.is_admin,
         forcePinChange: u.force_pin_change,
         organizationId: u.organization_id,
-        pushToken: u.push_token
+        pushToken: u.push_token,
+        plannedShifts: u.planned_shifts
       }));
     } catch (e) {
       return null;
@@ -237,14 +238,17 @@ export const db = {
     if (user.pushToken !== undefined) {
       payload.push_token = user.pushToken;
     }
+    if (user.plannedShifts !== undefined) {
+      payload.planned_shifts = user.plannedShifts;
+    }
 
     const { error } = await supabase.from('users').upsert(payload);
     
     if (error) {
       console.error('Error saving user:', error);
-      // Try without push_token if it fails due to missing column
-      if ((error.code === '42703' || error.message?.includes('column')) && payload.push_token !== undefined) {
-        const { push_token, ...minimalPayload } = payload;
+      // Try without new columns if it fails due to missing column
+      if (error.code === '42703' || error.code === 'PGRST204' || error.message?.includes('column')) {
+        const { push_token, planned_shifts, ...minimalPayload } = payload;
         const { error: retryError } = await supabase.from('users').upsert(minimalPayload);
         return { error: retryError };
       }
@@ -271,6 +275,9 @@ export const db = {
       if (user.pushToken !== undefined) {
         p.push_token = user.pushToken;
       }
+      if (user.plannedShifts !== undefined) {
+        p.planned_shifts = user.plannedShifts;
+      }
       return p;
     });
 
@@ -278,9 +285,9 @@ export const db = {
     
     if (error) {
       console.error('Error batch upserting users:', error);
-      if (error.code === '42703' || error.message?.includes('column')) {
+      if (error.code === '42703' || error.code === 'PGRST204' || error.message?.includes('column')) {
         const minimalPayload = payload.map(p => {
-          const { push_token, ...rest } = p;
+          const { push_token, planned_shifts, ...rest } = p;
           return rest;
         });
         const { error: retryError } = await supabase.from('users').upsert(minimalPayload);
@@ -641,7 +648,7 @@ INSERT INTO system_config (id, super_admin_pin, global_admin_pin) VALUES ('globa
       // Check specific columns
       const expectedSchema: Record<string, string[]> = {
         organizations: ['id', 'name', 'email', 'owner_id', 'plan', 'status', 'expiry_date', 'notification_settings'],
-        users: ['id', 'organization_id', 'name', 'role', 'department', 'position', 'pin', 'require_photo', 'is_admin', 'force_pin_change', 'push_token'],
+        users: ['id', 'organization_id', 'name', 'role', 'department', 'position', 'pin', 'require_photo', 'is_admin', 'force_pin_change', 'push_token', 'planned_shifts'],
         work_logs: ['id', 'user_id', 'organization_id', 'date', 'entry_type', 'machine_id', 'check_in', 'check_out', 'duration_minutes', 'photo_in', 'photo_out', 'is_corrected', 'correction_note', 'correction_timestamp', 'is_night_shift'],
         machines: ['id', 'organization_id', 'name'],
         positions: ['name', 'organization_id', 'permissions'],
@@ -676,7 +683,7 @@ INSERT INTO system_config (id, super_admin_pin, global_admin_pin) VALUES ('globa
                  if (col.includes('count') || col.includes('days') || col.includes('uses') || col.includes('minutes') || col === 'price') colType = 'INTEGER';
                  else if (col.includes('date') || col.includes('_at') || col.includes('timestamp') || col === 'check_in' || col === 'check_out') colType = 'TIMESTAMPTZ';
                  else if (col.startsWith('is_') || col.startsWith('require_') || col.startsWith('force_')) colType = 'BOOLEAN';
-                 else if (col === 'notification_settings' || col === 'permissions' || col === 'limits' || col === 'shifts_json' || col === 'shifts') colType = 'JSONB';
+                 else if (col === 'notification_settings' || col === 'permissions' || col === 'limits' || col === 'shifts_json' || col === 'shifts' || col === 'planned_shifts') colType = 'JSONB';
                  
                  // Explicitly handle global_admin_pin to ensure it gets generated
                  if (col === 'global_admin_pin') {
