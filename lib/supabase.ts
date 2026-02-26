@@ -83,7 +83,13 @@ export const db = {
         
       if (monthPrefix) {
         // monthPrefix is like '2023-10'
-        query = query.like('date', `${monthPrefix}%`);
+        const startDate = `${monthPrefix}-01`;
+        const [year, month] = monthPrefix.split('-');
+        const nextMonth = parseInt(month) === 12 ? 1 : parseInt(month) + 1;
+        const nextYear = parseInt(month) === 12 ? parseInt(year) + 1 : parseInt(year);
+        const endDate = `${nextYear}-${nextMonth.toString().padStart(2, '0')}-01`;
+        
+        query = query.gte('date', startDate).lt('date', endDate);
       } else {
         // Fallback to limit if no month specified
         query = query.limit(1000);
@@ -799,7 +805,7 @@ CREATE POLICY "Allow Uploads" ON storage.objects FOR INSERT WITH CHECK (bucket_i
         p_last_7_days: ['2023-01-01'] 
       });
       
-      if (rpcError && (rpcError.code === '42883' || rpcError.message.includes('Could not find'))) {
+      if (rpcError && (rpcError.code === '42883' || rpcError.message.includes('Could not find') || rpcError.message.includes('operator does not exist'))) {
         results.sqlFixes.push(`
 -- Create RPC for dashboard stats
 CREATE OR REPLACE FUNCTION get_dashboard_stats(p_org_id text, p_month text, p_last_7_days text[])
@@ -812,7 +818,7 @@ BEGIN
     INTO v_total_weekly_minutes
     FROM work_logs
     WHERE organization_id = p_org_id 
-      AND date = ANY(p_last_7_days)
+      AND date::text = ANY(p_last_7_days)
       AND entry_type = 'WORK';
 
     SELECT json_agg(t)
@@ -822,7 +828,7 @@ BEGIN
         FROM users u
         JOIN work_logs w ON u.id = w.user_id
         WHERE w.organization_id = p_org_id 
-          AND w.date LIKE p_month || '%'
+          AND w.date::text LIKE p_month || '%'
           AND w.entry_type IN ('SICK', 'VACATION')
         GROUP BY u.id, u.name
         ORDER BY count DESC

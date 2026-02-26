@@ -71,10 +71,11 @@ interface EmployeeViewProps {
   onRefresh?: () => Promise<void>;
   planLimits: PlanLimits;
   currentOrg: Organization | null;
+  onMonthChange?: (month: string) => void;
 }
 
 const EmployeeView: React.FC<EmployeeViewProps> = ({ 
-  user, logs, onLogsUpsert, activeShifts, onActiveShiftsUpdate, onOvertime, machines, positions, onUpdateUser, nightShiftBonusMinutes, onRefresh, planLimits, currentOrg
+  user, logs, onLogsUpsert, activeShifts, onActiveShiftsUpdate, onOvertime, machines, positions, onUpdateUser, nightShiftBonusMinutes, onRefresh, planLimits, currentOrg, onMonthChange
 }) => {
   const orgId = localStorage.getItem(STORAGE_KEYS.ORG_ID) || 'demo_org';
 
@@ -875,7 +876,10 @@ const EmployeeView: React.FC<EmployeeViewProps> = ({
                    </button>
                 </div>
               </div>
-              <input type="month" value={filterMonth} onChange={(e) => setFilterMonth(e.target.value)} className="border border-slate-200 rounded-xl p-2 text-sm font-bold" />
+              <input type="month" value={filterMonth} onChange={(e) => {
+                setFilterMonth(e.target.value);
+                if (onMonthChange) onMonthChange(e.target.value);
+              }} className="border border-slate-200 rounded-xl p-2 text-sm font-bold" />
             </div>
 
             <div className="p-4 bg-slate-50/30 border-b border-slate-100 no-print">

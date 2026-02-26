@@ -191,8 +191,11 @@ const App: React.FC = () => {
 
       // Parallel fetch of all other data
       const currentMonth = format(new Date(), 'yyyy-MM');
-      const [dbLogs, dbUsers, dbMachines, dbPositions, dbPlans, dbActiveShifts, dbConfig] = await Promise.all([
+      const prevMonth = format(new Date(new Date().setMonth(new Date().getMonth() - 1)), 'yyyy-MM');
+      
+      const [dbLogsCurrent, dbLogsPrev, dbUsers, dbMachines, dbPositions, dbPlans, dbActiveShifts, dbConfig] = await Promise.all([
         db.getLogs(orgId, currentMonth),
+        db.getLogs(orgId, prevMonth),
         db.getUsers(orgId),
         db.getMachines(orgId),
         db.getPositions(orgId),
@@ -200,6 +203,8 @@ const App: React.FC = () => {
         db.getAllActiveShifts(orgId),
         db.getSystemConfig()
       ]);
+
+      const dbLogs = [...(dbLogsCurrent || []), ...(dbLogsPrev || [])];
 
       if (dbConfig?.super_admin_pin) {
         setSuperAdminPin(dbConfig.super_admin_pin);
@@ -660,6 +665,27 @@ const App: React.FC = () => {
       localStorage.setItem(STORAGE_KEYS.CURRENT_USER, JSON.stringify(updatedUser));
     }
   };
+
+  const loadLogsForMonth = useCallback(async (month: string) => {
+    if (!currentOrgRef.current) return;
+    setIsSyncing(true);
+    try {
+      const newLogs = await db.getLogs(currentOrgRef.current.id, month);
+      if (newLogs) {
+        setLogs(prev => {
+          const newLogIds = new Set(newLogs.map(l => l.id));
+          const prevKept = prev.filter(l => !newLogIds.has(l.id));
+          const merged = [...prevKept, ...newLogs].sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime());
+          localStorage.setItem(STORAGE_KEYS.WORK_LOGS, JSON.stringify(merged));
+          return merged;
+        });
+      }
+    } catch (e) {
+      console.error('Failed to load logs for month', e);
+    } finally {
+      setIsSyncing(false);
+    }
+  }, []);
 
   const handleLogsUpsert = useCallback((logsToUpsert: WorkLog[]) => {
     const orgId = currentOrg?.id || localStorage.getItem(STORAGE_KEYS.ORG_ID) || DEFAULT_ORG_ID;
@@ -1286,6 +1312,7 @@ const App: React.FC = () => {
             onRefresh={handleRefresh}
             planLimits={PLAN_LIMITS[currentOrg?.plan || PlanType.FREE]}
             currentOrg={currentOrg}
+            onMonthChange={loadLogsForMonth}
           />
         ) : (
           isEmployerAuthorized ? (
@@ -1312,6 +1339,7 @@ const App: React.FC = () => {
               plans={plans}
               onUpdateOrg={setCurrentOrg}
               currentUser={currentUser}
+              onMonthChange={loadLogsForMonth}
             />
           ) : (
             <div className="text-center py-20">
