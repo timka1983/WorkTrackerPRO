@@ -115,8 +115,8 @@ export interface WorkLog {
   checkIn?: string; // ISO Datetime
   checkOut?: string; // ISO Datetime
   durationMinutes: number;
-  photoIn?: string; // Base64 capture on start
-  photoOut?: string; // Base64 capture on end
+  photoIn?: string; // Base64 or URL capture on start
+  photoOut?: string; // Base64 or URL capture on end
   isCorrected?: boolean;
   correctionNote?: string;
   correctionTimestamp?: string;

@@ -125,6 +125,7 @@ const EmployeeView: React.FC<EmployeeViewProps> = ({
   }, [user.plannedShifts, filterMonth]);
 
   const [showCamera, setShowCamera] = useState<{ slot: number; type: 'start' | 'stop' } | null>(null);
+  const [isUploadingPhoto, setIsUploadingPhoto] = useState(false);
   
   const [showPinChange, setShowPinChange] = useState(user.forcePinChange || false);
   const [pinState, setPinState] = useState({ old: '', new: '', confirm: '' });
@@ -666,13 +667,20 @@ const EmployeeView: React.FC<EmployeeViewProps> = ({
                 Отмена
               </button>
               <button 
-                onClick={() => {
-                  const photo = capturePhoto();
-                  showCamera.type === 'start' ? handleStartWork(showCamera.slot, photo) : handleStopWork(showCamera.slot, photo);
+                onClick={async () => {
+                  setIsUploadingPhoto(true);
+                  try {
+                    const photoBase64 = capturePhoto();
+                    const photoUrl = await db.uploadPhoto(photoBase64, orgId, user.id);
+                    showCamera.type === 'start' ? handleStartWork(showCamera.slot, photoUrl || undefined) : handleStopWork(showCamera.slot, photoUrl || undefined);
+                  } finally {
+                    setIsUploadingPhoto(false);
+                  }
                 }}
-                className="px-12 py-4 bg-blue-600 text-white rounded-2xl font-black uppercase text-xs tracking-widest shadow-xl shadow-blue-500/20"
+                disabled={isUploadingPhoto}
+                className="px-12 py-4 bg-blue-600 text-white rounded-2xl font-black uppercase text-xs tracking-widest shadow-xl shadow-blue-500/20 disabled:opacity-50"
               >
-                Сфотографировать
+                {isUploadingPhoto ? 'Сохранение...' : 'Сфотографировать'}
               </button>
            </div>
         </div>

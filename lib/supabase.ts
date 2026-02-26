@@ -130,6 +130,56 @@ export const db = {
     });
     if (error) console.error('Error upserting log:', error);
   },
+  uploadPhoto: async (base64Data: string, orgId: string, userId: string): Promise<string | null> => {
+    if (!isConfigured() || !base64Data.startsWith('data:image')) return base64Data;
+    
+    try {
+      const base64Parts = base64Data.split(',');
+      if (base64Parts.length !== 2) return base64Data;
+      
+      const mimeMatch = base64Parts[0].match(/:(.*?);/);
+      if (!mimeMatch) return base64Data;
+      
+      const mimeType = mimeMatch[1];
+      const byteCharacters = atob(base64Parts[1]);
+      const byteArrays = [];
+      
+      for (let offset = 0; offset < byteCharacters.length; offset += 512) {
+        const slice = byteCharacters.slice(offset, offset + 512);
+        const byteNumbers = new Array(slice.length);
+        for (let i = 0; i < slice.length; i++) {
+          byteNumbers[i] = slice.charCodeAt(i);
+        }
+        const byteArray = new Uint8Array(byteNumbers);
+        byteArrays.push(byteArray);
+      }
+      
+      const blob = new Blob(byteArrays, { type: mimeType });
+      const fileExt = mimeType.split('/')[1] || 'jpg';
+      const fileName = `${orgId}/${userId}/${Date.now()}.${fileExt}`;
+      
+      const { data, error } = await supabase.storage
+        .from('photos')
+        .upload(fileName, blob, {
+          cacheControl: '31536000',
+          upsert: false
+        });
+        
+      if (error) {
+        console.error('Error uploading photo:', error);
+        return base64Data; // Fallback to base64
+      }
+      
+      const { data: publicUrlData } = supabase.storage
+        .from('photos')
+        .getPublicUrl(fileName);
+        
+      return publicUrlData.publicUrl;
+    } catch (e) {
+      console.error('Exception uploading photo:', e);
+      return base64Data; // Fallback
+    }
+  },
   batchUpsertLogs: async (logs: any[], orgId: string) => {
     if (!isConfigured() || logs.length === 0) return { error: null };
     
@@ -703,8 +753,25 @@ INSERT INTO system_config (id, super_admin_pin, global_admin_pin) VALUES ('globa
         }
       }
       
+      // Check storage bucket
+      const { data: buckets, error: bucketError } = await supabase.storage.listBuckets();
+      if (!bucketError) {
+        const hasPhotosBucket = buckets.some(b => b.name === 'photos');
+        if (!hasPhotosBucket) {
+          results.sqlFixes.push(`
+-- Create a storage bucket for photos
+INSERT INTO storage.buckets (id, name, public) VALUES ('photos', 'photos', true) ON CONFLICT DO NOTHING;
+
+-- Allow public access to photos
+CREATE POLICY "Public Access" ON storage.objects FOR SELECT USING (bucket_id = 'photos');
+CREATE POLICY "Allow Uploads" ON storage.objects FOR INSERT WITH CHECK (bucket_id = 'photos');
+          `);
+        }
+      }
+      
       const hasErrors = Object.values(results.tables).some((t: any) => t.status === 'error') || 
-                        Object.values(results.columns).some((c: any) => c === 'missing');
+                        Object.values(results.columns).some((c: any) => c === 'missing') ||
+                        results.sqlFixes.length > 0;
       results.status = hasErrors ? 'partial' : 'ok';
       return results;
     } catch (e: any) {
