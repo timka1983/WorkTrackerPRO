@@ -394,12 +394,17 @@ export const useAppData = (currentUser: User | null) => {
           localStorage.setItem(STORAGE_KEYS.WORK_LOGS, JSON.stringify(updated));
           return updated;
         });
+        
+        // Also invalidate query to ensure consistency
+        queryClient.invalidateQueries({ queryKey: ['initialLogs', id] });
+        
       } else if (payload.eventType === 'DELETE') {
         setLogs(prev => {
           const updated = prev.filter(l => l.id !== payload.old.id);
           localStorage.setItem(STORAGE_KEYS.WORK_LOGS, JSON.stringify(updated));
           return updated;
         });
+        queryClient.invalidateQueries({ queryKey: ['initialLogs', id] });
       }
     });
 
@@ -408,8 +413,10 @@ export const useAppData = (currentUser: User | null) => {
     });
 
     const unsubActiveShifts = db.subscribeToChanges(id, 'active_shifts', (payload) => {
+       // 1. Invalidate query to fetch fresh data eventually
        queryClient.invalidateQueries({ queryKey: ['activeShifts', id] });
        
+       // 2. Optimistically update local state immediately
        if (payload.eventType === 'INSERT' || payload.eventType === 'UPDATE') {
         setActiveShiftsMap(prev => {
           const updated = {
