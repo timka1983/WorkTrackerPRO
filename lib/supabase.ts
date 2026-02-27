@@ -116,7 +116,8 @@ export const db = {
         isCorrected: l.is_corrected,
         correctionNote: l.correction_note,
         correctionTimestamp: l.correction_timestamp,
-        isNightShift: l.is_night_shift
+        isNightShift: l.is_night_shift,
+        fine: l.fine
       }));
     } catch (e) {
       console.error('Database connection failed:', e);
@@ -140,7 +141,8 @@ export const db = {
       is_corrected: log.isCorrected,
       correction_note: log.correctionNote,
       correction_timestamp: log.correctionTimestamp,
-      is_night_shift: log.isNightShift
+      is_night_shift: log.isNightShift,
+      fine: log.fine
     });
     if (error) console.error('Error upserting log:', error);
   },
@@ -235,6 +237,7 @@ export const db = {
       
       // Эти колонки могут отсутствовать в старых версиях БД
       if (log.isNightShift) item.is_night_shift = true;
+      if (log.fine) item.fine = log.fine;
       if (orgId && orgId !== 'demo_org') item.organization_id = orgId;
       
       return item;
@@ -247,7 +250,7 @@ export const db = {
       // Если ошибка в колонках (42703) или неопределенная ошибка, пробуем минимальный набор
       if (error.code === '42703' || error.message?.includes('column')) {
         const minimalPayload = payload.map(p => {
-          const { is_night_shift, organization_id, photo_in, photo_out, machine_id, ...rest } = p;
+          const { is_night_shift, organization_id, photo_in, photo_out, machine_id, fine, ...rest } = p;
           return rest;
         });
         console.warn('Retrying with minimal payload...');
@@ -292,7 +295,8 @@ export const db = {
         forcePinChange: u.force_pin_change,
         organizationId: u.organization_id,
         pushToken: u.push_token,
-        plannedShifts: u.planned_shifts
+        plannedShifts: u.planned_shifts,
+        payroll: u.payroll
       }));
     } catch (e) {
       return null;
@@ -346,6 +350,9 @@ export const db = {
     if (user.plannedShifts !== undefined) {
       payload.planned_shifts = user.plannedShifts;
     }
+    if (user.payroll !== undefined) {
+      payload.payroll = user.payroll;
+    }
 
     const { error } = await supabase.from('users').upsert(payload);
     
@@ -353,7 +360,7 @@ export const db = {
       console.error('Error saving user:', error);
       // Try without new columns if it fails due to missing column
       if (error.code === '42703' || error.code === 'PGRST204' || error.message?.includes('column')) {
-        const { push_token, planned_shifts, ...minimalPayload } = payload;
+        const { push_token, planned_shifts, payroll, ...minimalPayload } = payload;
         const { error: retryError } = await supabase.from('users').upsert(minimalPayload);
         return { error: retryError };
       }
@@ -383,6 +390,9 @@ export const db = {
       if (user.plannedShifts !== undefined) {
         p.planned_shifts = user.plannedShifts;
       }
+      if (user.payroll !== undefined) {
+        p.payroll = user.payroll;
+      }
       return p;
     });
 
@@ -392,7 +402,7 @@ export const db = {
       console.error('Error batch upserting users:', error);
       if (error.code === '42703' || error.code === 'PGRST204' || error.message?.includes('column')) {
         const minimalPayload = payload.map(p => {
-          const { push_token, planned_shifts, ...rest } = p;
+          const { push_token, planned_shifts, payroll, ...rest } = p;
           return rest;
         });
         const { error: retryError } = await supabase.from('users').upsert(minimalPayload);
@@ -428,7 +438,8 @@ export const db = {
     const { data } = await supabase.from('positions').select('*').eq('organization_id', orgId).order('name');
     return data?.map(p => ({
       name: p.name,
-      permissions: p.permissions || {}
+      permissions: p.permissions || {},
+      payroll: p.payroll
     })) || null;
   },
   savePositions: async (positions: any[], orgId: string) => {
@@ -442,6 +453,7 @@ export const db = {
       const { error } = await supabase.from('positions').insert(positions.map(p => ({ 
         name: p.name, 
         permissions: p.permissions,
+        payroll: p.payroll,
         organization_id: orgId 
       })));
       return { error };
@@ -781,10 +793,10 @@ INSERT INTO system_config (id, super_admin_pin, global_admin_pin) VALUES ('globa
       // Check specific columns
       const expectedSchema: Record<string, string[]> = {
         organizations: ['id', 'name', 'email', 'owner_id', 'plan', 'status', 'expiry_date', 'notification_settings'],
-        users: ['id', 'organization_id', 'name', 'role', 'department', 'position', 'pin', 'require_photo', 'is_admin', 'force_pin_change', 'push_token', 'planned_shifts'],
-        work_logs: ['id', 'user_id', 'organization_id', 'date', 'entry_type', 'machine_id', 'check_in', 'check_out', 'duration_minutes', 'photo_in', 'photo_out', 'is_corrected', 'correction_note', 'correction_timestamp', 'is_night_shift'],
+        users: ['id', 'organization_id', 'name', 'role', 'department', 'position', 'pin', 'require_photo', 'is_admin', 'force_pin_change', 'push_token', 'planned_shifts', 'payroll'],
+        work_logs: ['id', 'user_id', 'organization_id', 'date', 'entry_type', 'machine_id', 'check_in', 'check_out', 'duration_minutes', 'photo_in', 'photo_out', 'is_corrected', 'correction_note', 'correction_timestamp', 'is_night_shift', 'fine'],
         machines: ['id', 'organization_id', 'name'],
-        positions: ['name', 'organization_id', 'permissions'],
+        positions: ['name', 'organization_id', 'permissions', 'payroll'],
         plans: ['type', 'name', 'limits', 'price'],
         promo_codes: ['id', 'code', 'plan_type', 'duration_days', 'max_uses', 'used_count', 'created_at', 'expires_at', 'is_active', 'last_used_by', 'last_used_at'],
         active_shifts: ['user_id', 'organization_id', 'shifts', 'shifts_json'],
@@ -813,10 +825,10 @@ INSERT INTO system_config (id, super_admin_pin, global_admin_pin) VALUES ('globa
                  
                  // Generate basic SQL fix
                  let colType = 'TEXT';
-                 if (col.includes('count') || col.includes('days') || col.includes('uses') || col.includes('minutes') || col === 'price') colType = 'INTEGER';
+                 if (col.includes('count') || col.includes('days') || col.includes('uses') || col.includes('minutes') || col === 'price' || col === 'fine') colType = 'INTEGER';
                  else if (col.includes('date') || col.includes('_at') || col.includes('timestamp') || col === 'check_in' || col === 'check_out') colType = 'TIMESTAMPTZ';
                  else if (col.startsWith('is_') || col.startsWith('require_') || col.startsWith('force_')) colType = 'BOOLEAN';
-                 else if (col === 'notification_settings' || col === 'permissions' || col === 'limits' || col === 'shifts_json' || col === 'shifts' || col === 'planned_shifts') colType = 'JSONB';
+                 else if (col === 'notification_settings' || col === 'permissions' || col === 'limits' || col === 'shifts_json' || col === 'shifts' || col === 'planned_shifts' || col === 'payroll') colType = 'JSONB';
                  
                  // Explicitly handle global_admin_pin to ensure it gets generated
                  if (col === 'global_admin_pin') {

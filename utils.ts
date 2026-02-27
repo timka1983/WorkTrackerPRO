@@ -5,7 +5,7 @@ import { parseISO } from 'date-fns/parseISO';
 import { startOfMonth } from 'date-fns/startOfMonth';
 // Using sub-path for locale to ensure correct resolution of Russian locale
 import { ru } from 'date-fns/locale/ru';
-import { WorkLog, User, EntryType } from './types';
+import { WorkLog, User, EntryType, PositionConfig, PayrollConfig } from './types';
 
 export const formatTime = (dateStr?: string) => {
   if (!dateStr) return '--:--';
@@ -68,4 +68,95 @@ export const sendNotification = (title: string, body: string) => {
   if (Notification.permission === 'granted') {
     new Notification(title, { body, icon: '/manifest.json' });
   }
+};
+
+export const calculateMonthlyPayroll = (
+  user: User,
+  logs: WorkLog[],
+  positions: PositionConfig[]
+): {
+  totalSalary: number;
+  regularPay: number;
+  overtimePay: number;
+  nightShiftPay: number;
+  fines: number;
+  details: {
+    regularHours: number;
+    overtimeHours: number;
+    nightShiftCount: number;
+  };
+} => {
+  const positionConfig = positions.find(p => p.name === user.position);
+  const config = user.payroll || positionConfig?.payroll || {
+    type: 'hourly',
+    rate: 0,
+    overtimeMultiplier: 1.5,
+    nightShiftBonus: 0
+  };
+
+  let regularPay = 0;
+  let overtimePay = 0;
+  let nightShiftPay = 0;
+  let fines = 0;
+
+  let regularHours = 0;
+  let overtimeHours = 0;
+  let nightShiftCount = 0;
+
+  const standardShiftMinutes = positionConfig?.permissions.maxShiftDurationMinutes || 480;
+
+  logs.forEach(log => {
+    if (log.entryType === EntryType.WORK) {
+      const duration = log.durationMinutes;
+      let regularMinutes = duration;
+      let overtimeMinutes = 0;
+
+      if (duration > standardShiftMinutes) {
+        regularMinutes = standardShiftMinutes;
+        overtimeMinutes = duration - standardShiftMinutes;
+      }
+
+      if (config.type === 'hourly') {
+        regularPay += (regularMinutes / 60) * config.rate;
+        overtimePay += (overtimeMinutes / 60) * config.rate * config.overtimeMultiplier;
+      } else if (config.type === 'shift') {
+        regularPay += config.rate;
+        const impliedHourlyRate = config.rate / (standardShiftMinutes / 60);
+        overtimePay += (overtimeMinutes / 60) * impliedHourlyRate * config.overtimeMultiplier;
+      }
+
+      regularHours += regularMinutes / 60;
+      overtimeHours += overtimeMinutes / 60;
+
+      if (log.isNightShift) {
+        nightShiftCount++;
+        nightShiftPay += config.nightShiftBonus;
+      }
+    }
+
+    if (log.fine) {
+      fines += log.fine;
+    }
+  });
+
+  if (config.type === 'fixed') {
+    regularPay = config.rate;
+    const impliedHourlyRate = config.rate / 160;
+    overtimePay = overtimeHours * impliedHourlyRate * config.overtimeMultiplier;
+  }
+
+  const totalSalary = regularPay + overtimePay + nightShiftPay - fines;
+
+  return {
+    totalSalary: Math.max(0, Math.round(totalSalary)),
+    regularPay: Math.round(regularPay),
+    overtimePay: Math.round(overtimePay),
+    nightShiftPay: Math.round(nightShiftPay),
+    fines: Math.round(fines),
+    details: {
+      regularHours: parseFloat(regularHours.toFixed(1)),
+      overtimeHours: parseFloat(overtimeHours.toFixed(1)),
+      nightShiftCount
+    }
+  };
 };

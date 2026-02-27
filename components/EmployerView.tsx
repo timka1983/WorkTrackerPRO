@@ -1,13 +1,13 @@
 
 import React, { useState, useMemo, memo, useEffect, useCallback } from 'react';
 import { TableVirtuoso } from 'react-virtuoso';
-import { WorkLog, User, EntryType, UserRole, Machine, FIXED_POSITION_TURNER, PositionConfig, PositionPermissions, Organization, PlanType, Plan } from '../types';
-import { formatDuration, getDaysInMonthArray, formatDurationShort, exportToCSV, formatTime, calculateMinutes } from '../utils';
+import { WorkLog, User, EntryType, UserRole, Machine, FIXED_POSITION_TURNER, PositionConfig, PositionPermissions, Organization, PlanType, Plan, PayrollConfig } from '../types';
+import { formatDuration, getDaysInMonthArray, formatDurationShort, exportToCSV, formatTime, calculateMinutes, calculateMonthlyPayroll } from '../utils';
 import { format, isAfter } from 'date-fns';
 import { startOfDay } from 'date-fns/startOfDay';
 import { subDays } from 'date-fns/subDays';
 import { ru } from 'date-fns/locale/ru';
-import { DEFAULT_PERMISSIONS, STORAGE_KEYS, PLAN_LIMITS } from '../constants';
+import { DEFAULT_PERMISSIONS, STORAGE_KEYS, PLAN_LIMITS, DEFAULT_PAYROLL_CONFIG } from '../constants';
 import { db } from '../lib/supabase';
 
 // --- Memoized Row Component ---
@@ -121,7 +121,7 @@ const EmployerView: React.FC<EmployerViewProps> = ({
   onRefresh, isSyncing = false, nightShiftBonusMinutes, onUpdateNightBonus, currentOrg, plans, onUpdateOrg, currentUser: propCurrentUser, onMonthChange, getNow
 }) => {
   const [filterMonth, setFilterMonth] = useState(format(getNow(), 'yyyy-MM'));
-  const [viewMode, setViewMode] = useState<'matrix' | 'team' | 'analytics' | 'settings' | 'billing'>('analytics');
+  const [viewMode, setViewMode] = useState<'matrix' | 'team' | 'analytics' | 'settings' | 'billing' | 'payroll'>('analytics');
   const [editingLog, setEditingLog] = useState<{ userId: string; date: string } | null>(null);
   const [tempNotes, setTempNotes] = useState<Record<string, string>>({});
   const [previewPhoto, setPreviewPhoto] = useState<string | null>(null);
@@ -351,7 +351,7 @@ const EmployerView: React.FC<EmployerViewProps> = ({
     }
   };
 
-  const saveCorrection = (logId: string, val: number) => {
+  const saveCorrection = (logId: string, val: number, fine?: number) => {
     const log = logs.find(l => l.id === logId);
     if (!log) return;
     
@@ -361,7 +361,8 @@ const EmployerView: React.FC<EmployerViewProps> = ({
       durationMinutes: val, 
       isCorrected: true, 
       correctionNote: note,
-      correctionTimestamp: new Date().toISOString()
+      correctionTimestamp: getNow().toISOString(),
+      fine: fine !== undefined ? fine : log.fine
     };
     
     onLogsUpsert([updatedLog]);
@@ -392,6 +393,37 @@ const EmployerView: React.FC<EmployerViewProps> = ({
     setConfiguringPosition(updated);
     const newPositions = positions.map(p => p.name === updated.name ? updated : p);
     onUpdatePositions(newPositions);
+  };
+
+  const handleUpdatePayrollConfig = (key: keyof PayrollConfig, value: any) => {
+    if (!configuringPosition) return;
+    const currentPayroll = configuringPosition.payroll || DEFAULT_PAYROLL_CONFIG;
+    const updated = {
+      ...configuringPosition,
+      payroll: {
+        ...currentPayroll,
+        [key]: value
+      }
+    };
+    setConfiguringPosition(updated);
+    const newPositions = positions.map(p => p.name === updated.name ? updated : p);
+    onUpdatePositions(newPositions);
+  };
+
+  const handleUpdateEmployeePayroll = (key: keyof PayrollConfig, value: any) => {
+    if (!editingEmployee) return;
+    // If user has no payroll override, start with position default or global default
+    const basePayroll = editingEmployee.payroll || 
+                        positions.find(p => p.name === editingEmployee.position)?.payroll || 
+                        DEFAULT_PAYROLL_CONFIG;
+                        
+    setEditingEmployee({
+      ...editingEmployee,
+      payroll: {
+        ...basePayroll,
+        [key]: value
+      }
+    });
   };
 
   const handleExportAll = () => {
@@ -449,6 +481,7 @@ const EmployerView: React.FC<EmployerViewProps> = ({
     const allTabs = [
       { id: 'analytics', label: 'Дашборд' },
       { id: 'matrix', label: 'Табель' },
+      { id: 'payroll', label: 'Зарплата' },
       { id: 'team', label: 'Команда' },
       { id: 'billing', label: 'Биллинг' },
       { id: 'settings', label: 'Настройки' }
@@ -591,6 +624,57 @@ const EmployerView: React.FC<EmployerViewProps> = ({
                   );
                 })}
 
+                <div className="p-4 bg-slate-50 rounded-2xl border border-slate-100 space-y-4 mt-4">
+                  <h4 className="text-[10px] font-black text-slate-400 uppercase tracking-wider border-b border-slate-200 pb-2">Финансовые условия (по умолчанию)</h4>
+                  
+                  <div className="space-y-1">
+                    <label className="text-[9px] font-black text-slate-400 uppercase ml-1">Тип оплаты</label>
+                    <div className="flex bg-white rounded-xl p-1 border border-slate-200">
+                      {(['hourly', 'fixed', 'shift'] as const).map(type => (
+                        <button
+                          key={type}
+                          onClick={() => handleUpdatePayrollConfig('type', type)}
+                          className={`flex-1 py-2 rounded-lg text-[10px] font-black uppercase transition-all ${(configuringPosition.payroll?.type || DEFAULT_PAYROLL_CONFIG.type) === type ? 'bg-slate-900 text-white shadow-md' : 'text-slate-400 hover:text-slate-600'}`}
+                        >
+                          {type === 'hourly' ? 'Почасовая' : type === 'fixed' ? 'Оклад' : 'За смену'}
+                        </button>
+                      ))}
+                    </div>
+                  </div>
+
+                  <div className="grid grid-cols-2 gap-4">
+                    <div className="space-y-1">
+                       <label className="text-[9px] font-black text-slate-400 uppercase ml-1">Ставка (₽)</label>
+                       <input 
+                         type="number" 
+                         value={configuringPosition.payroll?.rate ?? DEFAULT_PAYROLL_CONFIG.rate}
+                         onChange={e => handleUpdatePayrollConfig('rate', Number(e.target.value))}
+                         className="w-full bg-white border-2 border-slate-200 rounded-xl px-3 py-2 text-sm font-bold outline-none focus:border-blue-500"
+                       />
+                    </div>
+                    <div className="space-y-1">
+                       <label className="text-[9px] font-black text-slate-400 uppercase ml-1">Коэф. переработок</label>
+                       <input 
+                         type="number" 
+                         step="0.1"
+                         value={configuringPosition.payroll?.overtimeMultiplier ?? DEFAULT_PAYROLL_CONFIG.overtimeMultiplier}
+                         onChange={e => handleUpdatePayrollConfig('overtimeMultiplier', Number(e.target.value))}
+                         className="w-full bg-white border-2 border-slate-200 rounded-xl px-3 py-2 text-sm font-bold outline-none focus:border-blue-500"
+                       />
+                    </div>
+                  </div>
+                  
+                  <div className="space-y-1">
+                     <label className="text-[9px] font-black text-slate-400 uppercase ml-1">Бонус за ночную смену (₽)</label>
+                     <input 
+                       type="number" 
+                       value={configuringPosition.payroll?.nightShiftBonus ?? DEFAULT_PAYROLL_CONFIG.nightShiftBonus}
+                       onChange={e => handleUpdatePayrollConfig('nightShiftBonus', Number(e.target.value))}
+                       className="w-full bg-white border-2 border-slate-200 rounded-xl px-3 py-2 text-sm font-bold outline-none focus:border-blue-500"
+                     />
+                  </div>
+                </div>
+
                 <div className="p-4 bg-slate-50 rounded-2xl border border-slate-100 space-y-2">
                   <label className="block text-[10px] font-black text-slate-400 uppercase tracking-wider">Макс. длительность смены (часов)</label>
                   <div className="flex items-center gap-3">
@@ -684,6 +768,57 @@ const EmployerView: React.FC<EmployerViewProps> = ({
                          </label>
                       </div>
                    </div>
+                </div>
+
+                <div className="bg-slate-50 p-4 rounded-2xl border border-slate-100 space-y-3">
+                   <p className="text-[9px] font-black text-slate-400 uppercase tracking-widest text-center">Финансы (Персонально)</p>
+                   
+                   <div className="space-y-1">
+                    <div className="flex bg-white rounded-xl p-1 border border-slate-200">
+                      {(['hourly', 'fixed', 'shift'] as const).map(type => (
+                        <button
+                          key={type}
+                          type="button"
+                          onClick={() => handleUpdateEmployeePayroll('type', type)}
+                          className={`flex-1 py-2 rounded-lg text-[10px] font-black uppercase transition-all ${(editingEmployee.payroll?.type || positions.find(p => p.name === editingEmployee.position)?.payroll?.type || DEFAULT_PAYROLL_CONFIG.type) === type ? 'bg-slate-900 text-white shadow-md' : 'text-slate-400 hover:text-slate-600'}`}
+                        >
+                          {type === 'hourly' ? 'Почасовая' : type === 'fixed' ? 'Оклад' : 'За смену'}
+                        </button>
+                      ))}
+                    </div>
+                  </div>
+
+                  <div className="grid grid-cols-2 gap-4">
+                    <div className="space-y-1">
+                       <label className="text-[9px] font-black text-slate-400 uppercase ml-1">Ставка (₽)</label>
+                       <input 
+                         type="number" 
+                         value={editingEmployee.payroll?.rate ?? (positions.find(p => p.name === editingEmployee.position)?.payroll?.rate || DEFAULT_PAYROLL_CONFIG.rate)}
+                         onChange={e => handleUpdateEmployeePayroll('rate', Number(e.target.value))}
+                         className="w-full bg-white border-2 border-slate-200 rounded-xl px-3 py-2 text-sm font-bold outline-none focus:border-blue-500"
+                       />
+                    </div>
+                    <div className="space-y-1">
+                       <label className="text-[9px] font-black text-slate-400 uppercase ml-1">Коэф. переработок</label>
+                       <input 
+                         type="number" 
+                         step="0.1"
+                         value={editingEmployee.payroll?.overtimeMultiplier ?? (positions.find(p => p.name === editingEmployee.position)?.payroll?.overtimeMultiplier || DEFAULT_PAYROLL_CONFIG.overtimeMultiplier)}
+                         onChange={e => handleUpdateEmployeePayroll('overtimeMultiplier', Number(e.target.value))}
+                         className="w-full bg-white border-2 border-slate-200 rounded-xl px-3 py-2 text-sm font-bold outline-none focus:border-blue-500"
+                       />
+                    </div>
+                  </div>
+                  
+                  <div className="space-y-1">
+                     <label className="text-[9px] font-black text-slate-400 uppercase ml-1">Бонус за ночную смену (₽)</label>
+                     <input 
+                       type="number" 
+                       value={editingEmployee.payroll?.nightShiftBonus ?? (positions.find(p => p.name === editingEmployee.position)?.payroll?.nightShiftBonus || DEFAULT_PAYROLL_CONFIG.nightShiftBonus)}
+                       onChange={e => handleUpdateEmployeePayroll('nightShiftBonus', Number(e.target.value))}
+                       className="w-full bg-white border-2 border-slate-200 rounded-xl px-3 py-2 text-sm font-bold outline-none focus:border-blue-500"
+                     />
+                  </div>
                 </div>
 
                 <div className="bg-amber-50 p-4 rounded-2xl border border-amber-100 space-y-3">
@@ -805,6 +940,18 @@ const EmployerView: React.FC<EmployerViewProps> = ({
                                 <span className="absolute right-4 top-1/2 -translate-y-1/2 text-[10px] text-slate-400 font-bold uppercase">мин</span>
                              </div>
                           </div>
+                          
+                          <div className="space-y-1">
+                             <label className="text-[9px] font-black text-slate-400 uppercase ml-1">Штраф (₽)</label>
+                             <input 
+                                type="number" 
+                                placeholder="0"
+                                defaultValue={log.fine || ''} 
+                                onBlur={(e) => saveCorrection(log.id, log.durationMinutes, parseInt(e.target.value) || 0)}
+                                className="w-full bg-slate-50 border-2 border-slate-100 rounded-xl px-4 py-2 text-sm font-black text-red-600 outline-none focus:border-red-500 focus:bg-white transition-all"
+                             />
+                          </div>
+
                           <div className="space-y-1">
                              <label className="text-[9px] font-black text-slate-400 uppercase ml-1">Причина изменений</label>
                              <textarea 
@@ -1334,6 +1481,57 @@ const EmployerView: React.FC<EmployerViewProps> = ({
                 </div>
               );
             })}
+          </div>
+        </div>
+      )}
+
+      {viewMode === 'payroll' && (
+        <div className="bg-white rounded-[2.5rem] shadow-xl border border-slate-200 overflow-hidden">
+          <div className="p-8 border-b border-slate-100 flex justify-between items-center bg-slate-50/50">
+             <h2 className="text-2xl font-black text-slate-900 uppercase tracking-tight">Расчет зарплаты</h2>
+             <button onClick={handleExportAll} className="px-6 py-3 bg-slate-900 text-white rounded-2xl font-black text-xs uppercase tracking-widest hover:bg-blue-600 transition-all shadow-lg shadow-slate-200 hover:shadow-blue-200 active:scale-95">Экспорт</button>
+          </div>
+          <div className="overflow-x-auto">
+            <table className="w-full text-left border-collapse">
+              <thead>
+                <tr className="bg-slate-50 border-b border-slate-200 text-[10px] font-black text-slate-400 uppercase tracking-wider">
+                  <th className="p-4">Сотрудник</th>
+                  <th className="p-4">Должность</th>
+                  <th className="p-4 text-center">Ставка</th>
+                  <th className="p-4 text-center">Часы (Обыч.)</th>
+                  <th className="p-4 text-center">Часы (Сверхуроч.)</th>
+                  <th className="p-4 text-center">Ночные смены</th>
+                  <th className="p-4 text-center">Штрафы</th>
+                  <th className="p-4 text-right">Итого к выплате</th>
+                </tr>
+              </thead>
+              <tbody>
+                {users.filter(u => u.role === UserRole.EMPLOYEE).map(emp => {
+                   const empLogs = logs.filter(l => l.userId === emp.id && l.date.startsWith(filterMonth));
+                   const payroll = calculateMonthlyPayroll(emp, empLogs, positions);
+                   const rate = emp.payroll?.rate ?? (positions.find(p => p.name === emp.position)?.payroll?.rate || 0);
+                   const type = emp.payroll?.type ?? (positions.find(p => p.name === emp.position)?.payroll?.type || 'hourly');
+                   
+                   return (
+                     <tr key={emp.id} className="border-b border-slate-100 hover:bg-slate-50/50 transition-colors">
+                       <td className="p-4 font-bold text-slate-900">{emp.name}</td>
+                       <td className="p-4 text-xs font-bold text-slate-500">{emp.position}</td>
+                       <td className="p-4 text-center text-xs font-mono text-slate-600">
+                          {rate} ₽
+                          <span className="text-[8px] text-slate-400 block uppercase">
+                            {type === 'hourly' ? '/час' : type === 'fixed' ? '/мес' : '/смена'}
+                          </span>
+                       </td>
+                       <td className="p-4 text-center text-xs font-mono text-slate-600">{payroll.details.regularHours}</td>
+                       <td className="p-4 text-center text-xs font-mono text-amber-600">{payroll.details.overtimeHours > 0 ? payroll.details.overtimeHours : '-'}</td>
+                       <td className="p-4 text-center text-xs font-mono text-indigo-600">{payroll.details.nightShiftCount > 0 ? payroll.details.nightShiftCount : '-'}</td>
+                       <td className="p-4 text-center text-xs font-mono text-red-600">{payroll.fines > 0 ? payroll.fines : '-'}</td>
+                       <td className="p-4 text-right font-black text-slate-900 text-lg">{payroll.totalSalary.toLocaleString('ru-RU')} ₽</td>
+                     </tr>
+                   );
+                })}
+              </tbody>
+            </table>
           </div>
         </div>
       )}

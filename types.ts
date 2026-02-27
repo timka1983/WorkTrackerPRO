@@ -78,10 +78,18 @@ export interface PositionPermissions {
   maxShiftDurationMinutes?: number;
 }
 
+export interface PayrollConfig {
+  type: 'hourly' | 'fixed' | 'shift';
+  rate: number; 
+  overtimeMultiplier: number;
+  nightShiftBonus: number;
+}
+
 export interface PositionConfig {
   name: string;
   organizationId?: string;
   permissions: PositionPermissions;
+  payroll?: PayrollConfig;
 }
 
 export interface Machine {
@@ -103,6 +111,7 @@ export interface User {
   organizationId?: string;
   pushToken?: string;
   plannedShifts?: Record<string, string>; // YYYY-MM-DD -> 'Р' | 'В' | 'Д' | 'О' | 'Н'
+  payroll?: PayrollConfig;
 }
 
 export interface WorkLog {
@@ -121,4 +130,5 @@ export interface WorkLog {
   correctionNote?: string;
   correctionTimestamp?: string;
   isNightShift?: boolean; // Флаг ночной смены
+  fine?: number; // Штраф за смену
 }

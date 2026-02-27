@@ -1,5 +1,5 @@
 
-import { User, UserRole, Machine, WorkLog, EntryType, PositionConfig, PositionPermissions, PlanType, PlanLimits } from './types';
+import { User, UserRole, Machine, WorkLog, EntryType, PositionConfig, PositionPermissions, PlanType, PlanLimits, PayrollConfig } from './types';
 
 export const PLAN_LIMITS: Record<PlanType, PlanLimits> = {
   [PlanType.FREE]: {
@@ -42,6 +42,13 @@ export const DEFAULT_PERMISSIONS: PositionPermissions = {
   canUseNightShift: false
 };
 
+export const DEFAULT_PAYROLL_CONFIG: PayrollConfig = {
+  type: 'hourly',
+  rate: 0,
+  overtimeMultiplier: 1.5,
+  nightShiftBonus: 0
+};
+
 export const INITIAL_USERS: User[] = [
   { id: '1', name: 'Иван Иванов', role: UserRole.EMPLOYEE, department: 'Цех №1', position: 'Токарь', pin: '0000' },
   { id: '2', name: 'Анна Сидорова', role: UserRole.EMPLOYEE, department: 'Дизайн', position: 'Проектировщик', pin: '0000' },
@@ -58,27 +65,33 @@ export const INITIAL_MACHINES: Machine[] = [
 export const INITIAL_POSITIONS: PositionConfig[] = [
   { 
     name: 'Токарь', 
-    permissions: { ...DEFAULT_PERMISSIONS, useMachines: true, multiSlot: true, canUseNightShift: true } 
+    permissions: { ...DEFAULT_PERMISSIONS, useMachines: true, multiSlot: true, canUseNightShift: true },
+    payroll: { ...DEFAULT_PAYROLL_CONFIG, rate: 300 }
   },
   { 
     name: 'Инженер', 
-    permissions: { ...DEFAULT_PERMISSIONS, viewSelfMatrix: true } 
+    permissions: { ...DEFAULT_PERMISSIONS, viewSelfMatrix: true },
+    payroll: { ...DEFAULT_PAYROLL_CONFIG, type: 'fixed', rate: 80000 }
   },
   { 
     name: 'Проектировщик', 
-    permissions: { ...DEFAULT_PERMISSIONS, viewSelfMatrix: true } 
+    permissions: { ...DEFAULT_PERMISSIONS, viewSelfMatrix: true },
+    payroll: { ...DEFAULT_PAYROLL_CONFIG, type: 'fixed', rate: 70000 }
   },
   { 
     name: 'Менеджер', 
-    permissions: { ...DEFAULT_PERMISSIONS, markAbsences: true, isLimitedAdmin: true, canUseNightShift: true } 
+    permissions: { ...DEFAULT_PERMISSIONS, markAbsences: true, isLimitedAdmin: true, canUseNightShift: true },
+    payroll: { ...DEFAULT_PAYROLL_CONFIG, type: 'fixed', rate: 90000 }
   },
   { 
     name: 'Бухгалтер', 
-    permissions: { ...DEFAULT_PERMISSIONS, markAbsences: false } 
+    permissions: { ...DEFAULT_PERMISSIONS, markAbsences: false },
+    payroll: { ...DEFAULT_PAYROLL_CONFIG, type: 'fixed', rate: 60000 }
   },
   { 
     name: 'Другое', 
-    permissions: DEFAULT_PERMISSIONS 
+    permissions: DEFAULT_PERMISSIONS,
+    payroll: DEFAULT_PAYROLL_CONFIG
   }
 ];
 
