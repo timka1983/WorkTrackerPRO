@@ -80,3 +80,11 @@ DROP TRIGGER IF EXISTS enforce_machine_limit ON machines;
 CREATE TRIGGER enforce_machine_limit
 BEFORE INSERT ON machines
 FOR EACH ROW EXECUTE FUNCTION check_machine_limit();
+
+-- 5. Функция для получения серверного времени (защита от подмены времени на клиенте)
+CREATE OR REPLACE FUNCTION get_server_time()
+RETURNS TIMESTAMPTZ AS $$
+BEGIN
+    RETURN NOW();
+END;
+$$ LANGUAGE plpgsql;

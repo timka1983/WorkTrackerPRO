@@ -509,82 +509,165 @@ export const useAppData = (currentUser: User | null) => {
     }
   }, [currentOrg]);
 
-  const handleLogsUpsert = useCallback((logsToUpsert: WorkLog[]) => {
-    if (!currentOrg) return;
-    
-    // Optimistic Update
-    setLogs(prev => {
-      const updated = [...prev];
-      logsToUpsert.forEach(newLog => {
-        const index = updated.findIndex(l => l.id === newLog.id);
-        if (index !== -1) updated[index] = newLog;
-        else updated.unshift(newLog);
-      });
-      const sorted = updated.sort((a, b) => {
-         const dateCompare = b.date.localeCompare(a.date);
-         if (dateCompare !== 0) return dateCompare;
-         return (b.checkIn || '').localeCompare(a.checkIn || '');
-      });
-      localStorage.setItem(STORAGE_KEYS.WORK_LOGS, JSON.stringify(sorted));
-      return sorted;
-    });
+  const [offlineQueue, setOfflineQueue] = useState<WorkLog[][]>(() => {
+    const cached = localStorage.getItem(STORAGE_KEYS.OFFLINE_QUEUE);
+    return cached ? JSON.parse(cached) : [];
+  });
 
-    // Optimistic Active Shifts
-    setActiveShiftsMap(prev => {
-      const newMap = { ...prev };
-      let changed = false;
-      logsToUpsert.forEach(log => {
-        if (log.checkOut) {
-          const userShifts = newMap[log.userId];
-          if (userShifts) {
-            const newUserShifts = { ...userShifts };
-            let userChanged = false;
-            Object.keys(newUserShifts).forEach(slot => {
-              if (newUserShifts[slot]?.id === log.id) {
-                newUserShifts[slot] = null;
-                userChanged = true;
-                changed = true;
-              }
-            });
-            if (userChanged) {
-              newMap[log.userId] = newUserShifts;
-              // Sync with server immediately to prevent stale state on other devices
-              db.saveActiveShifts(log.userId, newUserShifts, currentOrg.id);
-            }
+  // --- Offline Sync Logic ---
+  const syncOfflineQueue = useCallback(async () => {
+    if (!currentOrg || offlineQueue.length === 0 || !navigator.onLine) return;
+
+    const queue = [...offlineQueue];
+    const logsToSync = queue.shift();
+
+    if (logsToSync) {
+      try {
+        const { error } = await db.batchUpsertLogs(logsToSync, currentOrg.id);
+        if (!error) {
+          setOfflineQueue(queue);
+          localStorage.setItem(STORAGE_KEYS.OFFLINE_QUEUE, JSON.stringify(queue));
+          // If more items, continue syncing
+          if (queue.length > 0) {
+            setTimeout(syncOfflineQueue, 1000);
+          } else {
+            setSyncError(null);
+            queryClient.invalidateQueries({ queryKey: ['initialLogs', currentOrg.id] });
           }
+        } else {
+          console.error('Failed to sync offline logs:', error);
         }
-      });
-      if (changed) {
-        localStorage.setItem(STORAGE_KEYS.ACTIVE_SHIFTS, JSON.stringify(newMap));
-        return newMap;
+      } catch (e) {
+        console.error('Exception syncing offline logs:', e);
       }
-      return prev;
-    });
+    }
+  }, [currentOrg, offlineQueue]);
 
-    // Notifications
-    if (currentOrg.notificationSettings) {
-      logsToUpsert.forEach(log => {
-        const user = users.find(u => u.id === log.userId);
-        if (!user) return;
-        if (log.checkOut && currentOrg.notificationSettings?.onShiftEnd) {
-          sendNotification('Смена завершена', `${user.name} закончил работу.`);
-        } else if (!log.checkOut && currentOrg.notificationSettings?.onShiftStart) {
-          sendNotification('Смена начата', `${user.name} приступил к работе.`);
-        }
-      });
+  useEffect(() => {
+    const handleOnline = () => {
+      syncOfflineQueue();
+    };
+    window.addEventListener('online', handleOnline);
+    
+    // Try to sync on mount if online
+    if (navigator.onLine && offlineQueue.length > 0) {
+      syncOfflineQueue();
     }
 
-    // DB Call
-    setSyncError(null);
-    db.batchUpsertLogs(logsToUpsert, currentOrg.id)
-      .then(({ error }) => {
-        if (error) {
-          setSyncError('Ошибка синхронизации.');
-          console.error(error);
+    return () => window.removeEventListener('online', handleOnline);
+  }, [syncOfflineQueue, offlineQueue.length]);
+
+
+  // --- Mutations ---
+
+  const upsertLogsMutation = useMutation({
+    mutationFn: async (logsToUpsert: WorkLog[]) => {
+      if (!currentOrg) throw new Error('Организация не выбрана');
+      
+      // Check for offline status explicitly
+      if (!navigator.onLine) {
+        throw new Error('OFFLINE');
+      }
+
+      const { error } = await db.batchUpsertLogs(logsToUpsert, currentOrg.id);
+      if (error) throw error;
+      return logsToUpsert;
+    },
+    retry: 3, // Retry up to 3 times on failure
+    onMutate: async (logsToUpsert) => {
+      if (!currentOrg) return;
+
+      // Optimistic Update Logs
+      setLogs(prev => {
+        const updated = [...prev];
+        logsToUpsert.forEach(newLog => {
+          const index = updated.findIndex(l => l.id === newLog.id);
+          if (index !== -1) updated[index] = newLog;
+          else updated.unshift(newLog);
+        });
+        const sorted = updated.sort((a, b) => {
+           const dateCompare = b.date.localeCompare(a.date);
+           if (dateCompare !== 0) return dateCompare;
+           return (b.checkIn || '').localeCompare(a.checkIn || '');
+        });
+        localStorage.setItem(STORAGE_KEYS.WORK_LOGS, JSON.stringify(sorted));
+        return sorted;
+      });
+
+      // Optimistic Active Shifts
+      setActiveShiftsMap(prev => {
+        const newMap = { ...prev };
+        let changed = false;
+        logsToUpsert.forEach(log => {
+          if (log.checkOut) {
+            const userShifts = newMap[log.userId];
+            if (userShifts) {
+              const newUserShifts = { ...userShifts };
+              let userChanged = false;
+              Object.keys(newUserShifts).forEach(slot => {
+                if (newUserShifts[slot]?.id === log.id) {
+                  newUserShifts[slot] = null;
+                  userChanged = true;
+                  changed = true;
+                }
+              });
+              if (userChanged) {
+                newMap[log.userId] = newUserShifts;
+                // Sync with server immediately to prevent stale state on other devices
+                if (navigator.onLine) {
+                    db.saveActiveShifts(log.userId, newUserShifts, currentOrg.id);
+                }
+              }
+            }
+          }
+        });
+        if (changed) {
+          localStorage.setItem(STORAGE_KEYS.ACTIVE_SHIFTS, JSON.stringify(newMap));
+          return newMap;
         }
-      })
-      .catch(() => setSyncError('Критическая ошибка синхронизации.'));
-  }, [currentOrg, users]);
+        return prev;
+      });
+
+      // Notifications
+      if (currentOrg.notificationSettings) {
+        logsToUpsert.forEach(log => {
+          const user = users.find(u => u.id === log.userId);
+          if (!user) return;
+          if (log.checkOut && currentOrg.notificationSettings?.onShiftEnd) {
+            sendNotification('Смена завершена', `${user.name} закончил работу.`);
+          } else if (!log.checkOut && currentOrg.notificationSettings?.onShiftStart) {
+            sendNotification('Смена начата', `${user.name} приступил к работе.`);
+          }
+        });
+      }
+    },
+    onError: (error: any, variables) => {
+      console.error('Mutation error:', error);
+      
+      // If offline or network error, save to queue
+      if (error.message === 'OFFLINE' || error.message?.includes('network') || !navigator.onLine) {
+        setSyncError('Нет сети. Данные сохранены и будут отправлены позже.');
+        
+        setOfflineQueue(prev => {
+          const newQueue = [...prev, variables];
+          localStorage.setItem(STORAGE_KEYS.OFFLINE_QUEUE, JSON.stringify(newQueue));
+          return newQueue;
+        });
+      } else {
+        setSyncError('Ошибка синхронизации. Повторная попытка...');
+      }
+    },
+    onSuccess: () => {
+      setSyncError(null);
+    },
+    onSettled: () => {
+      queryClient.invalidateQueries({ queryKey: ['initialLogs', orgId] });
+    }
+  });
+
+  const handleLogsUpsert = useCallback((logsToUpsert: WorkLog[]) => {
+    upsertLogsMutation.mutate(logsToUpsert);
+  }, [upsertLogsMutation]);
 
   const handleActiveShiftsUpdate = useCallback((userId: string, shifts: any) => {
     if (!currentOrg) return;
@@ -604,58 +687,120 @@ export const useAppData = (currentUser: User | null) => {
     db.deleteLog(logId, currentOrg.id);
   };
 
-  const handleAddUser = async (user: User) => {
-    if (!checkLimit('users')) return;
-    if (!currentOrg) return;
-    
-    const { error } = await db.upsertUser(user, currentOrg.id);
-    if (error) {
-      if (typeof error === 'object' && (error as any).message?.includes('LIMIT_REACHED')) {
-        setUpgradeReason((error as any).message.split(': ')[1] || 'Лимит сотрудников исчерпан.');
+  const addUserMutation = useMutation({
+    mutationFn: async (user: User) => {
+      if (!currentOrg) throw new Error('Организация не выбрана');
+      const { error } = await db.upsertUser(user, currentOrg.id);
+      if (error) {
+        if (typeof error === 'object' && (error as any).message?.includes('LIMIT_REACHED')) {
+          throw new Error((error as any).message.split(': ')[1] || 'LIMIT_REACHED');
+        }
+        throw error;
+      }
+      return user;
+    },
+    retry: 3,
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['users', currentOrg?.id] });
+    },
+    onError: (error: any) => {
+      if (error.message === 'LIMIT_REACHED' || error.message?.includes('Лимит')) {
+        setUpgradeReason(error.message === 'LIMIT_REACHED' ? 'Лимит сотрудников исчерпан.' : error.message);
+        setShowUpgradeModal(true);
       } else {
         alert('Ошибка при добавлении сотрудника.');
       }
-      return;
     }
-    queryClient.invalidateQueries({ queryKey: ['users', currentOrg.id] });
-  };
+  });
 
-  const handleUpdateUser = async (updatedUser: User) => {
-    if (!currentOrg) return;
-    const { error } = await db.upsertUser(updatedUser, currentOrg.id);
-    if (error) {
+  const updateUserMutation = useMutation({
+    mutationFn: async (user: User) => {
+      if (!currentOrg) throw new Error('Организация не выбрана');
+      const { error } = await db.upsertUser(user, currentOrg.id);
+      if (error) throw error;
+      return user;
+    },
+    retry: 3,
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['users', currentOrg?.id] });
+    },
+    onError: () => {
       alert('Ошибка при обновлении сотрудника.');
-      return;
     }
-    queryClient.invalidateQueries({ queryKey: ['users', currentOrg.id] });
-  };
+  });
 
-  const handleDeleteUser = async (userId: string) => {
-    if (!currentOrg) return;
-    await db.deleteUser(userId, currentOrg.id);
-    queryClient.invalidateQueries({ queryKey: ['users', currentOrg.id] });
-  };
+  const deleteUserMutation = useMutation({
+    mutationFn: async (userId: string) => {
+      if (!currentOrg) throw new Error('Организация не выбрана');
+      const { error } = await db.deleteUser(userId, currentOrg.id);
+      if (error) throw error;
+      return userId;
+    },
+    retry: 3,
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['users', currentOrg?.id] });
+    }
+  });
 
-  const persistMachines = async (newMachines: Machine[]) => {
-    if (!currentOrg) return;
-    if (newMachines.length > machines.length && !checkLimit('machines')) return;
-    
-    const { error } = await db.saveMachines(newMachines, currentOrg.id);
-    if (error) {
-      if (typeof error === 'object' && (error as any).message?.includes('LIMIT_REACHED')) {
-        setUpgradeReason((error as any).message.split(': ')[1] || 'Лимит оборудования исчерпан.');
+  const saveMachinesMutation = useMutation({
+    mutationFn: async (newMachines: Machine[]) => {
+      if (!currentOrg) throw new Error('Организация не выбрана');
+      const { error } = await db.saveMachines(newMachines, currentOrg.id);
+      if (error) {
+        if (typeof error === 'object' && (error as any).message?.includes('LIMIT_REACHED')) {
+          throw new Error((error as any).message.split(': ')[1] || 'LIMIT_REACHED');
+        }
+        throw error;
+      }
+      return newMachines;
+    },
+    retry: 3,
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['machines', currentOrg?.id] });
+    },
+    onError: (error: any) => {
+      if (error.message === 'LIMIT_REACHED' || error.message?.includes('Лимит')) {
+        setUpgradeReason(error.message === 'LIMIT_REACHED' ? 'Лимит оборудования исчерпан.' : error.message);
+        setShowUpgradeModal(true);
       } else {
         alert('Ошибка при сохранении оборудования.');
       }
-      return;
     }
-    queryClient.invalidateQueries({ queryKey: ['machines', currentOrg.id] });
+  });
+
+  const savePositionsMutation = useMutation({
+    mutationFn: async (newPositions: PositionConfig[]) => {
+      if (!currentOrg) throw new Error('Организация не выбрана');
+      const { error } = await db.savePositions(newPositions, currentOrg.id);
+      if (error) throw error;
+      return newPositions;
+    },
+    retry: 3,
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['positions', currentOrg?.id] });
+    }
+  });
+
+  const handleAddUser = async (user: User) => {
+    if (!checkLimit('users')) return;
+    addUserMutation.mutate(user);
+  };
+
+  const handleUpdateUser = async (updatedUser: User) => {
+    updateUserMutation.mutate(updatedUser);
+  };
+
+  const handleDeleteUser = async (userId: string) => {
+    deleteUserMutation.mutate(userId);
+  };
+
+  const persistMachines = async (newMachines: Machine[]) => {
+    if (newMachines.length > machines.length && !checkLimit('machines')) return;
+    saveMachinesMutation.mutate(newMachines);
   };
 
   const persistPositions = async (newPositions: PositionConfig[]) => {
-    if (!currentOrg) return;
-    await db.savePositions(newPositions, currentOrg.id);
-    queryClient.invalidateQueries({ queryKey: ['positions', currentOrg.id] });
+    savePositionsMutation.mutate(newPositions);
   };
 
   const handleImportData = async (jsonStr: string) => {

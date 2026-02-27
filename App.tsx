@@ -10,6 +10,8 @@ import NotificationModal from './components/NotificationModal';
 import { useAppData } from './hooks/useAppData';
 import { useAuth } from './hooks/useAuth';
 
+import { useTimeSync } from './hooks/useTimeSync';
+
 // Lazy load heavy components
 const EmployeeView = React.lazy(() => import('./components/EmployeeView'));
 const EmployerView = React.lazy(() => import('./components/EmployerView'));
@@ -23,6 +25,7 @@ const APP_VERSION = 'v1.9.0-PRO-SAAS';
 const App: React.FC = () => {
   const auth = useAuth();
   const appData = useAppData(auth.currentUser);
+  const { getNow } = useTimeSync();
 
   const [showRegistration, setShowRegistration] = useState(false);
   const [showResetModal, setShowResetModal] = useState(false);
@@ -165,6 +168,7 @@ const App: React.FC = () => {
               planLimits={PLAN_LIMITS[appData.currentOrg?.plan || PlanType.FREE]}
               currentOrg={appData.currentOrg}
               onMonthChange={appData.loadLogsForMonth}
+              getNow={getNow}
             />
           ) : (
             isEmployerAuthorized ? (
@@ -192,6 +196,7 @@ const App: React.FC = () => {
                 onUpdateOrg={appData.setCurrentOrg}
                 currentUser={auth.currentUser}
                 onMonthChange={appData.loadLogsForMonth}
+                getNow={getNow}
               />
             ) : (
               <div className="text-center py-20">

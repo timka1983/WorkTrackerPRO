@@ -1,5 +1,6 @@
 
-import React, { useState, useMemo, memo, useEffect } from 'react';
+import React, { useState, useMemo, memo, useEffect, useCallback } from 'react';
+import { TableVirtuoso } from 'react-virtuoso';
 import { WorkLog, User, EntryType, UserRole, Machine, FIXED_POSITION_TURNER, PositionConfig, PositionPermissions, Organization, PlanType, Plan } from '../types';
 import { formatDuration, getDaysInMonthArray, formatDurationShort, exportToCSV, formatTime, calculateMinutes } from '../utils';
 import { format, isAfter } from 'date-fns';
@@ -10,15 +11,12 @@ import { DEFAULT_PERMISSIONS, STORAGE_KEYS, PLAN_LIMITS } from '../constants';
 import { db } from '../lib/supabase';
 
 // --- Memoized Row Component ---
-const MemoizedUserMatrixRow = memo(({ 
+const MemoizedUserMatrixRowCells = memo(({ 
   emp, 
   empLogs, 
   days, 
   today, 
   filterMonth, 
-  machines, 
-  isExpanded, 
-  toggleTurnerRow, 
   setEditingLog 
 }: { 
   emp: User, 
@@ -26,113 +24,65 @@ const MemoizedUserMatrixRow = memo(({
   days: Date[], 
   today: Date, 
   filterMonth: string, 
-  machines: Machine[], 
-  isExpanded: boolean, 
-  toggleTurnerRow: (id: string) => void, 
   setEditingLog: (data: {userId: string, date: string}) => void 
 }) => {
   const totalMinutes = empLogs.filter(l => l.checkOut || l.entryType !== EntryType.WORK).reduce((s, l) => s + l.durationMinutes, 0);
-  const usedMachineIds = [...new Set(empLogs.filter(l => l.machineId).map(l => l.machineId!))];
 
   return (
     <React.Fragment>
-      <tr className="border-b border-slate-200 group bg-slate-50/30">
-        <td className="sticky left-0 z-10 bg-white border-r px-3 py-3 font-black text-slate-900 text-[11px] truncate w-[140px] min-w-[140px] max-w-[140px]">
-          <div className="flex items-center justify-between group/name">
-            <span className="truncate pr-1">{emp.name}</span>
-            {usedMachineIds.length > 0 && (
-              <button 
-                onClick={() => toggleTurnerRow(emp.id)}
-                className={`flex-shrink-0 p-1 rounded-md transition-all ${isExpanded ? 'bg-blue-600 text-white' : 'text-blue-500 hover:bg-blue-100'}`}
-              >
-                <svg className={`w-3 h-3 transition-transform ${isExpanded ? 'rotate-180' : ''}`} fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={3} d="M19 9l-7 7-7-7" /></svg>
-              </button>
-            )}
-          </div>
-          <div className="flex items-center gap-1.5 mt-0.5">
-            <div className="text-[8px] text-blue-600 font-black uppercase">{emp.position}</div>
-          </div>
-        </td>
-        {days.map(day => {
-          const dateStr = format(day, 'yyyy-MM-dd');
-          if (isAfter(day, today)) {
-            const planned = emp.plannedShifts?.[dateStr];
-            return (
-              <td key={dateStr} className="border-r p-1 h-12 text-center align-middle">
-                {planned && (
-                  <span className={`text-[10px] font-black ${
-                    planned === 'Р' ? 'text-blue-400' :
-                    planned === 'В' ? 'text-slate-300' :
-                    planned === 'Д' ? 'text-amber-400' :
-                    planned === 'О' ? 'text-purple-400' :
-                    planned === 'Н' ? 'text-indigo-400' : 'text-slate-300'
-                  }`}>
-                    {planned}
-                  </span>
-                )}
-              </td>
-            );
-          }
-
-          const dayLogs = empLogs.filter(l => l.date === dateStr);
-          const workEntries = dayLogs.filter(l => l.entryType === EntryType.WORK);
-          const workMins = workEntries.reduce((s, l) => s + l.durationMinutes, 0);
-          const hasWork = workEntries.length > 0;
-          const absence = dayLogs.find(l => l.entryType !== EntryType.WORK);
-          const anyCorrected = dayLogs.some(l => l.isCorrected);
-          const anyNight = dayLogs.some(l => l.isNightShift);
-          
-          let content: React.ReactNode = null;
-          if (absence) {
-             content = <span className="font-black text-blue-600">{absence.entryType === EntryType.SICK ? 'Б' : absence.entryType === EntryType.VACATION ? 'О' : 'В'}{anyCorrected && '*'}</span>;
-          } else if (hasWork) {
-             const isPending = workEntries.some(l => !l.checkOut);
-             content = (
-               <div className="flex flex-col items-center justify-center">
-                  <span className={`text-[11px] font-black ${isPending ? 'text-blue-500 italic' : 'text-slate-900'}`}>
-                    {workMins > 0 ? formatDurationShort(workMins) : (isPending ? '--:--' : '0:00')}{(isPending || anyCorrected) && '*'}
-                  </span>
-                  {anyNight && <svg className="w-2 h-2 text-slate-400 mt-0.5" fill="currentColor" viewBox="0 0 20 20"><path d="M17.293 13.293A8 8 0 016.707 2.707a8.001 8.001 0 1010.586 10.586z"/></svg>}
-               </div>
-             );
-          } else {
-             content = <span className="text-[10px] font-bold text-slate-300">В</span>;
-          }
-
+      {days.map(day => {
+        const dateStr = format(day, 'yyyy-MM-dd');
+        if (isAfter(day, today)) {
+          const planned = emp.plannedShifts?.[dateStr];
           return (
-            <td key={dateStr} onClick={() => setEditingLog({ userId: emp.id, date: dateStr })} className="border-r p-1 text-center h-12 tabular-nums cursor-pointer hover:bg-blue-50 transition-colors">
-              {content}
+            <td key={dateStr} className="border-r p-1 h-12 text-center align-middle">
+              {planned && (
+                <span className={`text-[10px] font-black ${
+                  planned === 'Р' ? 'text-blue-400' :
+                  planned === 'В' ? 'text-slate-300' :
+                  planned === 'Д' ? 'text-amber-400' :
+                  planned === 'О' ? 'text-purple-400' :
+                  planned === 'Н' ? 'text-indigo-400' : 'text-slate-300'
+                }`}>
+                  {planned}
+                </span>
+              )}
             </td>
           );
-        })}
-        <td className="sticky right-0 z-10 px-4 py-3 text-center font-black text-slate-900 text-xs bg-slate-50 border-l border-slate-300">{formatDuration(totalMinutes)}</td>
-      </tr>
+        }
 
-      {isExpanded && usedMachineIds.map(mId => {
-         const machineName = machines.find(m => m.id === mId)?.name || 'Работа';
-         return (
-           <tr key={`${emp.id}-${mId}`} className="border-b border-slate-100 bg-blue-50/20">
-             <td className="sticky left-0 z-10 bg-slate-50/80 border-r px-3 py-2 text-[10px] font-bold text-slate-500 italic pl-6 truncate w-[140px] min-w-[140px] max-w-[140px]">
-               ↳ {machineName}
-             </td>
-             {days.map(day => {
-               const dateStr = format(day, 'yyyy-MM-dd');
-               if (isAfter(day, today)) return <td key={dateStr} className="border-r p-1 h-8"></td>;
-               const mLogs = empLogs.filter(l => l.date === dateStr && l.machineId === mId && l.entryType === EntryType.WORK);
-               const mMins = mLogs.reduce((s, l) => s + l.durationMinutes, 0);
-               const hasMLogs = mLogs.length > 0;
-               return (
-                 <td key={dateStr} className="border-r p-1 text-center h-8 text-[9px] font-bold text-slate-400 tabular-nums italic">
-                   {hasMLogs ? formatDurationShort(mMins) : ''}
-                 </td>
-               );
-             })}
-             <td className="sticky right-0 z-10 px-4 py-2 text-center font-bold text-slate-400 text-[10px] bg-slate-50 border-l border-slate-200 italic">
-               {formatDuration(empLogs.filter(l => l.machineId === mId).reduce((s, l) => s + l.durationMinutes, 0))}
-             </td>
-           </tr>
-         );
+        const dayLogs = empLogs.filter(l => l.date === dateStr);
+        const workEntries = dayLogs.filter(l => l.entryType === EntryType.WORK);
+        const workMins = workEntries.reduce((s, l) => s + l.durationMinutes, 0);
+        const hasWork = workEntries.length > 0;
+        const absence = dayLogs.find(l => l.entryType !== EntryType.WORK);
+        const anyCorrected = dayLogs.some(l => l.isCorrected);
+        const anyNight = dayLogs.some(l => l.isNightShift);
+        
+        let content: React.ReactNode = null;
+        if (absence) {
+           content = <span className="font-black text-blue-600">{absence.entryType === EntryType.SICK ? 'Б' : absence.entryType === EntryType.VACATION ? 'О' : 'В'}{anyCorrected && '*'}</span>;
+        } else if (hasWork) {
+           const isPending = workEntries.some(l => !l.checkOut);
+           content = (
+             <div className="flex flex-col items-center justify-center">
+                <span className={`text-[11px] font-black ${isPending ? 'text-blue-500 italic' : 'text-slate-900'}`}>
+                  {workMins > 0 ? formatDurationShort(workMins) : (isPending ? '--:--' : '0:00')}{(isPending || anyCorrected) && '*'}
+                </span>
+                {anyNight && <svg className="w-2 h-2 text-slate-400 mt-0.5" fill="currentColor" viewBox="0 0 20 20"><path d="M17.293 13.293A8 8 0 016.707 2.707a8.001 8.001 0 1010.586 10.586z"/></svg>}
+             </div>
+           );
+        } else {
+           content = <span className="text-[10px] font-bold text-slate-300">В</span>;
+        }
+
+        return (
+          <td key={dateStr} onClick={() => setEditingLog({ userId: emp.id, date: dateStr })} className="border-r p-1 text-center h-12 tabular-nums cursor-pointer hover:bg-blue-50 transition-colors">
+            {content}
+          </td>
+        );
       })}
+      <td className="sticky right-0 z-10 px-4 py-3 text-center font-black text-slate-900 text-xs bg-slate-50 border-l border-slate-300">{formatDuration(totalMinutes)}</td>
     </React.Fragment>
   );
 });
@@ -162,14 +112,15 @@ interface EmployerViewProps {
   onUpdateOrg: (org: Organization) => void;
   currentUser?: User | null;
   onMonthChange?: (month: string) => void;
+  getNow: () => Date;
 }
 
 const EmployerView: React.FC<EmployerViewProps> = ({ 
   logs, users, onAddUser, onUpdateUser, onDeleteUser, 
   machines, onUpdateMachines, positions, onUpdatePositions, onImportData, onLogsUpsert, activeShiftsMap = {}, onActiveShiftsUpdate, onDeleteLog,
-  onRefresh, isSyncing = false, nightShiftBonusMinutes, onUpdateNightBonus, currentOrg, plans, onUpdateOrg, currentUser: propCurrentUser, onMonthChange
+  onRefresh, isSyncing = false, nightShiftBonusMinutes, onUpdateNightBonus, currentOrg, plans, onUpdateOrg, currentUser: propCurrentUser, onMonthChange, getNow
 }) => {
-  const [filterMonth, setFilterMonth] = useState(format(new Date(), 'yyyy-MM'));
+  const [filterMonth, setFilterMonth] = useState(format(getNow(), 'yyyy-MM'));
   const [viewMode, setViewMode] = useState<'matrix' | 'team' | 'analytics' | 'settings' | 'billing'>('analytics');
   const [editingLog, setEditingLog] = useState<{ userId: string; date: string } | null>(null);
   const [tempNotes, setTempNotes] = useState<Record<string, string>>({});
@@ -196,7 +147,7 @@ const EmployerView: React.FC<EmployerViewProps> = ({
   useEffect(() => {
     const fetchStats = async () => {
       if (!currentOrg) return;
-      const last7Days = Array.from({ length: 7 }, (_, i) => format(subDays(new Date(), i), 'yyyy-MM-dd'));
+      const last7Days = Array.from({ length: 7 }, (_, i) => format(subDays(getNow(), i), 'yyyy-MM-dd'));
       const stats = await db.getDashboardStats(currentOrg.id, filterMonth, last7Days);
       if (stats) {
         setServerStats({
@@ -208,7 +159,7 @@ const EmployerView: React.FC<EmployerViewProps> = ({
       }
     };
     fetchStats();
-  }, [currentOrg, filterMonth, logs]);
+  }, [currentOrg, filterMonth, logs, getNow]);
 
   const employees = useMemo(() => {
     return [...users].sort((a, b) => a.name.localeCompare(b.name));
@@ -225,7 +176,7 @@ const EmployerView: React.FC<EmployerViewProps> = ({
   const isMachineLimitReached = machines.length >= planLimits.maxMachines;
 
   const days = getDaysInMonthArray(filterMonth);
-  const today = startOfDay(new Date());
+  const today = startOfDay(getNow());
 
   const currentUser = useMemo(() => {
     if (propCurrentUser) return propCurrentUser;
@@ -270,7 +221,7 @@ const EmployerView: React.FC<EmployerViewProps> = ({
   };
 
   const dashboardStats = useMemo(() => {
-    const todayStr = format(new Date(), 'yyyy-MM-dd');
+    const todayStr = format(getNow(), 'yyyy-MM-dd');
     const todayLogs = logs.filter(l => l.date === todayStr);
     
     // Собираем активные смены из двух источников: из логов и из карты активных смен
@@ -301,7 +252,7 @@ const EmployerView: React.FC<EmployerViewProps> = ({
       absenceCounts = serverStats.absenceCounts;
     } else {
       // Fallback local calculation
-      const last7Days = Array.from({ length: 7 }, (_, i) => format(subDays(new Date(), i), 'yyyy-MM-dd'));
+      const last7Days = Array.from({ length: 7 }, (_, i) => format(subDays(getNow(), i), 'yyyy-MM-dd'));
       const weekLogs = logs.filter(l => last7Days.includes(l.date) && l.entryType === EntryType.WORK);
       const totalWeeklyMinutes = weekLogs.reduce((s, l) => s + l.durationMinutes, 0);
       avgWeeklyHours = (totalWeeklyMinutes / 60) / 7;
@@ -320,7 +271,7 @@ const EmployerView: React.FC<EmployerViewProps> = ({
     });
 
     return { activeShifts, finishedToday, avgWeeklyHours, absenceCounts, activeLogsMap, todayStr };
-  }, [logs, employees, filterMonth, activeShiftsMap, serverStats]);
+  }, [logs, employees, filterMonth, activeShiftsMap, serverStats, getNow]);
 
   // Функция для принудительного завершения смены администратором
   const handleForceFinish = async (log: WorkLog) => {
@@ -329,7 +280,7 @@ const EmployerView: React.FC<EmployerViewProps> = ({
     
     if (!confirm(`Вы действительно хотите принудительно завершить смену (${mName}) для ${empName}? Таймер сотрудника будет остановлен, оборудование станет свободным.`)) return;
 
-    const now = new Date();
+    const now = getNow();
     // Рассчитываем длительность смены до текущего момента
     const duration = log.checkIn ? calculateMinutes(log.checkIn, now.toISOString()) : 0;
     
@@ -348,6 +299,34 @@ const EmployerView: React.FC<EmployerViewProps> = ({
     // находит и удаляет завершенные смены из карты активных смен (activeShiftsMap).
     onLogsUpsert([completedLog]);
   };
+
+  const virtuosoData = useMemo(() => {
+    const rows: any[] = [];
+    employees.forEach(emp => {
+      const empLogs = logs.filter(l => l.userId === emp.id && l.date.startsWith(filterMonth));
+      rows.push({ type: 'employee', emp, empLogs });
+      if (expandedTurnerRows.has(emp.id)) {
+        const usedMachineIds = [...new Set(empLogs.filter(l => l.machineId).map(l => l.machineId!))];
+        usedMachineIds.forEach(mId => {
+          rows.push({ type: 'machine', emp, mId, empLogs });
+        });
+      }
+    });
+    return rows;
+  }, [employees, expandedTurnerRows, logs, filterMonth]);
+
+  const virtuosoComponents = useMemo(() => ({
+    Table: (props: any) => <table {...props} className="w-full border-collapse" />,
+    TableBody: React.forwardRef<HTMLTableSectionElement>((props, ref) => <tbody {...props} ref={ref} />),
+    TableRow: (props: any) => {
+      const index = props['data-index'];
+      const row = props.context?.data?.[index];
+      const className = row?.type === 'employee' 
+        ? "border-b border-slate-200 group bg-slate-50/30" 
+        : "border-b border-slate-100 bg-blue-50/20";
+      return <tr {...props} className={className} />;
+    }
+  }), []);
 
   const handleAddUser = (e: React.FormEvent) => {
     e.preventDefault();
@@ -1003,13 +982,15 @@ const EmployerView: React.FC<EmployerViewProps> = ({
       )}
 
       {viewMode === 'matrix' && (
-        <section className="bg-white rounded-3xl shadow-sm border border-slate-200 overflow-hidden" id="employer-matrix-report">
+        <section className="bg-white rounded-3xl shadow-sm border border-slate-200 overflow-hidden h-[700px] flex flex-col" id="employer-matrix-report">
           <div className="hidden print:block p-8 text-center border-b border-slate-900 print-monochrome">
              <h1 className="text-3xl font-black uppercase tracking-tighter">Сводный Табель ({filterMonth})</h1>
           </div>
-          <div className="overflow-x-auto print-monochrome">
-            <table className="w-full border-collapse">
-              <thead>
+          <div className="flex-1 print-monochrome">
+            <TableVirtuoso
+              style={{ height: '100%' }}
+              data={virtuosoData}
+              fixedHeaderContent={() => (
                 <tr className="bg-slate-50 border-b border-slate-200">
                   <th className="sticky left-0 z-30 bg-slate-50 px-3 py-4 text-left text-[10px] font-bold text-slate-600 uppercase border-r w-[140px] min-w-[140px] max-w-[140px]">Сотрудник / Ресурс</th>
                   {days.map(day => (
@@ -1022,29 +1003,70 @@ const EmployerView: React.FC<EmployerViewProps> = ({
                   ))}
                   <th className="sticky right-0 z-20 bg-slate-50 px-4 py-4 text-center text-[10px] font-bold text-slate-600 uppercase border-l">ИТОГО</th>
                 </tr>
-              </thead>
-              <tbody>
-                {employees.map(emp => {
-                  const empLogs = logs.filter(l => l.userId === emp.id && l.date.startsWith(filterMonth));
-                  const isExpanded = expandedTurnerRows.has(emp.id);
-
+              )}
+              itemContent={(index, row) => {
+                if (row.type === 'employee') {
+                  const usedMachineIds = [...new Set(row.empLogs.filter((l: any) => l.machineId).map((l: any) => l.machineId!))];
+                  const isExpanded = expandedTurnerRows.has(row.emp.id);
                   return (
-                    <MemoizedUserMatrixRow
-                      key={emp.id}
-                      emp={emp}
-                      empLogs={empLogs}
-                      days={days}
-                      today={today}
-                      filterMonth={filterMonth}
-                      machines={machines}
-                      isExpanded={isExpanded}
-                      toggleTurnerRow={toggleTurnerRow}
-                      setEditingLog={setEditingLog}
-                    />
+                    <React.Fragment>
+                      <td className="sticky left-0 z-10 bg-white border-r px-3 py-3 font-black text-slate-900 text-[11px] truncate w-[140px] min-w-[140px] max-w-[140px]">
+                        <div className="flex items-center justify-between group/name">
+                          <span className="truncate pr-1">{row.emp.name}</span>
+                          {usedMachineIds.length > 0 && (
+                            <button 
+                              onClick={() => toggleTurnerRow(row.emp.id)}
+                              className={`flex-shrink-0 p-1 rounded-md transition-all ${isExpanded ? 'bg-blue-600 text-white' : 'text-blue-500 hover:bg-blue-100'}`}
+                            >
+                              <svg className={`w-3 h-3 transition-transform ${isExpanded ? 'rotate-180' : ''}`} fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={3} d="M19 9l-7 7-7-7" /></svg>
+                            </button>
+                          )}
+                        </div>
+                        <div className="flex items-center gap-1.5 mt-0.5">
+                          <div className="text-[8px] text-blue-600 font-black uppercase">{row.emp.position}</div>
+                        </div>
+                      </td>
+                      <MemoizedUserMatrixRowCells
+                        emp={row.emp}
+                        empLogs={row.empLogs}
+                        days={days}
+                        today={today}
+                        filterMonth={filterMonth}
+                        setEditingLog={setEditingLog}
+                      />
+                    </React.Fragment>
                   );
-                })}
-              </tbody>
-            </table>
+                } else {
+                  const machineName = machines.find(m => m.id === row.mId)?.name || 'Работа';
+                  const mMinsTotal = row.empLogs.filter((l: any) => l.machineId === row.mId && l.entryType === EntryType.WORK).reduce((s: number, l: any) => s + l.durationMinutes, 0);
+                  
+                  return (
+                    <React.Fragment>
+                      <td className="sticky left-0 z-10 bg-slate-50/80 border-r px-3 py-2 text-[10px] font-bold text-slate-500 italic pl-6 truncate w-[140px] min-w-[140px] max-w-[140px]">
+                        ↳ {machineName}
+                      </td>
+                      {days.map(day => {
+                        const dateStr = format(day, 'yyyy-MM-dd');
+                        if (isAfter(day, today)) return <td key={dateStr} className="border-r p-1 h-8"></td>;
+                        const mLogs = row.empLogs.filter((l: any) => l.date === dateStr && l.machineId === row.mId && l.entryType === EntryType.WORK);
+                        const mMins = mLogs.reduce((s: number, l: any) => s + l.durationMinutes, 0);
+                        const hasMLogs = mLogs.length > 0;
+                        return (
+                          <td key={dateStr} className="border-r p-1 text-center h-8 text-[9px] font-bold text-slate-400 tabular-nums italic">
+                            {hasMLogs ? formatDurationShort(mMins) : ''}
+                          </td>
+                        );
+                      })}
+                      <td className="sticky right-0 z-10 px-4 py-2 text-center font-bold text-slate-400 text-[10px] bg-slate-50 border-l border-slate-200 italic">
+                        {formatDurationShort(mMinsTotal)}
+                      </td>
+                    </React.Fragment>
+                  );
+                }
+              }}
+              components={virtuosoComponents}
+              context={{ data: virtuosoData }}
+            />
           </div>
         </section>
       )}

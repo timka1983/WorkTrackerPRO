@@ -72,10 +72,11 @@ interface EmployeeViewProps {
   planLimits: PlanLimits;
   currentOrg: Organization | null;
   onMonthChange?: (month: string) => void;
+  getNow: () => Date;
 }
 
 const EmployeeView: React.FC<EmployeeViewProps> = ({ 
-  user, logs, onLogsUpsert, activeShifts, onActiveShiftsUpdate, onOvertime, machines, positions, onUpdateUser, nightShiftBonusMinutes, onRefresh, planLimits, currentOrg, onMonthChange
+  user, logs, onLogsUpsert, activeShifts, onActiveShiftsUpdate, onOvertime, machines, positions, onUpdateUser, nightShiftBonusMinutes, onRefresh, planLimits, currentOrg, onMonthChange, getNow
 }) => {
   const orgId = localStorage.getItem(STORAGE_KEYS.ORG_ID) || 'demo_org';
 
@@ -88,9 +89,9 @@ const EmployeeView: React.FC<EmployeeViewProps> = ({
 
   useEffect(() => {
     const checkOvertime = () => {
-      if (!perms.maxShiftDurationMinutes || !planLimits.features.advancedAnalytics) return; // Only for paid plans (using advancedAnalytics as a proxy for paid features, or we can just check plan !== FREE)
+      if (!perms.maxShiftDurationMinutes || !planLimits.features.advancedAnalytics) return; 
 
-      const now = new Date();
+      const now = getNow();
       const updatedAlerts = { ...overtimeAlerts };
       let changed = false;
 
@@ -120,7 +121,7 @@ const EmployeeView: React.FC<EmployeeViewProps> = ({
     const interval = setInterval(checkOvertime, 60000);
     checkOvertime();
     return () => clearInterval(interval);
-  }, [activeShifts, perms.maxShiftDurationMinutes, overtimeAlerts, planLimits, user, onOvertime]);
+  }, [activeShifts, perms.maxShiftDurationMinutes, overtimeAlerts, planLimits, user, onOvertime, getNow]);
 
   const [slotMachineIds, setSlotMachineIds] = useState<Record<number, string>>({ 1: '', 2: '', 3: '' });
 
@@ -194,7 +195,7 @@ const EmployeeView: React.FC<EmployeeViewProps> = ({
       .filter((id): id is string => !!id);
   }, [logs]);
 
-  const todayStr = format(new Date(), 'yyyy-MM-dd');
+  const todayStr = format(getNow(), 'yyyy-MM-dd');
   const isAbsentToday = useMemo(() => {
     return logs.some(l => l.userId === user.id && l.date === todayStr && l.entryType !== EntryType.WORK);
   }, [logs, user.id, todayStr]);
@@ -290,7 +291,7 @@ const EmployeeView: React.FC<EmployeeViewProps> = ({
        return;
     }
 
-    const now = new Date();
+    const now = getNow();
     const dateStr = format(now, 'yyyy-MM-dd');
     const newShift: WorkLog = {
       id: `shift-${user.id}-${Date.now()}-${slot}`,
@@ -316,7 +317,7 @@ const EmployeeView: React.FC<EmployeeViewProps> = ({
     const currentShift = activeShifts[slot];
     if (!currentShift) return;
     
-    const now = new Date();
+    const now = getNow();
     let duration = calculateMinutes(currentShift.checkIn!, now.toISOString());
     
     if (currentShift.isNightShift) {
@@ -352,7 +353,7 @@ const EmployeeView: React.FC<EmployeeViewProps> = ({
       return;
     }
 
-    const dateStr = format(new Date(), 'yyyy-MM-dd');
+    const dateStr = format(getNow(), 'yyyy-MM-dd');
     const exists = logs.find(l => l.date === dateStr && l.userId === user.id);
     if (exists) {
       alert("На этот день уже есть записи!");
@@ -401,7 +402,7 @@ const EmployeeView: React.FC<EmployeeViewProps> = ({
   const myLogs = logs.filter(l => l.userId === user.id);
   const filteredLogs = myLogs.filter(l => l.date.startsWith(filterMonth));
   const daysInMonth = getDaysInMonthArray(filterMonth);
-  const today = startOfDay(new Date());
+  const today = startOfDay(getNow());
 
   const stats = useMemo(() => {
     const workSessions = filteredLogs.filter(l => l.entryType === EntryType.WORK && l.checkOut);

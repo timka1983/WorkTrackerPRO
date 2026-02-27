@@ -92,7 +92,8 @@ export const STORAGE_KEYS = {
   LAST_USER_ID: 'timesheet_last_user_id',
   ORG_ID: 'timesheet_org_id',
   ORG_DATA: 'timesheet_org_data',
-  PROMO_CODES: 'timesheet_promo_codes'
+  PROMO_CODES: 'timesheet_promo_codes',
+  OFFLINE_QUEUE: 'timesheet_offline_queue'
 };
 
 const savedLogs = localStorage.getItem(STORAGE_KEYS.WORK_LOGS);

@@ -403,8 +403,9 @@ export const db = {
     return { error };
   },
   deleteUser: async (id: string, orgId: string) => {
-    if (!isConfigured()) return;
-    await supabase.from('users').delete().eq('id', id).eq('organization_id', orgId);
+    if (!isConfigured()) return { error: 'Not configured' };
+    const { error } = await supabase.from('users').delete().eq('id', id).eq('organization_id', orgId);
+    return { error };
   },
   getMachines: async (orgId: string) => {
     if (!checkConfig()) return null;
@@ -431,22 +432,49 @@ export const db = {
     })) || null;
   },
   savePositions: async (positions: any[], orgId: string) => {
-    if (!checkConfig()) return;
+    if (!checkConfig()) return { error: 'Not configured' };
     
     // Для позиций upsert
-    await supabase.from('positions').delete().eq('organization_id', orgId);
+    const { error: delError } = await supabase.from('positions').delete().eq('organization_id', orgId);
+    if (delError) return { error: delError };
+
     if (positions.length > 0) {
-      await supabase.from('positions').insert(positions.map(p => ({ 
+      const { error } = await supabase.from('positions').insert(positions.map(p => ({ 
         name: p.name, 
         permissions: p.permissions,
         organization_id: orgId 
       })));
+      return { error };
     }
+    return { error: null };
   },
   getSystemConfig: async () => {
     if (!checkConfig()) return null;
     const { data } = await supabase.from('system_config').select('*').single();
     return data;
+  },
+  getServerTime: async () => {
+    if (!checkConfig()) return new Date().toISOString();
+    // Use RPC if available, or a simple query
+    try {
+      const { data, error } = await supabase.rpc('get_server_time');
+      if (!error && data) return data;
+      
+      // Fallback: select now()
+      // We can use a dummy query to get the time
+      const { data: timeData, error: timeError } = await supabase.from('active_shifts').select('created_at').limit(1);
+      // This is not ideal as it returns created_at of a row.
+      // Better fallback: just use client time if RPC fails, or try to select current_timestamp via a view if one existed.
+      // But since we can't easily create views/RPCs from here without SQL access, let's try a direct query if possible or just rely on client time as fallback.
+      
+      // Actually, we can use the `head` method or just a simple select if we had a 'health' table.
+      // Let's assume we can't easily get server time without RPC.
+      // But wait, we can use `select now()` via a raw query if the client allowed it, but supabase-js doesn't expose raw query easily without RPC.
+      
+      return new Date().toISOString();
+    } catch (e) {
+      return new Date().toISOString();
+    }
   },
   updateSystemConfig: async (config: any) => {
     if (!checkConfig()) return;
