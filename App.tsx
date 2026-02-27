@@ -1,19 +1,22 @@
-import React, { useEffect, useMemo, useState } from 'react';
+import React, { useEffect, useMemo, useState, Suspense } from 'react';
 import { UserRole, PlanType, PositionConfig } from './types';
 import { STORAGE_KEYS, DEFAULT_PERMISSIONS, PLAN_LIMITS } from './constants';
 import { sendNotification } from './utils';
 import Layout from './components/Layout';
-import EmployeeView from './components/EmployeeView';
-import EmployerView from './components/EmployerView';
-import LandingPage from './components/LandingPage';
-import RegistrationForm from './components/RegistrationForm';
-import SuperAdminView from './components/SuperAdminView';
-import LoginScreen from './components/LoginScreen';
+import LoadingScreen from './components/LoadingScreen';
 import ResetPinModal from './components/ResetPinModal';
 import UpgradeModal from './components/UpgradeModal';
 import NotificationModal from './components/NotificationModal';
 import { useAppData } from './hooks/useAppData';
 import { useAuth } from './hooks/useAuth';
+
+// Lazy load heavy components
+const EmployeeView = React.lazy(() => import('./components/EmployeeView'));
+const EmployerView = React.lazy(() => import('./components/EmployerView'));
+const LandingPage = React.lazy(() => import('./components/LandingPage'));
+const RegistrationForm = React.lazy(() => import('./components/RegistrationForm'));
+const SuperAdminView = React.lazy(() => import('./components/SuperAdminView'));
+const LoginScreen = React.lazy(() => import('./components/LoginScreen'));
 
 const APP_VERSION = 'v1.9.0-PRO-SAAS';
 
@@ -59,172 +62,175 @@ const App: React.FC = () => {
   }, [auth.currentUser]);
 
   if (!appData.isInitialized) {
-    return (
-      <div className="min-h-screen flex items-center justify-center bg-slate-50">
-        <div className="flex flex-col items-center gap-4">
-          <div className="w-12 h-12 border-4 border-indigo-600 border-t-transparent rounded-full animate-spin"></div>
-          <p className="text-slate-500 font-medium animate-pulse">Загрузка системы...</p>
-        </div>
-      </div>
-    );
+    return <LoadingScreen />;
   }
 
   if (isSuperAdmin) {
-    return <SuperAdminView onLogout={auth.handleLogout} />;
+    return (
+      <Suspense fallback={<LoadingScreen />}>
+        <SuperAdminView onLogout={auth.handleLogout} />
+      </Suspense>
+    );
   }
 
   if (showRegistration) {
     return (
-      <RegistrationForm 
-        onBack={() => setShowRegistration(false)} 
-        onSuccess={(orgId) => {
-          Object.values(STORAGE_KEYS).forEach(key => {
-            localStorage.removeItem(key);
-          });
-          localStorage.setItem(STORAGE_KEYS.ORG_ID, orgId);
-          setShowRegistration(false);
-          auth.setShowLanding(false);
-          window.location.reload();
-        }} 
-      />
+      <Suspense fallback={<LoadingScreen />}>
+        <RegistrationForm 
+          onBack={() => setShowRegistration(false)} 
+          onSuccess={(orgId) => {
+            Object.values(STORAGE_KEYS).forEach(key => {
+              localStorage.removeItem(key);
+            });
+            localStorage.setItem(STORAGE_KEYS.ORG_ID, orgId);
+            setShowRegistration(false);
+            auth.setShowLanding(false);
+            window.location.reload();
+          }} 
+        />
+      </Suspense>
     );
   }
 
   if (auth.showLanding && !auth.currentUser) {
     return (
-      <LandingPage 
-        onStart={() => auth.setShowLanding(false)} 
-        onRegister={() => setShowRegistration(true)}
-        plans={appData.plans}
-      />
+      <Suspense fallback={<LoadingScreen />}>
+        <LandingPage 
+          onStart={() => auth.setShowLanding(false)} 
+          onRegister={() => setShowRegistration(true)}
+          plans={appData.plans}
+        />
+      </Suspense>
     );
   }
 
   return (
-    <Layout 
-      user={auth.currentUser} 
-      currentOrg={appData.currentOrg} 
-      onLogout={auth.handleLogout} 
-      onSwitchRole={auth.handleSwitchRole} 
-      onRefresh={appData.handleRefresh}
-      version={APP_VERSION}
-      isSyncing={appData.isSyncing}
-    >
-      {appData.dbError && (
-        <div className="bg-rose-600 text-white px-4 py-2 text-center text-xs font-bold animate-pulse sticky top-16 z-[60] shadow-lg">
-          ⚠️ {appData.dbError}
-        </div>
-      )}
-      {appData.syncError && (
-        <div className="bg-amber-500 text-white px-4 py-2 text-center text-xs font-bold sticky top-16 z-[60] shadow-lg">
-          ⚠️ {appData.syncError} Данные сохранены локально и будут отправлены позже.
-        </div>
-      )}
+    <Suspense fallback={<LoadingScreen />}>
+      <Layout 
+        user={auth.currentUser} 
+        currentOrg={appData.currentOrg} 
+        onLogout={auth.handleLogout} 
+        onSwitchRole={auth.handleSwitchRole} 
+        onRefresh={appData.handleRefresh}
+        version={APP_VERSION}
+        isSyncing={appData.isSyncing}
+      >
+        {appData.dbError && (
+          <div className="bg-rose-600 text-white px-4 py-2 text-center text-xs font-bold animate-pulse sticky top-16 z-[60] shadow-lg">
+            ⚠️ {appData.dbError}
+          </div>
+        )}
+        {appData.syncError && (
+          <div className="bg-amber-500 text-white px-4 py-2 text-center text-xs font-bold sticky top-16 z-[60] shadow-lg">
+            ⚠️ {appData.syncError} Данные сохранены локально и будут отправлены позже.
+          </div>
+        )}
 
-      {!auth.currentUser ? (
-        <LoginScreen 
-           users={appData.users}
-           selectedLoginUser={auth.selectedLoginUser}
-           setSelectedLoginUser={auth.setSelectedLoginUser}
-           pinInput={auth.pinInput}
-           setPinInput={auth.setPinInput}
-           loginError={auth.loginError}
-           setLoginError={auth.setLoginError}
-           validateAndLogin={(pin, user) => auth.validateAndLogin(pin, appData.users, appData.superAdminPin, appData.globalAdminPin, user)}
-           setShowLanding={auth.setShowLanding}
-           setShowResetModal={setShowResetModal}
-           currentOrg={appData.currentOrg}
-           appVersion={APP_VERSION}
-           globalAdminPin={appData.globalAdminPin}
-           setCurrentUser={auth.setCurrentUser}
-           isSelectedUserAdmin={isSelectedUserAdmin}
-        />
-      ) : (
-        auth.currentUser.role === UserRole.EMPLOYEE ? (
-          <EmployeeView 
-            user={auth.currentUser} 
-            logs={appData.logs} 
-            onLogsUpsert={appData.handleLogsUpsert} 
-            activeShifts={appData.activeShiftsMap[auth.currentUser.id] || { 1: null, 2: null, 3: null }}
-            onActiveShiftsUpdate={(shifts: any) => appData.handleActiveShiftsUpdate(auth.currentUser!.id, shifts)}
-            onOvertime={(user: any, slot: any) => {
-              if (appData.currentOrg?.notificationSettings?.onOvertime) {
-                sendNotification('Превышение лимита', `Сотрудник ${user.name} превысил лимит времени смены.`);
-              }
-            }}
-            machines={appData.machines} 
-            positions={appData.positions} 
-            onUpdateUser={appData.handleUpdateUser}
-            nightShiftBonusMinutes={appData.nightShiftBonus}
-            onRefresh={appData.handleRefresh}
-            planLimits={PLAN_LIMITS[appData.currentOrg?.plan || PlanType.FREE]}
-            currentOrg={appData.currentOrg}
-            onMonthChange={appData.loadLogsForMonth}
+        {!auth.currentUser ? (
+          <LoginScreen 
+             users={appData.users}
+             selectedLoginUser={auth.selectedLoginUser}
+             setSelectedLoginUser={auth.setSelectedLoginUser}
+             pinInput={auth.pinInput}
+             setPinInput={auth.setPinInput}
+             loginError={auth.loginError}
+             setLoginError={auth.setLoginError}
+             validateAndLogin={(pin, user) => auth.validateAndLogin(pin, appData.users, appData.superAdminPin, appData.globalAdminPin, user)}
+             setShowLanding={auth.setShowLanding}
+             setShowResetModal={setShowResetModal}
+             currentOrg={appData.currentOrg}
+             appVersion={APP_VERSION}
+             globalAdminPin={appData.globalAdminPin}
+             setCurrentUser={auth.setCurrentUser}
+             isSelectedUserAdmin={isSelectedUserAdmin}
           />
         ) : (
-          isEmployerAuthorized ? (
-            <EmployerView 
+          auth.currentUser.role === UserRole.EMPLOYEE ? (
+            <EmployeeView 
+              user={auth.currentUser} 
               logs={appData.logs} 
-              users={appData.users} 
-              onAddUser={appData.handleAddUser} 
+              onLogsUpsert={appData.handleLogsUpsert} 
+              activeShifts={appData.activeShiftsMap[auth.currentUser.id] || { 1: null, 2: null, 3: null }}
+              onActiveShiftsUpdate={(shifts: any) => appData.handleActiveShiftsUpdate(auth.currentUser!.id, shifts)}
+              onOvertime={(user: any, slot: any) => {
+                if (appData.currentOrg?.notificationSettings?.onOvertime) {
+                  sendNotification('Превышение лимита', `Сотрудник ${user.name} превысил лимит времени смены.`);
+                }
+              }}
+              machines={appData.machines} 
+              positions={appData.positions} 
               onUpdateUser={appData.handleUpdateUser}
-              onDeleteUser={appData.handleDeleteUser} 
-              machines={appData.machines}
-              onUpdateMachines={appData.persistMachines}
-              positions={appData.positions}
-              onUpdatePositions={appData.persistPositions}
-              onImportData={appData.handleImportData}
-              onLogsUpsert={appData.handleLogsUpsert}
-              activeShiftsMap={appData.activeShiftsMap}
-              onActiveShiftsUpdate={appData.handleActiveShiftsUpdate}
-              onDeleteLog={appData.handleDeleteLog}
-              onRefresh={appData.handleRefresh}
-              isSyncing={appData.isSyncing}
               nightShiftBonusMinutes={appData.nightShiftBonus}
-              onUpdateNightBonus={appData.setNightShiftBonus}
+              onRefresh={appData.handleRefresh}
+              planLimits={PLAN_LIMITS[appData.currentOrg?.plan || PlanType.FREE]}
               currentOrg={appData.currentOrg}
-              plans={appData.plans}
-              onUpdateOrg={appData.setCurrentOrg}
-              currentUser={auth.currentUser}
               onMonthChange={appData.loadLogsForMonth}
             />
           ) : (
-            <div className="text-center py-20">
-              <h2 className="text-2xl font-black text-slate-900 uppercase">Доступ ограничен</h2>
-              <p className="text-slate-500 mt-2 font-medium">У вас нет прав для просмотра этого раздела.</p>
-              <button onClick={() => auth.handleSwitchRole(UserRole.EMPLOYEE)} className="mt-6 px-8 py-3 bg-blue-600 text-white rounded-2xl font-black uppercase text-xs">Вернуться в Мой Табель</button>
-            </div>
+            isEmployerAuthorized ? (
+              <EmployerView 
+                logs={appData.logs} 
+                users={appData.users} 
+                onAddUser={appData.handleAddUser} 
+                onUpdateUser={appData.handleUpdateUser}
+                onDeleteUser={appData.handleDeleteUser} 
+                machines={appData.machines}
+                onUpdateMachines={appData.persistMachines}
+                positions={appData.positions}
+                onUpdatePositions={appData.persistPositions}
+                onImportData={appData.handleImportData}
+                onLogsUpsert={appData.handleLogsUpsert}
+                activeShiftsMap={appData.activeShiftsMap}
+                onActiveShiftsUpdate={appData.handleActiveShiftsUpdate}
+                onDeleteLog={appData.handleDeleteLog}
+                onRefresh={appData.handleRefresh}
+                isSyncing={appData.isSyncing}
+                nightShiftBonusMinutes={appData.nightShiftBonus}
+                onUpdateNightBonus={appData.setNightShiftBonus}
+                currentOrg={appData.currentOrg}
+                plans={appData.plans}
+                onUpdateOrg={appData.setCurrentOrg}
+                currentUser={auth.currentUser}
+                onMonthChange={appData.loadLogsForMonth}
+              />
+            ) : (
+              <div className="text-center py-20">
+                <h2 className="text-2xl font-black text-slate-900 uppercase">Доступ ограничен</h2>
+                <p className="text-slate-500 mt-2 font-medium">У вас нет прав для просмотра этого раздела.</p>
+                <button onClick={() => auth.handleSwitchRole(UserRole.EMPLOYEE)} className="mt-6 px-8 py-3 bg-blue-600 text-white rounded-2xl font-black uppercase text-xs">Вернуться в Мой Табель</button>
+              </div>
+            )
           )
-        )
-      )}
-      
-      {showResetModal && (
-        <ResetPinModal 
-          currentOrg={appData.currentOrg}
-          onClose={() => setShowResetModal(false)}
-          onSuccess={() => {
-             setShowResetModal(false);
-             appData.initData(true);
-          }}
-        />
-      )}
-      
-      {appData.upgradeReason && !appData.showUpgradeModal && (
-        <NotificationModal 
-          message={appData.upgradeReason}
-          onClose={() => appData.setUpgradeReason(null)}
-        />
-      )}
-      
-      {appData.showUpgradeModal && (
-        <UpgradeModal 
-          reason={appData.upgradeReason}
-          onClose={() => { appData.setUpgradeReason(null); appData.setShowUpgradeModal(false); }}
-          onUpgrade={() => { window.location.href = '#pricing'; appData.setUpgradeReason(null); appData.setShowUpgradeModal(false); }}
-        />
-      )}
+        )}
+        
+        {showResetModal && (
+          <ResetPinModal 
+            currentOrg={appData.currentOrg}
+            onClose={() => setShowResetModal(false)}
+            onSuccess={() => {
+               setShowResetModal(false);
+               appData.initData(true);
+            }}
+          />
+        )}
+        
+        {appData.upgradeReason && !appData.showUpgradeModal && (
+          <NotificationModal 
+            message={appData.upgradeReason}
+            onClose={() => appData.setUpgradeReason(null)}
+          />
+        )}
+        
+        {appData.showUpgradeModal && (
+          <UpgradeModal 
+            reason={appData.upgradeReason}
+            onClose={() => { appData.setUpgradeReason(null); appData.setShowUpgradeModal(false); }}
+            onUpgrade={() => { window.location.href = '#pricing'; appData.setUpgradeReason(null); appData.setShowUpgradeModal(false); }}
+          />
+        )}
 
-    </Layout>
+      </Layout>
+    </Suspense>
   );
 };
 
