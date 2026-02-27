@@ -539,7 +539,11 @@ export const useAppData = (currentUser: User | null) => {
                 changed = true;
               }
             });
-            if (userChanged) newMap[log.userId] = newUserShifts;
+            if (userChanged) {
+              newMap[log.userId] = newUserShifts;
+              // Sync with server immediately to prevent stale state on other devices
+              db.saveActiveShifts(log.userId, newUserShifts, currentOrg.id);
+            }
           }
         }
       });
