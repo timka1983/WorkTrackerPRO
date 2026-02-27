@@ -298,6 +298,32 @@ export const db = {
       return null;
     }
   },
+  getMonthlyReport: async (orgId: string, month: string) => {
+    if (!isConfigured()) return null;
+    try {
+      const { data, error } = await supabase.rpc('get_monthly_report', { p_org_id: orgId, p_month: month });
+      if (error) {
+        console.error('Error fetching monthly report:', error);
+        return null;
+      }
+      return data;
+    } catch (e) {
+      return null;
+    }
+  },
+  getUserStats: async (userId: string, month: string) => {
+    if (!isConfigured()) return null;
+    try {
+      const { data, error } = await supabase.rpc('get_user_stats', { p_user_id: userId, p_month: month });
+      if (error) {
+        console.error('Error fetching user stats:', error);
+        return null;
+      }
+      return data?.[0] || null;
+    } catch (e) {
+      return null;
+    }
+  },
   upsertUser: async (user: any, orgId: string) => {
     if (!isConfigured()) return { error: 'Not configured' };
     
