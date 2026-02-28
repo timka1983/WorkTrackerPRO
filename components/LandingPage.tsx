@@ -20,7 +20,7 @@ const LandingPage: React.FC<LandingPageProps> = ({ onStart, onRegister, plans })
       limits: { 
         maxUsers: 3, 
         maxMachines: 1,
-        features: { photoCapture: false, nightShift: false, advancedAnalytics: false } 
+        features: { photoCapture: false, nightShift: false, advancedAnalytics: false, payroll: false } 
       } 
     },
     { 
@@ -30,7 +30,7 @@ const LandingPage: React.FC<LandingPageProps> = ({ onStart, onRegister, plans })
       limits: { 
         maxUsers: 20, 
         maxMachines: 5,
-        features: { photoCapture: true, nightShift: true, advancedAnalytics: true } 
+        features: { photoCapture: true, nightShift: true, advancedAnalytics: true, payroll: true } 
       } 
     },
     { 
@@ -40,7 +40,7 @@ const LandingPage: React.FC<LandingPageProps> = ({ onStart, onRegister, plans })
       limits: { 
         maxUsers: 100, 
         maxMachines: 20,
-        features: { photoCapture: true, nightShift: true, advancedAnalytics: true } 
+        features: { photoCapture: true, nightShift: true, advancedAnalytics: true, payroll: true } 
       } 
     }
   ] as any[]; // Cast to any[] to allow flexible rendering logic below
