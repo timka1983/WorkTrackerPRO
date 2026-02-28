@@ -238,6 +238,7 @@ export const db = {
       // Эти колонки могут отсутствовать в старых версиях БД
       if (log.isNightShift) item.is_night_shift = true;
       if (log.fine) item.fine = log.fine;
+      if (log.bonus) item.bonus = log.bonus;
       if (orgId && orgId !== 'demo_org') item.organization_id = orgId;
       
       return item;
@@ -250,7 +251,7 @@ export const db = {
       // Если ошибка в колонках (42703) или неопределенная ошибка, пробуем минимальный набор
       if (error.code === '42703' || error.message?.includes('column')) {
         const minimalPayload = payload.map(p => {
-          const { is_night_shift, organization_id, photo_in, photo_out, machine_id, fine, ...rest } = p;
+          const { is_night_shift, organization_id, photo_in, photo_out, machine_id, fine, bonus, ...rest } = p;
           return rest;
         });
         console.warn('Retrying with minimal payload...');

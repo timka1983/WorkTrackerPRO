@@ -79,11 +79,14 @@ export const calculateMonthlyPayroll = (
   regularPay: number;
   overtimePay: number;
   nightShiftPay: number;
+  sickLeavePay: number;
+  bonuses: number;
   fines: number;
   details: {
     regularHours: number;
     overtimeHours: number;
     nightShiftCount: number;
+    sickDays: number;
   };
 } => {
   const positionConfig = positions.find(p => p.name === user.position);
@@ -91,17 +94,22 @@ export const calculateMonthlyPayroll = (
     type: 'hourly',
     rate: 0,
     overtimeMultiplier: 1.5,
-    nightShiftBonus: 0
+    nightShiftBonus: 0,
+    sickLeaveRate: 0,
+    machineRates: {}
   };
 
   let regularPay = 0;
   let overtimePay = 0;
   let nightShiftPay = 0;
+  let sickLeavePay = 0;
+  let bonuses = 0;
   let fines = 0;
 
   let regularHours = 0;
   let overtimeHours = 0;
   let nightShiftCount = 0;
+  let sickDays = 0;
 
   const standardShiftMinutes = positionConfig?.permissions.maxShiftDurationMinutes || 480;
 
@@ -116,12 +124,18 @@ export const calculateMonthlyPayroll = (
         overtimeMinutes = duration - standardShiftMinutes;
       }
 
+      // Determine the rate to use
+      let currentRate = config.rate;
+      if (log.machineId && config.machineRates && config.machineRates[log.machineId] !== undefined) {
+        currentRate = config.machineRates[log.machineId];
+      }
+
       if (config.type === 'hourly') {
-        regularPay += (regularMinutes / 60) * config.rate;
-        overtimePay += (overtimeMinutes / 60) * config.rate * config.overtimeMultiplier;
+        regularPay += (regularMinutes / 60) * currentRate;
+        overtimePay += (overtimeMinutes / 60) * currentRate * config.overtimeMultiplier;
       } else if (config.type === 'shift') {
-        regularPay += config.rate;
-        const impliedHourlyRate = config.rate / (standardShiftMinutes / 60);
+        regularPay += currentRate;
+        const impliedHourlyRate = currentRate / (standardShiftMinutes / 60);
         overtimePay += (overtimeMinutes / 60) * impliedHourlyRate * config.overtimeMultiplier;
       }
 
@@ -132,10 +146,18 @@ export const calculateMonthlyPayroll = (
         nightShiftCount++;
         nightShiftPay += config.nightShiftBonus;
       }
+    } else if (log.entryType === EntryType.SICK) {
+      sickDays++;
+      if (config.sickLeaveRate) {
+        sickLeavePay += config.sickLeaveRate;
+      }
     }
 
     if (log.fine) {
       fines += log.fine;
+    }
+    if (log.bonus) {
+      bonuses += log.bonus;
     }
   });
 
@@ -145,18 +167,21 @@ export const calculateMonthlyPayroll = (
     overtimePay = overtimeHours * impliedHourlyRate * config.overtimeMultiplier;
   }
 
-  const totalSalary = regularPay + overtimePay + nightShiftPay - fines;
+  const totalSalary = regularPay + overtimePay + nightShiftPay + sickLeavePay + bonuses - fines;
 
   return {
     totalSalary: Math.max(0, Math.round(totalSalary)),
     regularPay: Math.round(regularPay),
     overtimePay: Math.round(overtimePay),
     nightShiftPay: Math.round(nightShiftPay),
+    sickLeavePay: Math.round(sickLeavePay),
+    bonuses: Math.round(bonuses),
     fines: Math.round(fines),
     details: {
       regularHours: parseFloat(regularHours.toFixed(1)),
       overtimeHours: parseFloat(overtimeHours.toFixed(1)),
-      nightShiftCount
+      nightShiftCount,
+      sickDays
     }
   };
 };

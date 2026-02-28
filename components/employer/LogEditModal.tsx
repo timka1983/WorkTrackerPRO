@@ -11,7 +11,7 @@ interface LogEditModalProps {
   deleteLogItem: (id: string) => void;
   setPreviewPhoto: (photo: string | null) => void;
   formatTime: (dateStr: string) => string;
-  saveCorrection: (id: string, durationMinutes: number, fine?: number) => void;
+  saveCorrection: (id: string, durationMinutes: number, fine?: number, bonus?: number) => void;
   tempNotes: Record<string, string>;
   setTempNotes: (notes: Record<string, string>) => void;
 }
@@ -125,15 +125,27 @@ export const LogEditModal: React.FC<LogEditModalProps> = ({
                          </div>
                       </div>
                       
-                      <div className="space-y-1">
-                         <label className="text-[9px] font-black text-slate-400 uppercase ml-1">Штраф (₽)</label>
-                         <input 
-                            type="number" 
-                            placeholder="0"
-                            defaultValue={log.fine || ''} 
-                            onBlur={(e) => saveCorrection(log.id, log.durationMinutes, parseInt(e.target.value) || 0)}
-                            className="w-full bg-slate-50 border-2 border-slate-100 rounded-xl px-4 py-2 text-sm font-black text-red-600 outline-none focus:border-red-500 focus:bg-white transition-all"
-                         />
+                      <div className="grid grid-cols-2 gap-2">
+                         <div className="space-y-1">
+                            <label className="text-[9px] font-black text-slate-400 uppercase ml-1">Штраф (₽)</label>
+                            <input 
+                               type="number" 
+                               placeholder="0"
+                               defaultValue={log.fine || ''} 
+                               onBlur={(e) => saveCorrection(log.id, log.durationMinutes, parseInt(e.target.value) || 0, log.bonus)}
+                               className="w-full bg-slate-50 border-2 border-slate-100 rounded-xl px-4 py-2 text-sm font-black text-red-600 outline-none focus:border-red-500 focus:bg-white transition-all"
+                            />
+                         </div>
+                         <div className="space-y-1">
+                            <label className="text-[9px] font-black text-slate-400 uppercase ml-1">Премия (₽)</label>
+                            <input 
+                               type="number" 
+                               placeholder="0"
+                               defaultValue={log.bonus || ''} 
+                               onBlur={(e) => saveCorrection(log.id, log.durationMinutes, log.fine, parseInt(e.target.value) || 0)}
+                               className="w-full bg-slate-50 border-2 border-slate-100 rounded-xl px-4 py-2 text-sm font-black text-green-600 outline-none focus:border-green-500 focus:bg-white transition-all"
+                            />
+                         </div>
                       </div>
 
                       <div className="space-y-1">

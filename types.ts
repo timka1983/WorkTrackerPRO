@@ -84,6 +84,8 @@ export interface PayrollConfig {
   rate: number; 
   overtimeMultiplier: number;
   nightShiftBonus: number;
+  sickLeaveRate?: number;
+  machineRates?: Record<string, number>;
 }
 
 export interface PositionConfig {
@@ -132,4 +134,5 @@ export interface WorkLog {
   correctionTimestamp?: string;
   isNightShift?: boolean; // Флаг ночной смены
   fine?: number; // Штраф за смену
+  bonus?: number; // Премия за смену
 }
