@@ -1,6 +1,6 @@
 
 import React, { useState, useMemo, useEffect } from 'react';
-import { WorkLog, User, EntryType, UserRole, Machine, FIXED_POSITION_TURNER, PositionConfig, PositionPermissions, Organization, PlanType, Plan, PayrollConfig } from '../types';
+import { WorkLog, User, EntryType, UserRole, Machine, FIXED_POSITION_TURNER, PositionConfig, PositionPermissions, Organization, PlanType, Plan, PayrollConfig, PlanLimits } from '../types';
 import { getDaysInMonthArray, formatTime, calculateMinutes } from '../utils';
 import { format } from 'date-fns';
 import { startOfDay } from 'date-fns/startOfDay';
@@ -100,7 +100,7 @@ const EmployerView: React.FC<EmployerViewProps> = ({
   const planLimits = useMemo(() => {
     if (!currentOrg) return PLAN_LIMITS[PlanType.FREE];
     const dynamicPlan = plans.find(p => p.type === currentOrg.plan);
-    return dynamicPlan ? dynamicPlan.limits : PLAN_LIMITS[currentOrg.plan];
+    return dynamicPlan ? (dynamicPlan.limits as PlanLimits) : PLAN_LIMITS[currentOrg.plan];
   }, [currentOrg, plans]);
 
   const isUserLimitReached = users.length >= planLimits.maxUsers;
