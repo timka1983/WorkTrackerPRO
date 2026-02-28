@@ -104,9 +104,16 @@ export const useAppData = (currentUser: User | null) => {
         await db.createOrganization(defaultOrg);
         return defaultOrg;
       } else {
-        // Invalid Org ID, redirect to default
-        localStorage.setItem(STORAGE_KEYS.ORG_ID, DEFAULT_ORG_ID);
-        window.location.reload();
+        // If we have cached data, use it instead of reloading
+        const cached = localStorage.getItem(STORAGE_KEYS.ORG_DATA);
+        if (cached) {
+          const parsed = JSON.parse(cached);
+          if (parsed.id === orgId) return parsed;
+        }
+        
+        // Only redirect if we are sure it doesn't exist (not just a network error)
+        // For now, let's just return null and let the UI handle it, or use cache
+        console.error('Organization not found or network error');
         return null;
       }
     },
@@ -395,8 +402,8 @@ export const useAppData = (currentUser: User | null) => {
           return updated;
         });
         
-        // Also invalidate query to ensure consistency
-        queryClient.invalidateQueries({ queryKey: ['initialLogs', id] });
+        // We don't need to invalidate the whole query here since we optimistically updated the state
+        // queryClient.invalidateQueries({ queryKey: ['initialLogs', id] });
         
       } else if (payload.eventType === 'DELETE') {
         setLogs(prev => {
@@ -404,7 +411,7 @@ export const useAppData = (currentUser: User | null) => {
           localStorage.setItem(STORAGE_KEYS.WORK_LOGS, JSON.stringify(updated));
           return updated;
         });
-        queryClient.invalidateQueries({ queryKey: ['initialLogs', id] });
+        // queryClient.invalidateQueries({ queryKey: ['initialLogs', id] });
       }
     });
 
@@ -413,15 +420,19 @@ export const useAppData = (currentUser: User | null) => {
     });
 
     const unsubActiveShifts = db.subscribeToChanges(id, 'active_shifts', (payload) => {
-       // 1. Invalidate query to fetch fresh data eventually
-       queryClient.invalidateQueries({ queryKey: ['activeShifts', id] });
+       // We don't need to invalidate the whole query here since we optimistically updated the state
+       // queryClient.invalidateQueries({ queryKey: ['activeShifts', id] });
        
        // 2. Optimistically update local state immediately
        if (payload.eventType === 'INSERT' || payload.eventType === 'UPDATE') {
         setActiveShiftsMap(prev => {
+          let parsed = payload.new.shifts || payload.new.shifts_json;
+          if (typeof parsed === 'string') {
+            try { parsed = JSON.parse(parsed); } catch (e) { parsed = {}; }
+          }
           const updated = {
             ...prev,
-            [payload.new.user_id]: payload.new.shifts || payload.new.shifts_json
+            [payload.new.user_id]: parsed || {}
           };
           localStorage.setItem(STORAGE_KEYS.ACTIVE_SHIFTS, JSON.stringify(updated));
           return updated;
