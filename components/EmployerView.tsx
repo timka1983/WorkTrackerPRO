@@ -105,7 +105,7 @@ const EmployerView: React.FC<EmployerViewProps> = ({
 
   const isUserLimitReached = users.length >= planLimits.maxUsers;
   const isMachineLimitReached = machines.length >= planLimits.maxMachines;
-  const canUsePayroll = planLimits.features.payroll ?? false;
+  const canUsePayroll = planLimits.features.payroll;
 
   useEffect(() => {
     if (viewMode === 'payroll' && !canUsePayroll) {

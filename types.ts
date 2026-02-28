@@ -22,10 +22,10 @@ export interface PlanLimits {
   maxUsers: number;
   maxMachines: number;
   features: {
-    photoCapture?: boolean;
+    photoCapture: boolean;
     nightShift: boolean;
     advancedAnalytics: boolean;
-    payroll?: boolean;
+    payroll: boolean;
   };
 }
 
