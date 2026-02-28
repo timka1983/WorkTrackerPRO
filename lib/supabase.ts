@@ -716,6 +716,13 @@ export const db = {
     const { error } = await supabase.from('users').update({ pin: newPin }).eq('organization_id', orgId).eq('id', 'admin');
     if (error) console.error('Error resetting admin pin:', error);
   },
+  createBucket: async (bucketName: string) => {
+    if (!isConfigured()) return { error: 'Not configured' };
+    const { data, error } = await supabase.storage.createBucket(bucketName, {
+      public: true
+    });
+    return { data, error };
+  },
   getDiagnostics: async () => {
     const results: Record<string, any> = {
       config: {

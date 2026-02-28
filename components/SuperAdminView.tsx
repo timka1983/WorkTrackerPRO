@@ -939,6 +939,12 @@ const SuperAdminView: React.FC<SuperAdminViewProps> = ({ onLogout, onUpdateSyste
                         </div>
                         <span className={plan.limits.features.advancedAnalytics ? 'text-slate-700 font-medium' : 'text-slate-400'}>Аналитика</span>
                       </div>
+                      <div className="flex items-center gap-3 text-sm">
+                        <div className={`p-1 rounded-md ${plan.limits.features.payroll ? 'bg-emerald-100 text-emerald-600' : 'bg-slate-100 text-slate-400'}`}>
+                          <CreditCard className="w-4 h-4" />
+                        </div>
+                        <span className={plan.limits.features.payroll ? 'text-slate-700 font-medium' : 'text-slate-400'}>Зарплата</span>
+                      </div>
                     </div>
 
                     <button 
@@ -1128,7 +1134,27 @@ const SuperAdminView: React.FC<SuperAdminViewProps> = ({ onLogout, onUpdateSyste
                             {status.status === 'ok' ? (
                               <p className="text-[10px] text-emerald-600 leading-tight">Доступен (Public: {status.public ? 'Да' : 'Нет'})</p>
                             ) : (
-                              <p className="text-[10px] text-rose-600 leading-tight">{status.message}</p>
+                              <div className="space-y-2">
+                                <p className="text-[10px] text-rose-600 leading-tight">{status.message}</p>
+                                {status.message && status.message.includes('не найден') && (
+                                  <button
+                                    onClick={async () => {
+                                      if (!confirm(`Попытаться создать бакет "${bucket}"?`)) return;
+                                      const { error } = await db.createBucket(bucket);
+                                      if (error) {
+                                        const msg = typeof error === 'string' ? error : error.message;
+                                        alert('Ошибка: ' + msg);
+                                      } else {
+                                        alert('Бакет создан!');
+                                        runDiagnostics();
+                                      }
+                                    }}
+                                    className="w-full py-1 bg-indigo-600 text-white text-[10px] rounded font-bold hover:bg-indigo-700"
+                                  >
+                                    Создать
+                                  </button>
+                                )}
+                              </div>
                             )}
                           </div>
                         ))}
