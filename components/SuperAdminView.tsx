@@ -1,9 +1,9 @@
 
 import React, { useState, useEffect } from 'react';
 import { Organization, PlanType, Plan, PromoCode, User, UserRole } from '../types';
-import { db } from '../lib/supabase';
+import { db, supabase } from '../lib/supabase';
 import { STORAGE_KEYS } from '../constants';
-import { Users, Building2, CreditCard, Activity, ShieldCheck, Search, RefreshCw, ExternalLink, Settings2, X, Check, Plus, LayoutGrid, Zap, Briefcase, Save, Camera, Moon, BarChart3, Megaphone, Ticket, Trash2 } from 'lucide-react';
+import { Users, Building2, CreditCard, Activity, ShieldCheck, Search, RefreshCw, ExternalLink, Settings2, X, Check, Plus, LayoutGrid, Zap, Briefcase, Save, Camera, Moon, BarChart3, Megaphone, Ticket, Trash2, Database, AlertCircle, PlayCircle } from 'lucide-react';
 
 interface SuperAdminViewProps {
   onLogout: () => void;
@@ -19,7 +19,7 @@ const SuperAdminView: React.FC<SuperAdminViewProps> = ({ onLogout, onUpdateSyste
   const [editingOrg, setEditingOrg] = useState<Organization | null>(null);
   const [editingAdmin, setEditingAdmin] = useState<User | null>(null);
   const [isCreating, setIsCreating] = useState(false);
-  const [activeTab, setActiveTab] = useState<'orgs' | 'plans' | 'marketing' | 'diagnostics'>('orgs');
+  const [activeTab, setActiveTab] = useState<'orgs' | 'plans' | 'marketing' | 'diagnostics' | 'app_diagnostics'>('orgs');
   const [viewingUsersOrg, setViewingUsersOrg] = useState<{ id: string; name: string } | null>(null);
   const [orgUsers, setOrgUsers] = useState<User[]>([]);
   const [loadingUsers, setLoadingUsers] = useState(false);
@@ -43,6 +43,8 @@ const SuperAdminView: React.FC<SuperAdminViewProps> = ({ onLogout, onUpdateSyste
   const [resetPinConfirm, setResetPinConfirm] = useState<{ orgId: string; pin: string } | null>(null);
   const [diagnostics, setDiagnostics] = useState<any>(null);
   const [checkingDiagnostics, setCheckingDiagnostics] = useState(false);
+  const [appTests, setAppTests] = useState<any[]>([]);
+  const [runningAppTests, setRunningAppTests] = useState(false);
   const [systemConfig, setSystemConfig] = useState<any>(null);
   const [newSuperAdminPin, setNewSuperAdminPin] = useState('');
   const [newGlobalAdminPin, setNewGlobalAdminPin] = useState('');
@@ -57,6 +59,73 @@ const SuperAdminView: React.FC<SuperAdminViewProps> = ({ onLogout, onUpdateSyste
     } finally {
       setCheckingDiagnostics(false);
     }
+  };
+
+  const runAppTests = async () => {
+    setRunningAppTests(true);
+    const tests: any[] = [
+      { id: 'supabase', name: 'Подключение к Supabase', status: 'pending', description: 'Проверка связи с базой данных' },
+      { id: 'auth', name: 'Система авторизации', status: 'pending', description: 'Проверка доступа к таблицам пользователей' },
+      { id: 'orgs', name: 'Управление организациями', status: 'pending', description: 'Проверка чтения данных организаций' },
+      { id: 'logs', name: 'Учет рабочего времени', status: 'pending', description: 'Проверка доступа к логам смен' },
+      { id: 'machines', name: 'Оборудование', status: 'pending', description: 'Проверка доступа к таблице оборудования' },
+      { id: 'positions', name: 'Должности и права', status: 'pending', description: 'Проверка доступа к таблице должностей' },
+      { id: 'plans', name: 'Тарифные планы', status: 'pending', description: 'Проверка доступа к таблице тарифов' },
+      { id: 'storage', name: 'Хранилище (Фото)', status: 'pending', description: 'Проверка доступа к bucket "photos"' },
+      { id: 'pwa', name: 'PWA / Service Worker', status: 'pending', description: 'Проверка регистрации сервис-воркера' },
+    ];
+    setAppTests(tests);
+
+    for (let i = 0; i < tests.length; i++) {
+      const test = tests[i];
+      try {
+        let success = false;
+        let errorMsg = '';
+        
+        if (test.id === 'supabase') {
+          success = await db.checkConnection();
+        } else if (test.id === 'auth') {
+          const { error } = await supabase.from('users').select('id').limit(1);
+          success = !error;
+          if (error) errorMsg = error.message;
+        } else if (test.id === 'orgs') {
+          const { error } = await supabase.from('organizations').select('id').limit(1);
+          success = !error;
+          if (error) errorMsg = error.message;
+        } else if (test.id === 'logs') {
+          const { error } = await supabase.from('work_logs').select('id').limit(1);
+          success = !error;
+          if (error) errorMsg = error.message;
+        } else if (test.id === 'machines') {
+          const { error } = await supabase.from('machines').select('id').limit(1);
+          success = !error;
+          if (error) errorMsg = error.message;
+        } else if (test.id === 'positions') {
+          const { error } = await supabase.from('positions').select('name').limit(1);
+          success = !error;
+          if (error) errorMsg = error.message;
+        } else if (test.id === 'plans') {
+          const { error } = await supabase.from('plans').select('type').limit(1);
+          success = !error;
+          if (error) errorMsg = error.message;
+        } else if (test.id === 'storage') {
+          const { error } = await supabase.storage.getBucket('photos');
+          success = !error;
+          if (error) errorMsg = error.message;
+        } else if (test.id === 'pwa') {
+          success = 'serviceWorker' in navigator;
+          if (!success) errorMsg = 'Service Worker не поддерживается';
+        }
+
+        tests[i] = { ...test, status: success ? 'success' : 'error', error: errorMsg };
+        setAppTests([...tests]);
+      } catch (e: any) {
+        tests[i] = { ...test, status: 'error', error: e.message };
+        setAppTests([...tests]);
+      }
+      await new Promise(r => setTimeout(r, 200));
+    }
+    setRunningAppTests(false);
   };
 
   useEffect(() => {
@@ -185,19 +254,19 @@ const SuperAdminView: React.FC<SuperAdminViewProps> = ({ onLogout, onUpdateSyste
             type: PlanType.FREE,
             name: 'Бесплатный',
             price: 0,
-            limits: { maxUsers: 3, maxMachines: 2, features: { photoCapture: false, nightShift: false, advancedAnalytics: false } }
+            limits: { maxUsers: 3, maxMachines: 2, features: { photoCapture: false, nightShift: false, advancedAnalytics: false, payroll: false } }
           },
           {
             type: PlanType.PRO,
             name: 'Профессиональный',
             price: 2900,
-            limits: { maxUsers: 20, maxMachines: 10, features: { photoCapture: true, nightShift: true, advancedAnalytics: true } }
+            limits: { maxUsers: 20, maxMachines: 10, features: { photoCapture: true, nightShift: true, advancedAnalytics: true, payroll: true } }
           },
           {
             type: PlanType.BUSINESS,
             name: 'Бизнес',
             price: 9900,
-            limits: { maxUsers: 1000, maxMachines: 1000, features: { photoCapture: true, nightShift: true, advancedAnalytics: true } }
+            limits: { maxUsers: 1000, maxMachines: 1000, features: { photoCapture: true, nightShift: true, advancedAnalytics: true, payroll: true } }
           }
         ];
         setPlans(defaultPlans);
@@ -532,8 +601,17 @@ const SuperAdminView: React.FC<SuperAdminViewProps> = ({ onLogout, onUpdateSyste
               activeTab === 'diagnostics' ? 'bg-white text-indigo-600 shadow-sm' : 'text-slate-600 hover:text-slate-900'
             }`}
           >
+            <Database className="w-4 h-4" />
+            База данных
+          </button>
+          <button 
+            onClick={() => setActiveTab('app_diagnostics')}
+            className={`px-6 py-2.5 rounded-xl text-sm font-bold transition-all flex items-center gap-2 ${
+              activeTab === 'app_diagnostics' ? 'bg-white text-indigo-600 shadow-sm' : 'text-slate-600 hover:text-slate-900'
+            }`}
+          >
             <Activity className="w-4 h-4" />
-            Диагностика БД
+            Функции
           </button>
           <button 
             onClick={() => setActiveTab('system' as any)}
@@ -888,6 +966,87 @@ const SuperAdminView: React.FC<SuperAdminViewProps> = ({ onLogout, onUpdateSyste
               </div>
             </div>
           </div>
+        ) : activeTab === 'app_diagnostics' ? (
+          <div className="space-y-8 animate-fadeIn">
+            <div className="bg-white p-8 rounded-3xl border border-slate-200 shadow-sm">
+              <div className="flex justify-between items-center mb-8">
+                <div>
+                  <h3 className="text-xl font-bold text-slate-900">Диагностика функций приложения</h3>
+                  <p className="text-sm text-slate-500">Проверка работоспособности основных модулей системы</p>
+                </div>
+                <button 
+                  onClick={runAppTests}
+                  disabled={runningAppTests}
+                  className="flex items-center gap-2 px-6 py-2.5 bg-indigo-600 text-white rounded-xl hover:bg-indigo-700 transition-all shadow-lg shadow-indigo-100 font-bold disabled:opacity-50"
+                >
+                  <PlayCircle className={`w-4 h-4 ${runningAppTests ? 'animate-spin' : ''}`} />
+                  Запустить тесты
+                </button>
+              </div>
+
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                {appTests.length > 0 ? (
+                  appTests.map((test) => (
+                    <div key={test.id} className={`p-5 rounded-2xl border transition-all ${
+                      test.status === 'success' ? 'bg-emerald-50 border-emerald-100' : 
+                      test.status === 'error' ? 'bg-rose-50 border-rose-100' : 
+                      'bg-slate-50 border-slate-200'
+                    }`}>
+                      <div className="flex items-center justify-between mb-2">
+                        <div className="flex items-center gap-3">
+                          <div className={`p-2 rounded-lg ${
+                            test.status === 'success' ? 'bg-emerald-100 text-emerald-600' : 
+                            test.status === 'error' ? 'bg-rose-100 text-rose-600' : 
+                            'bg-white text-slate-400'
+                          }`}>
+                            {test.status === 'success' ? <Check className="w-4 h-4" /> : 
+                             test.status === 'error' ? <AlertCircle className="w-4 h-4" /> : 
+                             <RefreshCw className={`w-4 h-4 ${runningAppTests ? 'animate-spin' : ''}`} />}
+                          </div>
+                          <div>
+                            <h4 className="font-bold text-slate-900 text-sm">{test.name}</h4>
+                            <p className="text-[10px] text-slate-500 uppercase font-bold tracking-wider">{test.id}</p>
+                          </div>
+                        </div>
+                        <div className={`px-2 py-1 rounded-md text-[10px] font-bold uppercase tracking-wider ${
+                          test.status === 'success' ? 'bg-emerald-200 text-emerald-700' : 
+                          test.status === 'error' ? 'bg-rose-200 text-rose-700' : 
+                          'bg-slate-200 text-slate-500'
+                        }`}>
+                          {test.status === 'success' ? 'OK' : test.status === 'error' ? 'Ошибка' : 'Ожидание'}
+                        </div>
+                      </div>
+                      <p className="text-xs text-slate-600 mb-2">{test.description}</p>
+                      {test.error && (
+                        <div className="mt-2 p-2 bg-white/50 rounded-lg border border-rose-200">
+                          <p className="text-[10px] text-rose-600 font-mono break-all">{test.error}</p>
+                        </div>
+                      )}
+                    </div>
+                  ))
+                ) : (
+                  <div className="col-span-full py-12 text-center border-2 border-dashed border-slate-200 rounded-3xl">
+                    <Activity className="w-12 h-12 text-slate-200 mx-auto mb-4" />
+                    <p className="text-slate-400">Нажмите "Запустить тесты" для начала диагностики</p>
+                  </div>
+                )}
+              </div>
+            </div>
+
+            <div className="bg-amber-50 p-6 rounded-3xl border border-amber-100 flex items-start gap-4">
+              <div className="p-3 bg-white rounded-2xl shadow-sm">
+                <AlertCircle className="w-6 h-6 text-amber-600" />
+              </div>
+              <div>
+                <h4 className="font-bold text-amber-900 mb-1">О диагностике функций</h4>
+                <p className="text-sm text-amber-700 leading-relaxed">
+                  Эта панель проверяет не только наличие таблиц, но и корректность работы бизнес-логики приложения. 
+                  Если какой-то тест завершился с ошибкой, это может означать отсутствие необходимых прав доступа (RLS), 
+                  ошибки в структуре данных или проблемы с конфигурацией Supabase.
+                </p>
+              </div>
+            </div>
+          </div>
         ) : activeTab === 'diagnostics' ? (
           <div className="space-y-8 animate-fadeIn">
             <div className="bg-white p-8 rounded-3xl border border-slate-200 shadow-sm">
@@ -954,6 +1113,28 @@ const SuperAdminView: React.FC<SuperAdminViewProps> = ({ onLogout, onUpdateSyste
                       ))}
                     </div>
                   </div>
+
+                  {/* Storage Section */}
+                  {diagnostics.storage && (
+                    <div>
+                      <h4 className="text-sm font-bold text-slate-900 mb-4 uppercase tracking-wider">Хранилище (Storage)</h4>
+                      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
+                        {Object.entries(diagnostics.storage).map(([bucket, status]: [string, any]) => (
+                          <div key={bucket} className={`p-4 rounded-xl border ${status.status === 'ok' ? 'bg-white border-slate-200' : 'bg-rose-50 border-rose-200'}`}>
+                            <div className="flex items-center justify-between mb-2">
+                              <span className="text-xs font-mono font-bold text-slate-700">Bucket: {bucket}</span>
+                              {status.status === 'ok' ? <Check className="w-4 h-4 text-emerald-500" /> : <X className="w-4 h-4 text-rose-500" />}
+                            </div>
+                            {status.status === 'ok' ? (
+                              <p className="text-[10px] text-emerald-600 leading-tight">Доступен (Public: {status.public ? 'Да' : 'Нет'})</p>
+                            ) : (
+                              <p className="text-[10px] text-rose-600 leading-tight">{status.message}</p>
+                            )}
+                          </div>
+                        ))}
+                      </div>
+                    </div>
+                  )}
 
                   {/* Columns Section */}
                   {diagnostics.columns && Object.keys(diagnostics.columns).length > 0 && (
@@ -1214,15 +1395,16 @@ const SuperAdminView: React.FC<SuperAdminViewProps> = ({ onLogout, onUpdateSyste
       {/* Edit Plan Modal */}
       {editingPlan && (
         <div className="fixed inset-0 z-[100] flex items-center justify-center p-4 bg-slate-900/60 backdrop-blur-sm animate-fadeIn">
-          <div className="bg-white rounded-3xl shadow-2xl w-full max-w-lg overflow-hidden border border-slate-200">
-            <div className="bg-slate-900 px-6 py-4 flex justify-between items-center">
+          <div className="bg-white rounded-3xl shadow-2xl w-full max-w-lg overflow-hidden border border-slate-200 max-h-[90vh] flex flex-col">
+            <div className="bg-slate-900 px-6 py-4 flex justify-between items-center shrink-0">
               <h3 className="text-white font-bold">Настройка тарифа: {editingPlan.name}</h3>
               <button onClick={() => setEditingPlan(null)} className="text-slate-400 hover:text-white transition-colors">
                 <X className="w-6 h-6" />
               </button>
             </div>
             
-            <form onSubmit={handleUpdatePlan} className="p-6 space-y-6">
+            <form onSubmit={handleUpdatePlan} className="flex flex-col flex-1 min-h-0">
+              <div className="p-6 space-y-6 overflow-y-auto flex-1 custom-scrollbar">
               <div className="grid grid-cols-2 gap-4">
                 <div>
                   <label className="block text-xs font-bold text-slate-500 uppercase tracking-wider mb-2">Название тарифа</label>
@@ -1339,14 +1521,37 @@ const SuperAdminView: React.FC<SuperAdminViewProps> = ({ onLogout, onUpdateSyste
                       className="w-5 h-5 rounded border-slate-300 text-indigo-600 focus:ring-indigo-500"
                     />
                   </label>
+
+                  <label className="flex items-center justify-between p-4 bg-slate-50 rounded-2xl border border-slate-200 cursor-pointer hover:bg-slate-100 transition-all">
+                    <div className="flex items-center gap-3">
+                      <CreditCard className="w-5 h-5 text-indigo-600" />
+                      <div>
+                        <p className="text-sm font-bold text-slate-900">Модуль "Зарплата"</p>
+                        <p className="text-xs text-slate-500">Расчет ставок, смен и штрафов</p>
+                      </div>
+                    </div>
+                    <input 
+                      type="checkbox"
+                      checked={editingPlan.limits.features.payroll}
+                      onChange={(e) => setEditingPlan({
+                        ...editingPlan,
+                        limits: {
+                          ...editingPlan.limits,
+                          features: { ...editingPlan.limits.features, payroll: e.target.checked }
+                        }
+                      })}
+                      className="w-5 h-5 rounded border-slate-300 text-indigo-600 focus:ring-indigo-500"
+                    />
+                  </label>
                 </div>
               </div>
+            </div>
 
-              <div className="flex gap-3 pt-2">
+            <div className="p-6 border-t border-slate-100 bg-slate-50 shrink-0 flex gap-3">
                 <button 
                   type="button"
                   onClick={() => setEditingPlan(null)}
-                  className="flex-1 py-3 bg-slate-100 text-slate-600 rounded-xl font-bold hover:bg-slate-200 transition-all"
+                  className="flex-1 py-3 bg-white border border-slate-200 text-slate-600 rounded-xl font-bold hover:bg-slate-200 transition-all"
                 >
                   Отмена
                 </button>
@@ -1424,146 +1629,148 @@ const SuperAdminView: React.FC<SuperAdminViewProps> = ({ onLogout, onUpdateSyste
 
       {editingOrg && (
         <div className="fixed inset-0 z-[100] flex items-center justify-center p-4 bg-slate-900/60 backdrop-blur-sm animate-fadeIn">
-          <div className="bg-white rounded-3xl shadow-2xl w-full max-w-md overflow-hidden border border-slate-200">
-            <div className="bg-slate-900 px-6 py-4 flex justify-between items-center">
+          <div className="bg-white rounded-3xl shadow-2xl w-full max-w-md overflow-hidden border border-slate-200 max-h-[90vh] flex flex-col">
+            <div className="bg-slate-900 px-6 py-4 flex justify-between items-center shrink-0">
               <h3 className="text-white font-bold">Управление организацией</h3>
               <button onClick={() => setEditingOrg(null)} className="text-slate-400 hover:text-white transition-colors">
                 <X className="w-6 h-6" />
               </button>
             </div>
             
-            <form onSubmit={handleUpdateOrg} className="p-6 space-y-6">
-              <div>
-                <label className="block text-xs font-bold text-slate-500 uppercase tracking-wider mb-2">Название компании</label>
-                <input 
-                  type="text"
-                  value={editingOrg.name}
-                  onChange={(e) => setEditingOrg({...editingOrg, name: e.target.value})}
-                  className="w-full px-4 py-2.5 bg-slate-50 border border-slate-200 rounded-xl focus:ring-2 focus:ring-indigo-500 outline-none transition-all"
-                />
-              </div>
-
-              <div>
-                <label className="block text-xs font-bold text-slate-500 uppercase tracking-wider mb-2">Email организации</label>
-                <input 
-                  type="email"
-                  value={editingOrg.email || ''}
-                  onChange={(e) => setEditingOrg({...editingOrg, email: e.target.value})}
-                  className="w-full px-4 py-2.5 bg-slate-50 border border-slate-200 rounded-xl focus:ring-2 focus:ring-indigo-500 outline-none transition-all"
-                />
-              </div>
-
-              <div className="grid grid-cols-2 gap-4">
+            <form onSubmit={handleUpdateOrg} className="flex flex-col flex-1 min-h-0">
+              <div className="p-6 space-y-6 overflow-y-auto flex-1 custom-scrollbar">
                 <div>
-                  <label className="block text-xs font-bold text-slate-500 uppercase tracking-wider mb-2">Тарифный план</label>
-                  <select 
-                    value={editingOrg.plan}
-                    onChange={(e) => {
-                      const newPlan = e.target.value as PlanType;
-                      let newStatus = editingOrg.status;
-                      let newExpiry = editingOrg.expiryDate;
-                      
-                      // Если меняем на платный тариф, автоматически активируем и убираем просрочку
-                      if (newPlan !== PlanType.FREE && editingOrg.plan === PlanType.FREE) {
-                        newStatus = 'active';
-                        // Если дата в прошлом, сбрасываем её
-                        if (newExpiry && new Date(newExpiry) < new Date()) {
-                          newExpiry = undefined;
-                        }
-                      }
-                      
-                      setEditingOrg({
-                        ...editingOrg, 
-                        plan: newPlan,
-                        status: newStatus,
-                        expiryDate: newExpiry
-                      });
-                    }}
-                    className="w-full px-4 py-2.5 bg-slate-50 border border-slate-200 rounded-xl focus:ring-2 focus:ring-indigo-500 outline-none transition-all"
-                  >
-                    <option value={PlanType.FREE}>FREE</option>
-                    <option value={PlanType.PRO}>PRO</option>
-                    <option value={PlanType.BUSINESS}>BUSINESS</option>
-                  </select>
-                </div>
-                <div>
-                  <label className="block text-xs font-bold text-slate-500 uppercase tracking-wider mb-2">Статус</label>
-                  <select 
-                    value={editingOrg.status}
-                    onChange={(e) => setEditingOrg({...editingOrg, status: e.target.value as any})}
-                    className="w-full px-4 py-2.5 bg-slate-50 border border-slate-200 rounded-xl focus:ring-2 focus:ring-indigo-500 outline-none transition-all"
-                  >
-                    <option value="active">Active</option>
-                    <option value="trial">Trial</option>
-                    <option value="expired">Expired</option>
-                  </select>
-                </div>
-              </div>
-
-              <div>
-                <label className="block text-xs font-bold text-slate-500 uppercase tracking-wider mb-2">Дата истечения (Expiry Date)</label>
-                <div className="flex gap-2">
+                  <label className="block text-xs font-bold text-slate-500 uppercase tracking-wider mb-2">Название компании</label>
                   <input 
-                    type="date"
-                    value={editingOrg.expiryDate ? editingOrg.expiryDate.split('T')[0] : ''}
-                    onChange={(e) => setEditingOrg({
-                      ...editingOrg, 
-                      expiryDate: e.target.value ? new Date(e.target.value).toISOString() : undefined
-                    })}
-                    className="flex-1 px-4 py-2.5 bg-slate-50 border border-slate-200 rounded-xl focus:ring-2 focus:ring-indigo-500 outline-none transition-all"
+                    type="text"
+                    value={editingOrg.name}
+                    onChange={(e) => setEditingOrg({...editingOrg, name: e.target.value})}
+                    className="w-full px-4 py-2.5 bg-slate-50 border border-slate-200 rounded-xl focus:ring-2 focus:ring-indigo-500 outline-none transition-all"
                   />
-                  <button 
-                    type="button"
-                    onClick={() => setEditingOrg({...editingOrg, expiryDate: undefined})}
-                    className="px-4 py-2 bg-slate-100 text-slate-600 rounded-xl text-xs font-bold hover:bg-slate-200"
-                  >
-                    Сбросить
-                  </button>
                 </div>
-                <p className="text-[10px] text-slate-400 mt-1">Оставьте пустым для бессрочного тарифа</p>
-              </div>
 
-              <div className="p-4 bg-indigo-50 rounded-2xl border border-indigo-100">
-                <p className="text-xs text-indigo-700 leading-relaxed">
-                  Изменение тарифа мгновенно обновит лимиты (пользователи, оборудование) и доступные функции для всех сотрудников этой организации.
-                </p>
-              </div>
+                <div>
+                  <label className="block text-xs font-bold text-slate-500 uppercase tracking-wider mb-2">Email организации</label>
+                  <input 
+                    type="email"
+                    value={editingOrg.email || ''}
+                    onChange={(e) => setEditingOrg({...editingOrg, email: e.target.value})}
+                    className="w-full px-4 py-2.5 bg-slate-50 border border-slate-200 rounded-xl focus:ring-2 focus:ring-indigo-500 outline-none transition-all"
+                  />
+                </div>
 
-              {editingAdmin && (
-                <div className="pt-4 border-t border-slate-100 space-y-4">
-                  <h4 className="text-xs font-black text-slate-900 uppercase tracking-widest flex items-center gap-2">
-                    <ShieldCheck className="w-4 h-4 text-emerald-600" />
-                    Данные администратора
-                  </h4>
-                  <div className="grid grid-cols-2 gap-4">
-                    <div>
-                      <label className="block text-[10px] font-black text-slate-400 uppercase ml-1 mb-1.5 tracking-wider">Имя админа</label>
-                      <input 
-                        type="text"
-                        value={editingAdmin.name}
-                        onChange={(e) => setEditingAdmin({...editingAdmin, name: e.target.value})}
-                        className="w-full px-4 py-2 bg-slate-50 border border-slate-200 rounded-xl text-sm font-bold focus:ring-2 focus:ring-emerald-500 outline-none transition-all"
-                      />
-                    </div>
-                    <div>
-                      <label className="block text-[10px] font-black text-slate-400 uppercase ml-1 mb-1.5 tracking-wider">PIN админа</label>
-                      <input 
-                        type="text"
-                        maxLength={4}
-                        value={editingAdmin.pin}
-                        onChange={(e) => setEditingAdmin({...editingAdmin, pin: e.target.value.replace(/[^0-9]/g, '')})}
-                        className="w-full px-4 py-2 bg-slate-50 border border-slate-200 rounded-xl text-sm font-bold focus:ring-2 focus:ring-emerald-500 outline-none transition-all text-center tracking-widest"
-                      />
-                    </div>
+                <div className="grid grid-cols-2 gap-4">
+                  <div>
+                    <label className="block text-xs font-bold text-slate-500 uppercase tracking-wider mb-2">Тарифный план</label>
+                    <select 
+                      value={editingOrg.plan}
+                      onChange={(e) => {
+                        const newPlan = e.target.value as PlanType;
+                        let newStatus = editingOrg.status;
+                        let newExpiry = editingOrg.expiryDate;
+                        
+                        // Если меняем на платный тариф, автоматически активируем и убираем просрочку
+                        if (newPlan !== PlanType.FREE && editingOrg.plan === PlanType.FREE) {
+                          newStatus = 'active';
+                          // Если дата в прошлом, сбрасываем её
+                          if (newExpiry && new Date(newExpiry) < new Date()) {
+                            newExpiry = undefined;
+                          }
+                        }
+                        
+                        setEditingOrg({
+                          ...editingOrg, 
+                          plan: newPlan,
+                          status: newStatus,
+                          expiryDate: newExpiry
+                        });
+                      }}
+                      className="w-full px-4 py-2.5 bg-slate-50 border border-slate-200 rounded-xl focus:ring-2 focus:ring-indigo-500 outline-none transition-all"
+                    >
+                      <option value={PlanType.FREE}>FREE</option>
+                      <option value={PlanType.PRO}>PRO</option>
+                      <option value={PlanType.BUSINESS}>BUSINESS</option>
+                    </select>
+                  </div>
+                  <div>
+                    <label className="block text-xs font-bold text-slate-500 uppercase tracking-wider mb-2">Статус</label>
+                    <select 
+                      value={editingOrg.status}
+                      onChange={(e) => setEditingOrg({...editingOrg, status: e.target.value as any})}
+                      className="w-full px-4 py-2.5 bg-slate-50 border border-slate-200 rounded-xl focus:ring-2 focus:ring-indigo-500 outline-none transition-all"
+                    >
+                      <option value="active">Active</option>
+                      <option value="trial">Trial</option>
+                      <option value="expired">Expired</option>
+                    </select>
                   </div>
                 </div>
-              )}
 
-              <div className="flex gap-3 pt-2">
+                <div>
+                  <label className="block text-xs font-bold text-slate-500 uppercase tracking-wider mb-2">Дата истечения (Expiry Date)</label>
+                  <div className="flex gap-2">
+                    <input 
+                      type="date"
+                      value={editingOrg.expiryDate ? editingOrg.expiryDate.split('T')[0] : ''}
+                      onChange={(e) => setEditingOrg({
+                        ...editingOrg, 
+                        expiryDate: e.target.value ? new Date(e.target.value).toISOString() : undefined
+                      })}
+                      className="flex-1 px-4 py-2.5 bg-slate-50 border border-slate-200 rounded-xl focus:ring-2 focus:ring-indigo-500 outline-none transition-all"
+                    />
+                    <button 
+                      type="button"
+                      onClick={() => setEditingOrg({...editingOrg, expiryDate: undefined})}
+                      className="px-4 py-2 bg-slate-100 text-slate-600 rounded-xl text-xs font-bold hover:bg-slate-200"
+                    >
+                      Сбросить
+                    </button>
+                  </div>
+                  <p className="text-[10px] text-slate-400 mt-1">Оставьте пустым для бессрочного тарифа</p>
+                </div>
+
+                <div className="p-4 bg-indigo-50 rounded-2xl border border-indigo-100">
+                  <p className="text-xs text-indigo-700 leading-relaxed">
+                    Изменение тарифа мгновенно обновит лимиты (пользователи, оборудование) и доступные функции для всех сотрудников этой организации.
+                  </p>
+                </div>
+
+                {editingAdmin && (
+                  <div className="pt-4 border-t border-slate-100 space-y-4">
+                    <h4 className="text-xs font-black text-slate-900 uppercase tracking-widest flex items-center gap-2">
+                      <ShieldCheck className="w-4 h-4 text-emerald-600" />
+                      Данные администратора
+                    </h4>
+                    <div className="grid grid-cols-2 gap-4">
+                      <div>
+                        <label className="block text-[10px] font-black text-slate-400 uppercase ml-1 mb-1.5 tracking-wider">Имя админа</label>
+                        <input 
+                          type="text"
+                          value={editingAdmin.name}
+                          onChange={(e) => setEditingAdmin({...editingAdmin, name: e.target.value})}
+                          className="w-full px-4 py-2 bg-slate-50 border border-slate-200 rounded-xl text-sm font-bold focus:ring-2 focus:ring-emerald-500 outline-none transition-all"
+                        />
+                      </div>
+                      <div>
+                        <label className="block text-[10px] font-black text-slate-400 uppercase ml-1 mb-1.5 tracking-wider">PIN админа</label>
+                        <input 
+                          type="text"
+                          maxLength={4}
+                          value={editingAdmin.pin}
+                          onChange={(e) => setEditingAdmin({...editingAdmin, pin: e.target.value.replace(/[^0-9]/g, '')})}
+                          className="w-full px-4 py-2 bg-slate-50 border border-slate-200 rounded-xl text-sm font-bold focus:ring-2 focus:ring-emerald-500 outline-none transition-all text-center tracking-widest"
+                        />
+                      </div>
+                    </div>
+                  </div>
+                )}
+              </div>
+
+              <div className="p-6 border-t border-slate-100 bg-slate-50 shrink-0 flex gap-3">
                 <button 
                   type="button"
                   onClick={() => setEditingOrg(null)}
-                  className="flex-1 py-3 bg-slate-100 text-slate-600 rounded-xl font-bold hover:bg-slate-200 transition-all"
+                  className="flex-1 py-3 bg-white border border-slate-200 text-slate-600 rounded-xl font-bold hover:bg-slate-200 transition-all"
                 >
                   Отмена
                 </button>
@@ -1584,15 +1791,16 @@ const SuperAdminView: React.FC<SuperAdminViewProps> = ({ onLogout, onUpdateSyste
       {/* Create Modal */}
       {isCreating && (
         <div className="fixed inset-0 z-[100] flex items-center justify-center p-4 bg-slate-900/60 backdrop-blur-sm animate-fadeIn">
-          <div className="bg-white rounded-3xl shadow-2xl w-full max-w-md overflow-hidden border border-slate-200">
-            <div className="bg-indigo-600 px-6 py-4 flex justify-between items-center">
+          <div className="bg-white rounded-3xl shadow-2xl w-full max-w-md overflow-hidden border border-slate-200 max-h-[90vh] flex flex-col">
+            <div className="bg-indigo-600 px-6 py-4 flex justify-between items-center shrink-0">
               <h3 className="text-white font-bold">Новая организация</h3>
               <button onClick={() => setIsCreating(false)} className="text-indigo-100 hover:text-white transition-colors">
                 <X className="w-6 h-6" />
               </button>
             </div>
             
-            <form onSubmit={handleCreateOrg} className="p-6 space-y-4">
+            <form onSubmit={handleCreateOrg} className="flex flex-col flex-1 min-h-0">
+              <div className="p-6 space-y-4 overflow-y-auto flex-1 custom-scrollbar">
               <div className="grid grid-cols-2 gap-4">
                 <div>
                   <label className="block text-xs font-bold text-slate-500 uppercase tracking-wider mb-1.5">Название компании *</label>
@@ -1671,12 +1879,13 @@ const SuperAdminView: React.FC<SuperAdminViewProps> = ({ onLogout, onUpdateSyste
                   </select>
                 </div>
               </div>
+            </div>
 
-              <div className="flex gap-3 pt-4">
+            <div className="p-6 border-t border-slate-100 bg-slate-50 shrink-0 flex gap-3">
                 <button 
                   type="button"
                   onClick={() => setIsCreating(false)}
-                  className="flex-1 py-3 bg-slate-100 text-slate-600 rounded-xl font-bold hover:bg-slate-200 transition-all"
+                  className="flex-1 py-3 bg-white border border-slate-200 text-slate-600 rounded-xl font-bold hover:bg-slate-200 transition-all"
                 >
                   Отмена
                 </button>

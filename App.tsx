@@ -20,7 +20,7 @@ const RegistrationForm = React.lazy(() => import('./components/RegistrationForm'
 const SuperAdminView = React.lazy(() => import('./components/SuperAdminView'));
 const LoginScreen = React.lazy(() => import('./components/LoginScreen'));
 
-const APP_VERSION = 'v1.9.0-PRO-SAAS';
+const APP_VERSION = 'v2.0.0-PRO-SAAS';
 
 const App: React.FC = () => {
   const auth = useAuth();
@@ -63,6 +63,14 @@ const App: React.FC = () => {
   const isSuperAdmin = useMemo(() => {
     return auth.currentUser?.role === UserRole.SUPER_ADMIN;
   }, [auth.currentUser]);
+
+  const activeUser = useMemo(() => {
+    if (!auth.currentUser) return null;
+    const dbUser = appData.users.find(u => u.id === auth.currentUser!.id);
+    if (!dbUser) return auth.currentUser;
+    // Merge database data with current session role (important for admin role switching)
+    return { ...dbUser, role: auth.currentUser.role };
+  }, [auth.currentUser, appData.users]);
 
   if (!appData.isInitialized) {
     return <LoadingScreen />;
@@ -150,8 +158,9 @@ const App: React.FC = () => {
         ) : (
           auth.currentUser.role === UserRole.EMPLOYEE ? (
             <EmployeeView 
-              user={auth.currentUser} 
+              user={activeUser!} 
               logs={appData.logs} 
+              logsLookup={appData.logsLookup}
               onLogsUpsert={appData.handleLogsUpsert} 
               activeShifts={appData.activeShiftsMap[auth.currentUser.id] || { 1: null, 2: null, 3: null }}
               onActiveShiftsUpdate={(shifts: any) => appData.handleActiveShiftsUpdate(auth.currentUser!.id, shifts)}
@@ -174,6 +183,7 @@ const App: React.FC = () => {
             isEmployerAuthorized ? (
               <EmployerView 
                 logs={appData.logs} 
+                logsLookup={appData.logsLookup}
                 users={appData.users} 
                 onAddUser={appData.handleAddUser} 
                 onUpdateUser={appData.handleUpdateUser}
@@ -194,7 +204,7 @@ const App: React.FC = () => {
                 currentOrg={appData.currentOrg}
                 plans={appData.plans}
                 onUpdateOrg={appData.setCurrentOrg}
-                currentUser={auth.currentUser}
+                currentUser={activeUser!} 
                 onMonthChange={appData.loadLogsForMonth}
                 getNow={getNow}
               />

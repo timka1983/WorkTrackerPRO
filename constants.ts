@@ -8,7 +8,8 @@ export const PLAN_LIMITS: Record<PlanType, PlanLimits> = {
     features: {
       photoCapture: false,
       nightShift: false,
-      advancedAnalytics: false
+      advancedAnalytics: false,
+      payroll: false
     }
   },
   [PlanType.PRO]: {
@@ -17,7 +18,8 @@ export const PLAN_LIMITS: Record<PlanType, PlanLimits> = {
     features: {
       photoCapture: true,
       nightShift: true,
-      advancedAnalytics: true
+      advancedAnalytics: true,
+      payroll: false
     }
   },
   [PlanType.BUSINESS]: {
@@ -26,7 +28,8 @@ export const PLAN_LIMITS: Record<PlanType, PlanLimits> = {
     features: {
       photoCapture: true,
       nightShift: true,
-      advancedAnalytics: true
+      advancedAnalytics: true,
+      payroll: true
     }
   }
 };

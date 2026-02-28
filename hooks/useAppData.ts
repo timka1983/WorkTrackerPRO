@@ -720,12 +720,26 @@ export const useAppData = (currentUser: User | null) => {
       if (error) throw error;
       return user;
     },
-    retry: 3,
+    onMutate: async (updatedUser) => {
+      await queryClient.cancelQueries({ queryKey: ['users', currentOrg?.id] });
+      const previousUsers = queryClient.getQueryData(['users', currentOrg?.id]);
+      queryClient.setQueryData(['users', currentOrg?.id], (old: User[] | undefined) => {
+        if (!old) return [updatedUser];
+        return old.map(u => u.id === updatedUser.id ? updatedUser : u);
+      });
+      return { previousUsers };
+    },
+    onError: (err, updatedUser, context) => {
+      if (context?.previousUsers) {
+        queryClient.setQueryData(['users', currentOrg?.id], context.previousUsers);
+      }
+      alert('Ошибка при обновлении сотрудника.');
+    },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['users', currentOrg?.id] });
     },
-    onError: () => {
-      alert('Ошибка при обновлении сотрудника.');
+    onSettled: () => {
+      queryClient.invalidateQueries({ queryKey: ['users', currentOrg?.id] });
     }
   });
 
@@ -831,6 +845,17 @@ export const useAppData = (currentUser: User | null) => {
 
   const isSyncing = isOrgFetching || isUsersFetching || isMachinesFetching || isPositionsFetching || isLogsFetching;
 
+  // --- Memoized Lookup Maps [OPT-001] ---
+  const logsLookup = useMemo(() => {
+    const map: Record<string, Record<string, WorkLog[]>> = {};
+    logs.forEach(log => {
+      if (!map[log.userId]) map[log.userId] = {};
+      if (!map[log.userId][log.date]) map[log.userId][log.date] = [];
+      map[log.userId][log.date].push(log);
+    });
+    return map;
+  }, [logs]);
+
   return {
     currentOrg: currentOrg || null,
     setCurrentOrg: (val: Organization | null | ((prev: Organization | null) => Organization | null)) => {
@@ -842,6 +867,7 @@ export const useAppData = (currentUser: User | null) => {
     },
     users,
     logs,
+    logsLookup,
     activeShiftsMap,
     syncError,
     machines,

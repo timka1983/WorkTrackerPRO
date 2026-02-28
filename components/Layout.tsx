@@ -135,7 +135,7 @@ const Layout: React.FC<LayoutProps> = ({ children, user, currentOrg, onLogout, o
 
       <footer className="bg-white border-t border-slate-200 py-6 no-print">
         <div className="max-w-7xl mx-auto px-4 flex flex-col sm:flex-row justify-between items-center gap-4 text-sm text-slate-500">
-          <div>© 2024 Система учета рабочего времени. Все права защищены.</div>
+          <div>© 2026 Система учета рабочего времени. Все права защищены.</div>
           <div className="font-bold text-slate-300 uppercase tracking-widest text-[10px]">{version}</div>
         </div>
       </footer>

@@ -730,9 +730,47 @@ export const db = {
       return { ...results, status: 'error', message: 'Supabase URL or Key is not configured in environment variables.' };
     }
 
-    const tablesToCheck = ['organizations', 'users', 'work_logs', 'machines', 'positions', 'plans', 'promo_codes', 'active_shifts', 'system_config'];
-    
     try {
+      const tablesToCheck = ['organizations', 'users', 'work_logs', 'machines', 'positions', 'plans', 'promo_codes', 'active_shifts', 'system_config'];
+      results.storage = {};
+      
+      try {
+        const { data: buckets, error: bucketsError } = await supabase.storage.listBuckets();
+        if (bucketsError) {
+          results.storage.photos = { status: 'error', message: bucketsError.message };
+        } else {
+          const photosBucket = buckets.find(b => b.name === 'photos');
+          if (photosBucket) {
+            results.storage.photos = { status: 'ok', public: photosBucket.public };
+          } else {
+            results.storage.photos = { status: 'missing', message: 'Bucket "photos" не найден' };
+            results.sqlFixes.push(`
+-- Создание бакета для фотографий
+INSERT INTO storage.buckets (id, name, public) 
+VALUES ('photos', 'photos', true) 
+ON CONFLICT (id) DO NOTHING;
+
+-- Политики доступа для бакета photos
+DO $$
+BEGIN
+    -- Политика на чтение (публичный доступ)
+    IF NOT EXISTS (SELECT 1 FROM pg_policies WHERE policyname = 'Public Access' AND tablename = 'objects') THEN
+        CREATE POLICY "Public Access" ON storage.objects FOR SELECT USING (bucket_id = 'photos');
+    END IF;
+
+    -- Политика на вставку (загрузка фото)
+    IF NOT EXISTS (SELECT 1 FROM pg_policies WHERE policyname = 'Allow Uploads' AND tablename = 'objects') THEN
+        CREATE POLICY "Allow Uploads" ON storage.objects FOR INSERT WITH CHECK (bucket_id = 'photos');
+    END IF;
+END
+$$;
+            `);
+          }
+        }
+      } catch (e: any) {
+        results.storage.photos = { status: 'error', message: e.message };
+      }
+
       for (const table of tablesToCheck) {
         const { error } = await supabase.from(table).select('count', { count: 'exact', head: true }).limit(0);
         
@@ -848,22 +886,6 @@ INSERT INTO system_config (id, super_admin_pin, global_admin_pin) VALUES ('globa
         }
       }
       
-      // Check storage bucket
-      const { data: buckets, error: bucketError } = await supabase.storage.listBuckets();
-      if (!bucketError) {
-        const hasPhotosBucket = buckets.some(b => b.name === 'photos');
-        if (!hasPhotosBucket) {
-          results.sqlFixes.push(`
--- Create a storage bucket for photos
-INSERT INTO storage.buckets (id, name, public) VALUES ('photos', 'photos', true) ON CONFLICT DO NOTHING;
-
--- Allow public access to photos
-CREATE POLICY "Public Access" ON storage.objects FOR SELECT USING (bucket_id = 'photos');
-CREATE POLICY "Allow Uploads" ON storage.objects FOR INSERT WITH CHECK (bucket_id = 'photos');
-          `);
-        }
-      }
-
       // Check RPC for dashboard stats
       const { error: rpcError } = await supabase.rpc('get_dashboard_stats', { 
         p_org_id: 'test', 

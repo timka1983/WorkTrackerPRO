@@ -25,6 +25,7 @@ export interface PlanLimits {
     photoCapture: boolean;
     nightShift: boolean;
     advancedAnalytics: boolean;
+    payroll: boolean;
   };
 }
 
