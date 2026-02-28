@@ -107,12 +107,6 @@ const EmployerView: React.FC<EmployerViewProps> = ({
   const isMachineLimitReached = machines.length >= planLimits.maxMachines;
   const canUsePayroll = planLimits.features.payroll;
 
-  useEffect(() => {
-    if (viewMode === 'payroll' && !canUsePayroll) {
-      setViewMode('analytics');
-    }
-  }, [viewMode, canUsePayroll]);
-
   const days = getDaysInMonthArray(filterMonth);
   const today = startOfDay(getNow());
 
@@ -332,7 +326,7 @@ const EmployerView: React.FC<EmployerViewProps> = ({
     }
   };
 
-  const saveCorrection = (logId: string, val: number, fine?: number, bonus?: number) => {
+  const saveCorrection = (logId: string, val: number, fine?: number) => {
     const log = logs.find(l => l.id === logId);
     if (!log) return;
     
@@ -343,8 +337,7 @@ const EmployerView: React.FC<EmployerViewProps> = ({
       isCorrected: true, 
       correctionNote: note,
       correctionTimestamp: getNow().toISOString(),
-      fine: fine !== undefined ? fine : log.fine,
-      bonus: bonus !== undefined ? bonus : log.bonus
+      fine: fine !== undefined ? fine : log.fine
     };
     
     onLogsUpsert([updatedLog]);
@@ -392,23 +385,6 @@ const EmployerView: React.FC<EmployerViewProps> = ({
     onUpdatePositions(newPositions);
   };
 
-  const handleAddGeneralBonus = (userIds: string[], amount: number, date: string, note: string) => {
-    const nowStr = getNow().toISOString();
-    const newLogs: WorkLog[] = userIds.map(userId => ({
-      id: crypto.randomUUID(),
-      userId,
-      date,
-      entryType: EntryType.WORK,
-      durationMinutes: 0,
-      bonus: amount,
-      correctionNote: note || 'Общая премия',
-      isCorrected: true,
-      correctionTimestamp: nowStr,
-      checkIn: nowStr,
-      checkOut: nowStr
-    }));
-    onLogsUpsert(newLogs);
-  };
   const handleUpdateEmployeePayroll = (key: keyof PayrollConfig, value: any) => {
     if (!editingEmployee) return;
     // If user has no payroll override, start with position default or global default
@@ -485,19 +461,10 @@ const EmployerView: React.FC<EmployerViewProps> = ({
       { id: 'billing', label: 'Биллинг' },
       { id: 'settings', label: 'Настройки' }
     ];
-    
-    let filteredTabs = allTabs;
-    
-    // Filter by plan features
-    if (!canUsePayroll) {
-      filteredTabs = filteredTabs.filter(t => t.id !== 'payroll');
-    }
-
-    if (userPerms.isFullAdmin) return filteredTabs;
-    if (userPerms.isLimitedAdmin) return filteredTabs.filter(t => ['analytics', 'matrix'].includes(t.id));
-    
-    return filteredTabs;
-  }, [userPerms, canUsePayroll]);
+    if (userPerms.isFullAdmin) return allTabs;
+    if (userPerms.isLimitedAdmin) return allTabs.filter(t => ['analytics', 'matrix'].includes(t.id));
+    return allTabs;
+  }, [userPerms]);
 
   const handleResetDevicePairing = () => {
     if (confirm('Сбросить привязку профиля на этом устройстве? На этом планшете/телефоне система снова потребует выбрать пользователя при входе.')) {
@@ -590,7 +557,6 @@ const EmployerView: React.FC<EmployerViewProps> = ({
           handleUpdatePayrollConfig={handleUpdatePayrollConfig}
           positions={positions}
           onUpdatePositions={onUpdatePositions}
-          machines={machines}
         />
       )}
 
@@ -604,7 +570,6 @@ const EmployerView: React.FC<EmployerViewProps> = ({
           canUsePayroll={canUsePayroll}
           handleUpdateEmployeePayroll={handleUpdateEmployeePayroll}
           handleResetDevicePairing={handleResetDevicePairing}
-          machines={machines}
         />
       )}
 
@@ -718,7 +683,7 @@ const EmployerView: React.FC<EmployerViewProps> = ({
         />
       )}
 
-      {viewMode === 'payroll' && canUsePayroll && (
+      {viewMode === 'payroll' && (
         <PayrollView
           users={users}
           logs={logs}
@@ -726,8 +691,6 @@ const EmployerView: React.FC<EmployerViewProps> = ({
           positions={positions}
           filterMonth={filterMonth}
           handleExportAll={handleExportAll}
-          machines={machines}
-          onAddGeneralBonus={handleAddGeneralBonus}
         />
       )}
 

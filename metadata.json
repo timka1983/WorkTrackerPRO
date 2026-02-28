@@ -1,5 +1,5 @@
 {
-  "name": "Test: WorkTracker Pro SaaS v2.0",
+  "name": "Remix: WorkTracker Pro SaaS v2.0",
   "description": "Professional time tracking, payroll management, and workforce analytics with real-time sync and push notifications.",
   "requestFramePermissions": [
     "camera"

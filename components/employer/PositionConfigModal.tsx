@@ -1,5 +1,5 @@
 import React from 'react';
-import { PositionConfig, PlanLimits, PayrollConfig, Machine } from '../../types';
+import { PositionConfig, PlanLimits, PayrollConfig } from '../../types';
 import { DEFAULT_PAYROLL_CONFIG } from '../../constants';
 
 interface PositionConfigModalProps {
@@ -11,7 +11,6 @@ interface PositionConfigModalProps {
   handleUpdatePayrollConfig: (key: keyof PayrollConfig, value: any) => void;
   positions: PositionConfig[];
   onUpdatePositions: (positions: PositionConfig[]) => void;
-  machines: Machine[];
 }
 
 export const PositionConfigModal: React.FC<PositionConfigModalProps> = ({
@@ -22,8 +21,7 @@ export const PositionConfigModal: React.FC<PositionConfigModalProps> = ({
   canUsePayroll,
   handleUpdatePayrollConfig,
   positions,
-  onUpdatePositions,
-  machines
+  onUpdatePositions
 }) => {
   return (
     <div className="fixed inset-0 z-[130] bg-slate-900/60 backdrop-blur-sm flex items-center justify-center p-4">
@@ -113,55 +111,15 @@ export const PositionConfigModal: React.FC<PositionConfigModalProps> = ({
                   </div>
                 </div>
                 
-                <div className="grid grid-cols-2 gap-4">
-                  <div className="space-y-1">
-                     <label className="text-[9px] font-black text-slate-400 uppercase ml-1">Бонус за ночную смену (₽)</label>
-                     <input 
-                       type="number" 
-                       value={configuringPosition.payroll?.nightShiftBonus ?? DEFAULT_PAYROLL_CONFIG.nightShiftBonus}
-                       onChange={e => handleUpdatePayrollConfig('nightShiftBonus', Number(e.target.value))}
-                       className="w-full bg-white border-2 border-slate-200 rounded-xl px-3 py-2 text-sm font-bold outline-none focus:border-blue-500"
-                     />
-                  </div>
-                  <div className="space-y-1">
-                     <label className="text-[9px] font-black text-slate-400 uppercase ml-1">Ставка больничного (₽/день)</label>
-                     <input 
-                       type="number" 
-                       value={configuringPosition.payroll?.sickLeaveRate ?? 0}
-                       onChange={e => handleUpdatePayrollConfig('sickLeaveRate', Number(e.target.value))}
-                       className="w-full bg-white border-2 border-slate-200 rounded-xl px-3 py-2 text-sm font-bold outline-none focus:border-blue-500"
-                     />
-                  </div>
+                <div className="space-y-1">
+                   <label className="text-[9px] font-black text-slate-400 uppercase ml-1">Бонус за ночную смену (₽)</label>
+                   <input 
+                     type="number" 
+                     value={configuringPosition.payroll?.nightShiftBonus ?? DEFAULT_PAYROLL_CONFIG.nightShiftBonus}
+                     onChange={e => handleUpdatePayrollConfig('nightShiftBonus', Number(e.target.value))}
+                     className="w-full bg-white border-2 border-slate-200 rounded-xl px-3 py-2 text-sm font-bold outline-none focus:border-blue-500"
+                   />
                 </div>
-
-                {configuringPosition.permissions.useMachines && machines.length > 0 && (
-                  <div className="space-y-2 pt-2 border-t border-slate-200">
-                    <label className="text-[9px] font-black text-slate-400 uppercase ml-1">Ставки по оборудованию (₽/час)</label>
-                    <div className="space-y-2">
-                      {machines.map(m => (
-                        <div key={m.id} className="flex items-center gap-2">
-                          <span className="text-xs font-bold text-slate-700 flex-1 truncate">{m.name}</span>
-                          <input 
-                            type="number" 
-                            placeholder="По умолчанию"
-                            value={configuringPosition.payroll?.machineRates?.[m.id] ?? ''}
-                            onChange={e => {
-                              const val = e.target.value;
-                              const currentRates = { ...(configuringPosition.payroll?.machineRates || {}) };
-                              if (val === '') {
-                                delete currentRates[m.id];
-                              } else {
-                                currentRates[m.id] = Number(val);
-                              }
-                              handleUpdatePayrollConfig('machineRates', currentRates);
-                            }}
-                            className="w-24 bg-white border-2 border-slate-200 rounded-xl px-2 py-1 text-xs font-bold outline-none focus:border-blue-500"
-                          />
-                        </div>
-                      ))}
-                    </div>
-                  </div>
-                )}
               </div>
             )}
 
