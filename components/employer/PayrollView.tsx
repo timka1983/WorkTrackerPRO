@@ -102,7 +102,7 @@ export const PayrollView: React.FC<PayrollViewProps> = ({
                return (
                  <React.Fragment key={emp.id}>
                    <tr className="border-b border-slate-100 hover:bg-slate-50/50 transition-colors">
-                     <td className="p-4 font-bold text-slate-900">
+                     <td className="p-4 text-sm font-bold text-slate-900">
                         <div className="flex items-center gap-2">
                           {emp.name}
                           {usedMachineIds.length > 0 && (
@@ -128,7 +128,7 @@ export const PayrollView: React.FC<PayrollViewProps> = ({
                      <td className="p-4 text-center text-xs font-mono text-teal-600">{payroll.details.sickDays > 0 ? payroll.details.sickDays : '-'}</td>
                      <td className="p-4 text-center text-xs font-mono text-green-600">{payroll.bonuses > 0 ? payroll.bonuses : '-'}</td>
                      <td className="p-4 text-center text-xs font-mono text-red-600">{payroll.fines > 0 ? payroll.fines : '-'}</td>
-                     <td className="p-4 text-right font-black text-slate-900 text-lg">{payroll.totalSalary.toLocaleString('ru-RU')} ₽</td>
+                     <td className="p-4 text-right font-black text-slate-900 text-sm">{payroll.totalSalary.toLocaleString('ru-RU')} ₽</td>
                    </tr>
                    {isExpanded && usedMachineIds.map(mId => {
                      const machineName = machines.find(m => m.id === mId)?.name || 'Работа';
