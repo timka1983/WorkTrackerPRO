@@ -116,6 +116,10 @@ export const BillingView: React.FC<BillingViewProps> = ({
                   <div className={`w-1.5 h-1.5 rounded-full ${planLimits.features.advancedAnalytics ? 'bg-green-500' : 'bg-slate-300'}`}></div>
                   <span className={`text-[10px] font-bold uppercase ${planLimits.features.advancedAnalytics ? 'text-slate-700' : 'text-slate-400'}`}>Аналитика</span>
                 </div>
+                <div className="flex items-center gap-2">
+                  <div className={`w-1.5 h-1.5 rounded-full ${planLimits.features.payroll ? 'bg-green-500' : 'bg-slate-300'}`}></div>
+                  <span className={`text-[10px] font-bold uppercase ${planLimits.features.payroll ? 'text-slate-700' : 'text-slate-400'}`}>Зарплата</span>
+                </div>
               </div>
             </div>
           </div>
@@ -166,6 +170,7 @@ export const BillingView: React.FC<BillingViewProps> = ({
                     { label: 'Фотофиксация', enabled: limits.features.photoCapture },
                     { label: 'Ночные смены', enabled: limits.features.nightShift },
                     { label: 'Аналитика', enabled: limits.features.advancedAnalytics },
+                    { label: 'Зарплата', enabled: limits.features.payroll },
                     { label: 'Облачная синхронизация', enabled: true },
                     { label: 'Техподдержка 24/7', enabled: planType !== PlanType.FREE },
                   ].map((feat, idx) => (

@@ -61,6 +61,7 @@ const LandingPage: React.FC<LandingPageProps> = ({ onStart, onRegister, plans })
       if (plan.limits.features.photoCapture) features.push('Фотофиксация');
       if (plan.limits.features.nightShift) features.push('Ночные смены');
       if (plan.limits.features.advancedAnalytics) features.push('PRO Аналитика');
+      if (plan.limits.features.payroll) features.push('Модуль Зарплата');
       if (plan.type === 'FREE') {
          features.push('Базовый табель');
          features.push('Локальное хранение');

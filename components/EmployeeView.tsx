@@ -436,39 +436,48 @@ const EmployeeView: React.FC<EmployeeViewProps> = ({
      return pos?.payroll;
   }, [user, positions]);
 
-  const todayEarnings = useMemo(() => {
+  const monthEarnings = useMemo(() => {
     if (!effectivePayroll || !planLimits.features.payroll) return 0;
     
-    const workLogs = todayLogs.filter(l => l.entryType === EntryType.WORK);
-    const now = getNow();
-    const machineTotals: Record<string, number> = {};
+    const todayStr = format(getNow(), 'yyyy-MM-dd');
+    const closedWorkLogs = filteredLogs.filter(l => 
+      l.entryType === EntryType.WORK && 
+      l.checkOut && 
+      l.date !== todayStr
+    );
     
-    workLogs.forEach(l => {
-       let duration = l.durationMinutes;
-       if (!l.checkOut && l.checkIn) {
-          const start = new Date(l.checkIn);
-          const diff = (now.getTime() - start.getTime()) / 60000;
-          duration = Math.max(0, Math.floor(diff));
-       }
-       const mid = l.machineId || 'unknown';
-       machineTotals[mid] = (machineTotals[mid] || 0) + duration;
+    const logsByDate: Record<string, WorkLog[]> = {};
+    closedWorkLogs.forEach(l => {
+      if (!logsByDate[l.date]) logsByDate[l.date] = [];
+      logsByDate[l.date].push(l);
+    });
+
+    let totalEarnings = 0;
+    Object.values(logsByDate).forEach(dayLogs => {
+      let dayTotalMinutes = 0;
+      let hasNightShift = false;
+      
+      dayLogs.forEach(l => {
+        dayTotalMinutes += l.durationMinutes;
+        if (l.isNightShift) hasNightShift = true;
+      });
+      
+      let dayEarnings = 0;
+      if (effectivePayroll.type === 'hourly') {
+        dayEarnings = (dayTotalMinutes / 60) * effectivePayroll.rate;
+      } else if (effectivePayroll.type === 'shift') {
+        if (dayTotalMinutes > 0) dayEarnings = effectivePayroll.rate;
+      }
+      
+      if (hasNightShift) {
+        dayEarnings += effectivePayroll.nightShiftBonus;
+      }
+      
+      totalEarnings += dayEarnings;
     });
     
-    const todayMinutes = Object.values(machineTotals).reduce((max, val) => Math.max(max, val), 0);
-    
-    let earnings = 0;
-    if (effectivePayroll.type === 'hourly') {
-       earnings = (todayMinutes / 60) * effectivePayroll.rate;
-    } else if (effectivePayroll.type === 'shift') {
-       if (todayMinutes > 0) earnings = effectivePayroll.rate;
-    }
-    
-    if (workLogs.some(l => l.isNightShift)) {
-       earnings += effectivePayroll.nightShiftBonus;
-    }
-    
-    return earnings;
-  }, [todayLogs, effectivePayroll, planLimits.features.payroll, getNow, activeShifts, tick]); // Added tick to trigger update every minute
+    return totalEarnings;
+  }, [filteredLogs, effectivePayroll, planLimits.features.payroll, getNow]);
 
   const getMachineName = (id?: string) => machines.find(m => m.id === id)?.name || 'Работа';
 
@@ -532,11 +541,11 @@ const EmployeeView: React.FC<EmployeeViewProps> = ({
       {planLimits.features.payroll && effectivePayroll && (
         <div className="bg-emerald-50 border border-emerald-200 rounded-2xl p-4 flex justify-between items-center no-print">
            <div>
-              <h3 className="text-emerald-900 font-bold text-lg">Зарплата за сегодня</h3>
-              <p className="text-emerald-700 text-sm">Примерный расчет</p>
+              <h3 className="text-emerald-900 font-bold text-lg">Зарплата за месяц</h3>
+              <p className="text-emerald-700 text-sm">По предыдущую смену (закрытые)</p>
            </div>
            <div className="text-right">
-              <p className="text-3xl font-black text-emerald-600">{Math.floor(todayEarnings)} ₽</p>
+              <p className="text-3xl font-black text-emerald-600">{Math.floor(monthEarnings)} ₽</p>
            </div>
         </div>
       )}
