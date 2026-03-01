@@ -33,7 +33,20 @@ export const EmployeeMatrixRow = memo(({
           (!machine || l.machineId === machine.id)
         );
         
-        const mins = workEntries.reduce((sum, l) => sum + l.durationMinutes, 0);
+        let mins = 0;
+        if (machine) {
+          mins = workEntries.reduce((sum, l) => sum + l.durationMinutes, 0);
+        } else {
+          // Если это общая строка (без машины), считаем по правилу:
+          // Максимальное время работы на одном станке за день
+          const machineTotals: Record<string, number> = {};
+          workEntries.forEach(l => {
+            const mid = l.machineId || 'unknown';
+            machineTotals[mid] = (machineTotals[mid] || 0) + l.durationMinutes;
+          });
+          mins = Object.values(machineTotals).reduce((max, val) => Math.max(max, val), 0);
+        }
+
         const hasWork = workEntries.length > 0;
         const absence = dayLogs.find(l => l.entryType !== EntryType.WORK);
         

@@ -39,8 +39,8 @@ export const EmployeeMatrix = memo<EmployeeMatrixProps>(({
 
   return (
     <section className="bg-white rounded-3xl shadow-sm border border-slate-200 overflow-hidden print-monochrome">
-      <div className="p-6 border-b border-slate-100 flex justify-between items-center bg-slate-50/50 no-print">
-        <div className="flex items-center gap-4">
+      <div className="p-6 border-b border-slate-100 flex flex-col md:flex-row justify-between items-center bg-slate-50/50 no-print gap-4">
+        <div className="flex flex-col md:flex-row items-center gap-4 w-full md:w-auto">
           <h3 className="font-bold text-slate-900">Мой Табель</h3>
           <div className="flex gap-2">
              <button onClick={() => window.print()} className="flex items-center gap-2 px-4 py-2 bg-slate-100 text-slate-600 border border-slate-200 rounded-xl text-xs font-bold hover:bg-white transition-colors">
@@ -56,7 +56,7 @@ export const EmployeeMatrix = memo<EmployeeMatrixProps>(({
         <input type="month" value={filterMonth} onChange={(e) => {
           setFilterMonth(e.target.value);
           if (onMonthChange) onMonthChange(e.target.value);
-        }} className="border border-slate-200 rounded-xl p-2 text-sm font-bold" />
+        }} className="border border-slate-200 rounded-xl p-2 text-sm font-bold w-full md:w-auto" />
       </div>
 
       <div className="p-4 bg-slate-50/30 border-b border-slate-100 no-print">

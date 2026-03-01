@@ -146,6 +146,12 @@ const EmployeeView: React.FC<EmployeeViewProps> = ({
 
   const [isNightModeGlobal, setIsNightModeGlobal] = useState(false);
   const videoRef = useRef<HTMLVideoElement>(null);
+  
+  const [tick, setTick] = useState(0);
+  useEffect(() => {
+    const interval = setInterval(() => setTick(t => t + 1), 60000);
+    return () => clearInterval(interval);
+  }, []);
 
   const isAnyNightShiftActive = useMemo(() => {
     return Object.values(activeShifts).some(s => s !== null && (s as WorkLog).isNightShift);
@@ -389,7 +395,24 @@ const EmployeeView: React.FC<EmployeeViewProps> = ({
   const stats = useMemo(() => {
     const workSessions = filteredLogs.filter(l => l.entryType === EntryType.WORK && l.checkOut);
     const workDaysCount = new Set(workSessions.map(l => l.date)).size;
-    const totalWorkMinutes = workSessions.reduce((sum, l) => sum + l.durationMinutes, 0);
+    
+    // Group by date and machine to calculate max duration per day
+    const logsByDate: Record<string, WorkLog[]> = {};
+    workSessions.forEach(l => {
+      if (!logsByDate[l.date]) logsByDate[l.date] = [];
+      logsByDate[l.date].push(l);
+    });
+
+    let totalWorkMinutes = 0;
+    Object.values(logsByDate).forEach(dayLogs => {
+      const machineTotals: Record<string, number> = {};
+      dayLogs.forEach(l => {
+        const mid = l.machineId || 'unknown';
+        machineTotals[mid] = (machineTotals[mid] || 0) + l.durationMinutes;
+      });
+      totalWorkMinutes += Object.values(machineTotals).reduce((max, val) => Math.max(max, val), 0);
+    });
+
     const sickDays = filteredLogs.filter(l => l.entryType === EntryType.SICK).length;
     const vacationDays = filteredLogs.filter(l => l.entryType === EntryType.VACATION).length;
     const explicitDayOffs = filteredLogs.filter(l => l.entryType === EntryType.DAY_OFF).length;
@@ -406,6 +429,46 @@ const EmployeeView: React.FC<EmployeeViewProps> = ({
       off: explicitDayOffs + autoDayOffs
     };
   }, [filteredLogs, daysInMonth, today]);
+
+  const effectivePayroll = useMemo(() => {
+     if (user.payroll) return user.payroll;
+     const pos = positions.find(p => p.name === user.position);
+     return pos?.payroll;
+  }, [user, positions]);
+
+  const todayEarnings = useMemo(() => {
+    if (!effectivePayroll || !planLimits.features.payroll) return 0;
+    
+    const workLogs = todayLogs.filter(l => l.entryType === EntryType.WORK);
+    const now = getNow();
+    const machineTotals: Record<string, number> = {};
+    
+    workLogs.forEach(l => {
+       let duration = l.durationMinutes;
+       if (!l.checkOut && l.checkIn) {
+          const start = new Date(l.checkIn);
+          const diff = (now.getTime() - start.getTime()) / 60000;
+          duration = Math.max(0, Math.floor(diff));
+       }
+       const mid = l.machineId || 'unknown';
+       machineTotals[mid] = (machineTotals[mid] || 0) + duration;
+    });
+    
+    const todayMinutes = Object.values(machineTotals).reduce((max, val) => Math.max(max, val), 0);
+    
+    let earnings = 0;
+    if (effectivePayroll.type === 'hourly') {
+       earnings = (todayMinutes / 60) * effectivePayroll.rate;
+    } else if (effectivePayroll.type === 'shift') {
+       if (todayMinutes > 0) earnings = effectivePayroll.rate;
+    }
+    
+    if (workLogs.some(l => l.isNightShift)) {
+       earnings += effectivePayroll.nightShiftBonus;
+    }
+    
+    return earnings;
+  }, [todayLogs, effectivePayroll, planLimits.features.payroll, getNow, activeShifts, tick]); // Added tick to trigger update every minute
 
   const getMachineName = (id?: string) => machines.find(m => m.id === id)?.name || 'Работа';
 
@@ -465,6 +528,18 @@ const EmployeeView: React.FC<EmployeeViewProps> = ({
         user={user}
         filteredLogs={filteredLogs}
       />
+
+      {planLimits.features.payroll && effectivePayroll && (
+        <div className="bg-emerald-50 border border-emerald-200 rounded-2xl p-4 flex justify-between items-center no-print">
+           <div>
+              <h3 className="text-emerald-900 font-bold text-lg">Зарплата за сегодня</h3>
+              <p className="text-emerald-700 text-sm">Примерный расчет</p>
+           </div>
+           <div className="text-right">
+              <p className="text-3xl font-black text-emerald-600">{Math.floor(todayEarnings)} ₽</p>
+           </div>
+        </div>
+      )}
 
       <CameraModal
         showCamera={showCamera}
