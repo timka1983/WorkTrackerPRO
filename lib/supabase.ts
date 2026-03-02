@@ -37,6 +37,7 @@ const checkConfig = () => {
 };
 
 export const db = {
+  isConfigured: checkConfig,
   checkConnection: async () => {
     if (!checkConfig()) return false;
     try {
