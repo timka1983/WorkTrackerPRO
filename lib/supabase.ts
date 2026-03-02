@@ -117,7 +117,8 @@ export const db = {
         correctionNote: l.correction_note,
         correctionTimestamp: l.correction_timestamp,
         isNightShift: l.is_night_shift,
-        fine: l.fine
+        fine: l.fine,
+        bonus: l.bonus
       }));
     } catch (e) {
       console.error('Database connection failed:', e);
@@ -940,7 +941,7 @@ INSERT INTO system_config (id, super_admin_pin, global_admin_pin) VALUES ('globa
       const expectedSchema: Record<string, string[]> = {
         organizations: ['id', 'name', 'email', 'owner_id', 'plan', 'status', 'expiry_date', 'notification_settings'],
         users: ['id', 'organization_id', 'name', 'role', 'department', 'position', 'pin', 'require_photo', 'is_admin', 'force_pin_change', 'push_token', 'planned_shifts', 'payroll'],
-        work_logs: ['id', 'user_id', 'organization_id', 'date', 'entry_type', 'machine_id', 'check_in', 'check_out', 'duration_minutes', 'photo_in', 'photo_out', 'is_corrected', 'correction_note', 'correction_timestamp', 'is_night_shift', 'fine'],
+        work_logs: ['id', 'user_id', 'organization_id', 'date', 'entry_type', 'machine_id', 'check_in', 'check_out', 'duration_minutes', 'photo_in', 'photo_out', 'is_corrected', 'correction_note', 'correction_timestamp', 'is_night_shift', 'fine', 'bonus'],
         machines: ['id', 'organization_id', 'name'],
         positions: ['name', 'organization_id', 'permissions', 'payroll'],
         plans: ['type', 'name', 'limits', 'price'],
@@ -971,7 +972,7 @@ INSERT INTO system_config (id, super_admin_pin, global_admin_pin) VALUES ('globa
                  
                  // Generate basic SQL fix
                  let colType = 'TEXT';
-                 if (col.includes('count') || col.includes('days') || col.includes('uses') || col.includes('minutes') || col === 'price' || col === 'fine') colType = 'INTEGER';
+                 if (col.includes('count') || col.includes('days') || col.includes('uses') || col.includes('minutes') || col === 'price' || col === 'fine' || col === 'bonus') colType = 'INTEGER';
                  else if (col.includes('date') || col.includes('_at') || col.includes('timestamp') || col === 'check_in' || col === 'check_out') colType = 'TIMESTAMPTZ';
                  else if (col.startsWith('is_') || col.startsWith('require_') || col.startsWith('force_')) colType = 'BOOLEAN';
                  else if (col === 'notification_settings' || col === 'permissions' || col === 'limits' || col === 'shifts_json' || col === 'shifts' || col === 'planned_shifts' || col === 'payroll') colType = 'JSONB';

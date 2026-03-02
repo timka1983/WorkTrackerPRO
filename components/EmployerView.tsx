@@ -403,9 +403,7 @@ const EmployerView: React.FC<EmployerViewProps> = ({
       bonus: amount,
       correctionNote: note || 'Общая премия',
       isCorrected: true,
-      correctionTimestamp: nowStr,
-      checkIn: nowStr,
-      checkOut: nowStr
+      correctionTimestamp: nowStr
     }));
     onLogsUpsert(newLogs);
   };
