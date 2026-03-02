@@ -5,19 +5,41 @@ import { STORAGE_KEYS } from '../constants';
 
 const getEnv = (name: string): string => {
   try {
+    // 1. Try import.meta.env (Vite standard)
+    const viteEnv = (import.meta as any).env;
+    if (viteEnv && viteEnv[name]) return viteEnv[name];
+    
+    // 2. Try process.env (Node/Build-time/Platform injection)
     if (typeof process !== 'undefined' && process.env && process.env[name]) {
       return process.env[name] as string;
     }
-    const metaEnv = (import.meta as any).env;
-    if (metaEnv && metaEnv[name]) {
-      return metaEnv[name];
+
+    // 3. Try without VITE_ prefix if name starts with it
+    if (name.startsWith('VITE_')) {
+      const fallbackName = name.replace('VITE_', '');
+      if (viteEnv && viteEnv[fallbackName]) return viteEnv[fallbackName];
+      if (typeof process !== 'undefined' && process.env && process.env[fallbackName]) {
+        return process.env[fallbackName] as string;
+      }
     }
-  } catch (e) {}
+  } catch (e) {
+    console.warn(`Error getting env var ${name}:`, e);
+  }
   return '';
 };
 
-const SUPABASE_URL = getEnv('VITE_SUPABASE_URL') || 'https://placeholder-project.supabase.co';
-const SUPABASE_ANON_KEY = getEnv('VITE_SUPABASE_ANON_KEY') || 'placeholder-anon-key';
+const rawUrl = getEnv('VITE_SUPABASE_URL').trim();
+const rawKey = getEnv('VITE_SUPABASE_ANON_KEY').trim();
+
+const SUPABASE_URL = rawUrl || 'https://placeholder-project.supabase.co';
+const SUPABASE_ANON_KEY = rawKey || 'placeholder-anon-key';
+
+// Log configuration status for debugging (without showing the full key)
+if (!rawUrl || !rawKey) {
+  console.warn('Supabase configuration is missing or incomplete. Using placeholders.');
+} else {
+  console.log('Supabase configuration detected.');
+}
 
 export const supabase = createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
 
@@ -37,6 +59,7 @@ const checkConfig = () => {
 };
 
 export const db = {
+  isConfigured: () => checkConfig(),
   checkConnection: async () => {
     if (!checkConfig()) return false;
     try {
@@ -436,12 +459,16 @@ export const db = {
   },
   getPositions: async (orgId: string) => {
     if (!checkConfig()) return null;
-    const { data } = await supabase.from('positions').select('*').eq('organization_id', orgId).order('name');
+    const { data, error } = await supabase.from('positions').select('*').eq('organization_id', orgId).order('name');
+    if (error) {
+      console.error('Error fetching positions:', error);
+      return null;
+    }
     return data?.map(p => ({
       name: p.name,
       permissions: p.permissions || {},
       payroll: p.payroll
-    })) || null;
+    })) || [];
   },
   savePositions: async (positions: any[], orgId: string) => {
     if (!checkConfig()) return { error: 'Not configured' };
@@ -780,12 +807,24 @@ $$;
       }
 
       for (const table of tablesToCheck) {
+        // Skip actual DB calls if not configured to avoid 401/409 errors
+        if (!isConfigured()) {
+          results.tables[table] = { status: 'error', message: 'Supabase not configured' };
+          continue;
+        }
+
         const { error } = await supabase.from(table).select('count', { count: 'exact', head: true }).limit(0);
         
         // If error is present, OR if the error is specifically that the table doesn't exist
         const isMissing = error && (error.message.includes('does not exist') || error.code === '42P01');
         
         results.tables[table] = error ? { status: 'error', message: error.message } : { status: 'ok' };
+        
+        // Check RLS
+        if (!error) {
+          // If we can read count but it's 0, it might be RLS or just empty.
+          // We can't easily check RLS from client without a specific RPC, but we can try to insert and see if it fails.
+        }
         
         if (isMissing) {
           if (table === 'promo_codes') {
@@ -810,6 +849,25 @@ DROP POLICY IF EXISTS "Allow public insert" ON promo_codes;
 CREATE POLICY "Allow public insert" ON promo_codes FOR INSERT WITH CHECK (true);
 DROP POLICY IF EXISTS "Allow public update" ON promo_codes;
 CREATE POLICY "Allow public update" ON promo_codes FOR UPDATE USING (true);
+            `);
+          } else if (table === 'positions') {
+            results.sqlFixes.push(`
+CREATE TABLE IF NOT EXISTS positions (
+  name TEXT NOT NULL,
+  organization_id TEXT NOT NULL,
+  permissions JSONB DEFAULT '{}',
+  payroll JSONB DEFAULT '{}',
+  PRIMARY KEY (organization_id, name)
+);
+ALTER TABLE positions ENABLE ROW LEVEL SECURITY;
+DROP POLICY IF EXISTS "Allow public read" ON positions;
+CREATE POLICY "Allow public read" ON positions FOR SELECT USING (true);
+DROP POLICY IF EXISTS "Allow public insert" ON positions;
+CREATE POLICY "Allow public insert" ON positions FOR INSERT WITH CHECK (true);
+DROP POLICY IF EXISTS "Allow public update" ON positions;
+CREATE POLICY "Allow public update" ON positions FOR UPDATE USING (true);
+DROP POLICY IF EXISTS "Allow public delete" ON positions;
+CREATE POLICY "Allow public delete" ON positions FOR DELETE USING (true);
             `);
           } else if (table === 'system_config') {
             results.sqlFixes.push(`

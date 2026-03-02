@@ -210,18 +210,21 @@ export const useAppData = (currentUser: User | null) => {
     queryKey: ['positions', orgId],
     queryFn: async () => {
       const fetched = await db.getPositions(orgId);
-      if (fetched && fetched.length > 0) {
-        return fetched.map((p: any) => 
-          typeof p === 'string' 
-            ? (INITIAL_POSITIONS.find(ip => ip.name === p) || { name: p, permissions: DEFAULT_PERMISSIONS }) 
-            : p
-        );
+      
+      if (fetched === null) {
+        // Error fetching from DB - return cached data or initial positions without overwriting DB
+        const cached = localStorage.getItem(STORAGE_KEYS.POSITIONS_LIST);
+        return cached ? JSON.parse(cached) : INITIAL_POSITIONS;
       }
-      if (!fetched || fetched.length === 0) {
-        await db.savePositions(INITIAL_POSITIONS, orgId);
-        return INITIAL_POSITIONS;
+
+      if (fetched.length > 0) {
+        return fetched;
       }
-      return [];
+
+      // If fetched is an empty array, it means no positions exist for this org in DB
+      // We seed them only if it's the demo org or if we want default positions for new orgs
+      await db.savePositions(INITIAL_POSITIONS, orgId);
+      return INITIAL_POSITIONS;
     },
     initialData: () => {
       const cached = localStorage.getItem(STORAGE_KEYS.POSITIONS_LIST);
