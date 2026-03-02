@@ -8,7 +8,7 @@ import {
 } from '../types';
 import { 
   STORAGE_KEYS, INITIAL_USERS, INITIAL_MACHINES, INITIAL_POSITIONS, 
-  DEFAULT_PERMISSIONS, PLAN_LIMITS 
+  DEFAULT_PERMISSIONS, PLAN_LIMITS, DEFAULT_PAYROLL_CONFIG 
 } from '../constants';
 import { sendNotification } from '../utils';
 
@@ -209,27 +209,51 @@ export const useAppData = (currentUser: User | null) => {
   const { data: positions = [], isFetching: isPositionsFetching } = useQuery({
     queryKey: ['positions', orgId],
     queryFn: async () => {
+      console.log('Fetching positions for org:', orgId);
       const fetched = await db.getPositions(orgId);
       
       if (fetched === null) {
-        // Error fetching from DB - return cached data or initial positions without overwriting DB
+        console.error('Failed to fetch positions from DB');
         const cached = localStorage.getItem(STORAGE_KEYS.POSITIONS_LIST);
         return cached ? JSON.parse(cached) : INITIAL_POSITIONS;
       }
 
+      // If we have positions in DB, use them
       if (fetched.length > 0) {
         return fetched;
       }
 
-      // If fetched is an empty array, it means no positions exist for this org in DB
-      // We seed them only if it's the demo org or if we want default positions for new orgs
+      // If DB is empty, try to extract from users first
+      const uniqueUserPositions = Array.from(new Set(users.map(u => u.position).filter(Boolean)));
+      
+      if (uniqueUserPositions.length > 0) {
+        console.log('Found positions in users table:', uniqueUserPositions);
+        const extractedPositions: PositionConfig[] = uniqueUserPositions.map(name => {
+          const initial = INITIAL_POSITIONS.find(p => p.name === name);
+          return initial || { name, permissions: DEFAULT_PERMISSIONS, payroll: DEFAULT_PAYROLL_CONFIG };
+        });
+        
+        // Also add missing INITIAL_POSITIONS that are not in users
+        INITIAL_POSITIONS.forEach(p => {
+          if (!extractedPositions.find(ep => ep.name === p.name)) {
+            extractedPositions.push(p);
+          }
+        });
+
+        await db.savePositions(extractedPositions, orgId);
+        return extractedPositions;
+      }
+
+      // Fallback to INITIAL_POSITIONS
+      console.log('No positions found in DB or users, seeding INITIAL_POSITIONS');
       await db.savePositions(INITIAL_POSITIONS, orgId);
       return INITIAL_POSITIONS;
     },
     initialData: () => {
       const cached = localStorage.getItem(STORAGE_KEYS.POSITIONS_LIST);
       return cached ? JSON.parse(cached) : INITIAL_POSITIONS;
-    }
+    },
+    enabled: !!orgId && !isUsersFetching // Wait for users to be fetched to extract positions if needed
   });
 
   useEffect(() => {
@@ -806,6 +830,10 @@ export const useAppData = (currentUser: User | null) => {
     retry: 3,
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['positions', currentOrg?.id] });
+    },
+    onError: (error: any) => {
+      console.error('Error saving positions:', error);
+      alert('Ошибка при сохранении должностей: ' + (error.message || 'Неизвестная ошибка'));
     }
   });
 

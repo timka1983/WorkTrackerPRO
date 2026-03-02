@@ -5,41 +5,19 @@ import { STORAGE_KEYS } from '../constants';
 
 const getEnv = (name: string): string => {
   try {
-    // 1. Try import.meta.env (Vite standard)
-    const viteEnv = (import.meta as any).env;
-    if (viteEnv && viteEnv[name]) return viteEnv[name];
-    
-    // 2. Try process.env (Node/Build-time/Platform injection)
     if (typeof process !== 'undefined' && process.env && process.env[name]) {
       return process.env[name] as string;
     }
-
-    // 3. Try without VITE_ prefix if name starts with it
-    if (name.startsWith('VITE_')) {
-      const fallbackName = name.replace('VITE_', '');
-      if (viteEnv && viteEnv[fallbackName]) return viteEnv[fallbackName];
-      if (typeof process !== 'undefined' && process.env && process.env[fallbackName]) {
-        return process.env[fallbackName] as string;
-      }
+    const metaEnv = (import.meta as any).env;
+    if (metaEnv && metaEnv[name]) {
+      return metaEnv[name];
     }
-  } catch (e) {
-    console.warn(`Error getting env var ${name}:`, e);
-  }
+  } catch (e) {}
   return '';
 };
 
-const rawUrl = getEnv('VITE_SUPABASE_URL').trim();
-const rawKey = getEnv('VITE_SUPABASE_ANON_KEY').trim();
-
-const SUPABASE_URL = rawUrl || 'https://placeholder-project.supabase.co';
-const SUPABASE_ANON_KEY = rawKey || 'placeholder-anon-key';
-
-// Log configuration status for debugging (without showing the full key)
-if (!rawUrl || !rawKey) {
-  console.warn('Supabase configuration is missing or incomplete. Using placeholders.');
-} else {
-  console.log('Supabase configuration detected.');
-}
+const SUPABASE_URL = getEnv('VITE_SUPABASE_URL') || 'https://placeholder-project.supabase.co';
+const SUPABASE_ANON_KEY = getEnv('VITE_SUPABASE_ANON_KEY') || 'placeholder-anon-key';
 
 export const supabase = createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
 
@@ -59,7 +37,6 @@ const checkConfig = () => {
 };
 
 export const db = {
-  isConfigured: () => checkConfig(),
   checkConnection: async () => {
     if (!checkConfig()) return false;
     try {
@@ -473,20 +450,85 @@ export const db = {
   savePositions: async (positions: any[], orgId: string) => {
     if (!checkConfig()) return { error: 'Not configured' };
     
-    // Для позиций upsert
-    const { error: delError } = await supabase.from('positions').delete().eq('organization_id', orgId);
-    if (delError) return { error: delError };
+    console.log('Saving positions for org:', orgId, positions);
+    
+    try {
+      // 1. Get current positions to identify what to delete
+      const { data: existing, error: fetchError } = await supabase
+        .from('positions')
+        .select('name')
+        .eq('organization_id', orgId);
+        
+      if (fetchError) {
+        console.error('Error fetching existing positions for sync:', fetchError);
+        // Continue anyway, try to just upsert
+      }
 
-    if (positions.length > 0) {
-      const { error } = await supabase.from('positions').insert(positions.map(p => ({ 
-        name: p.name, 
-        permissions: p.permissions,
-        payroll: p.payroll,
-        organization_id: orgId 
-      })));
-      return { error };
+      const newNames = positions.map(p => p.name);
+      const toDelete = existing ? existing.filter(e => !newNames.includes(e.name)).map(e => e.name) : [];
+
+      // 2. Delete removed positions
+      if (toDelete.length > 0) {
+        console.log('Deleting removed positions:', toDelete);
+        const { error: delError } = await supabase
+          .from('positions')
+          .delete()
+          .eq('organization_id', orgId)
+          .in('name', toDelete);
+          
+        if (delError) {
+          console.error('Error deleting removed positions:', delError);
+          // We might want to stop here if delete fails, but let's try to upsert anyway
+        }
+      }
+
+      // 3. Upsert all positions in the new list
+      if (positions.length > 0) {
+        const upsertData = positions.map(p => ({ 
+          name: p.name, 
+          permissions: p.permissions || {},
+          payroll: p.payroll || {},
+          organization_id: orgId 
+        }));
+        
+        console.log('Upserting positions:', upsertData);
+        // Try upsert first
+        const { error: upsertError } = await supabase
+          .from('positions')
+          .upsert(upsertData, { onConflict: 'organization_id,name' });
+          
+        if (upsertError) {
+          console.error('Upsert failed, falling back to delete/insert:', upsertError);
+          
+          // Fallback: If upsert fails (e.g. missing unique constraint), use delete + insert
+          // We already deleted the ones to be removed, but now we need to overwrite the existing ones
+          const { error: finalDelError } = await supabase
+            .from('positions')
+            .delete()
+            .eq('organization_id', orgId);
+            
+          if (finalDelError) return { error: finalDelError };
+          
+          const { error: insertError } = await supabase
+            .from('positions')
+            .insert(upsertData);
+            
+          if (insertError) return { error: insertError };
+        }
+      } else if (toDelete.length === 0 && existing && existing.length > 0) {
+        // If we want to clear all positions
+        const { error: clearError } = await supabase
+          .from('positions')
+          .delete()
+          .eq('organization_id', orgId);
+        return { error: clearError };
+      }
+
+      return { error: null };
+    } catch (err: any) {
+      console.error('Unexpected error in savePositions:', err);
+      return { error: err };
     }
-    return { error: null };
   },
   getSystemConfig: async () => {
     if (!checkConfig()) return null;
@@ -807,12 +849,6 @@ $$;
       }
 
       for (const table of tablesToCheck) {
-        // Skip actual DB calls if not configured to avoid 401/409 errors
-        if (!isConfigured()) {
-          results.tables[table] = { status: 'error', message: 'Supabase not configured' };
-          continue;
-        }
-
         const { error } = await supabase.from(table).select('count', { count: 'exact', head: true }).limit(0);
         
         // If error is present, OR if the error is specifically that the table doesn't exist
