@@ -209,7 +209,11 @@ export const SettingsView: React.FC<SettingsViewProps> = ({
             <input type="text" value={newPositionName} onChange={e => setNewPositionName(e.target.value)} placeholder="Новая роль" className="flex-1 border-2 border-slate-100 rounded-2xl px-4 py-3 text-sm outline-none focus:border-blue-500 transition-all" />
             <button onClick={() => {
               if (newPositionName.trim()) {
-                onUpdatePositions([...positions, { name: newPositionName, permissions: DEFAULT_PERMISSIONS }]);
+                if (positions.some(p => p.name.toLowerCase() === newPositionName.trim().toLowerCase())) {
+                  alert('Такая должность уже существует');
+                  return;
+                }
+                onUpdatePositions([...positions, { name: newPositionName.trim(), permissions: DEFAULT_PERMISSIONS }]);
                 setNewPositionName('');
               }
             }} className="px-6 py-3 bg-blue-600 text-white rounded-2xl font-black text-sm uppercase">Добавить</button>

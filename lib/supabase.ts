@@ -450,7 +450,17 @@ export const db = {
   savePositions: async (positions: any[], orgId: string) => {
     if (!checkConfig()) return { error: 'Not configured' };
     
-    console.log('Saving positions for org:', orgId, positions);
+    // Deduplicate by name to prevent 23505 errors
+    const uniquePositions = positions.reduce((acc: any[], current) => {
+      const x = acc.find(item => item.name === current.name);
+      if (!x) {
+        return acc.concat([current]);
+      } else {
+        return acc;
+      }
+    }, []);
+
+    console.log('Saving unique positions for org:', orgId, uniquePositions);
     
     try {
       // 1. Get current positions to identify what to delete
@@ -461,10 +471,9 @@ export const db = {
         
       if (fetchError) {
         console.error('Error fetching existing positions for sync:', fetchError);
-        // Continue anyway, try to just upsert
       }
 
-      const newNames = positions.map(p => p.name);
+      const newNames = uniquePositions.map(p => p.name);
       const toDelete = existing ? existing.filter(e => !newNames.includes(e.name)).map(e => e.name) : [];
 
       // 2. Delete removed positions
@@ -478,13 +487,12 @@ export const db = {
           
         if (delError) {
           console.error('Error deleting removed positions:', delError);
-          // We might want to stop here if delete fails, but let's try to upsert anyway
         }
       }
 
       // 3. Upsert all positions in the new list
-      if (positions.length > 0) {
-        const upsertData = positions.map(p => ({ 
+      if (uniquePositions.length > 0) {
+        const upsertData = uniquePositions.map(p => ({ 
           name: p.name, 
           permissions: p.permissions || {},
           payroll: p.payroll || {},
@@ -500,8 +508,7 @@ export const db = {
         if (upsertError) {
           console.error('Upsert failed, falling back to delete/insert:', upsertError);
           
-          // Fallback: If upsert fails (e.g. missing unique constraint), use delete + insert
-          // We already deleted the ones to be removed, but now we need to overwrite the existing ones
+          // Fallback: If upsert fails, use delete + insert
           const { error: finalDelError } = await supabase
             .from('positions')
             .delete()
@@ -516,7 +523,6 @@ export const db = {
           if (insertError) return { error: insertError };
         }
       } else if (toDelete.length === 0 && existing && existing.length > 0) {
-        // If we want to clear all positions
         const { error: clearError } = await supabase
           .from('positions')
           .delete()

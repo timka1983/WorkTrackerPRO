@@ -84,9 +84,6 @@ const SuperAdminView: React.FC<SuperAdminViewProps> = ({ onLogout, onUpdateSyste
         
         if (test.id === 'supabase') {
           success = await db.checkConnection();
-        } else if (!db.isConfigured()) {
-          success = false;
-          errorMsg = 'Supabase не настроен';
         } else if (test.id === 'auth') {
           const { error } = await supabase.from('users').select('id').limit(1);
           success = !error;
