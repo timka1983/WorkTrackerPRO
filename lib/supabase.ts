@@ -175,6 +175,8 @@ export const db = {
   upsertLog: async (log: any, orgId: string) => {
     if (!isConfigured()) return;
     
+    console.log('📝 Upserting log:', log.id, 'Org:', orgId);
+
     const payload = {
       id: log.id,
       user_id: log.userId,
@@ -195,7 +197,11 @@ export const db = {
     };
     
     const { error } = await supabase.from('work_logs').upsert(payload);
-    if (error) console.error('Error upserting log:', error);
+    if (error) {
+      console.error('❌ Error upserting log:', error);
+    } else {
+      console.log('✅ Log upserted successfully');
+    }
   },
   getDashboardStats: async (orgId: string, monthPrefix: string, last7Days: string[]) => {
     if (!checkConfig()) return null;
@@ -734,20 +740,34 @@ export const db = {
         
         // If error is about missing columns (42703)
         if (error.code === '42703' || error.message?.includes('column')) {
-          // Try removing 'shifts' first
-          const { shifts, ...payloadNoShifts } = payload;
-          const { error: error2 } = await supabase.from('active_shifts').upsert(payloadNoShifts, { onConflict: 'user_id' });
+          console.warn('⚠️ Missing column detected, attempting to strip optional fields...');
           
-          if (error2) console.error('❌ Fallback upsert failed:', error2);
-          else console.log('✅ Fallback upsert successful');
-          
-          if (error2 && (error2.code === '42703' || error2.message?.includes('column'))) {
-            // Try removing only shifts_json if that was the issue, but keep organization_id
-            const { shifts_json, ...minimalPayload } = payloadNoShifts;
-            const { error: error3 } = await supabase.from('active_shifts').upsert(minimalPayload, { onConflict: 'user_id' });
-            return { error: error3 };
+          // Strategy 1: Remove 'shifts' (legacy field)
+          const { shifts, ...try1 } = payload;
+          const { error: error1 } = await supabase.from('active_shifts').upsert(try1, { onConflict: 'user_id' });
+          if (!error1) {
+             console.log('✅ Fallback 1 (no shifts) successful');
+             return { error: null };
           }
-          return { error: error2 };
+
+          // Strategy 2: Remove 'organization_id' (if that's the missing one)
+          const { organization_id, ...try2 } = payload;
+          const { error: error2 } = await supabase.from('active_shifts').upsert(try2, { onConflict: 'user_id' });
+          if (!error2) {
+             console.log('✅ Fallback 2 (no org_id) successful');
+             return { error: null };
+          }
+          
+          // Strategy 3: Remove BOTH
+          const { shifts: s, organization_id: o, ...try3 } = payload;
+          const { error: error3 } = await supabase.from('active_shifts').upsert(try3, { onConflict: 'user_id' });
+          if (!error3) {
+             console.log('✅ Fallback 3 (minimal) successful');
+             return { error: null };
+          }
+          
+          console.error('❌ All fallbacks failed:', error3);
+          return { error: error3 };
         }
         
         // Handle conflict errors
