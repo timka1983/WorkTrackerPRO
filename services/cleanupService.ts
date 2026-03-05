@@ -301,10 +301,42 @@ export const fixDuplicatePositions = async (orgId: string) => {
   let fixedCount = 0;
   
   for (const dup of duplicates) {
-    // Keep the first one
-    const toDelete = dup.ids.slice(1);
-    await supabase.from('positions').delete().in('id', toDelete);
-    fixedCount += toDelete.length;
+    // If we have IDs, try to delete by ID
+    if (dup.ids && dup.ids.length > 0 && dup.ids[0] !== undefined) {
+        const toDelete = dup.ids.slice(1);
+        const { error } = await supabase.from('positions').delete().in('id', toDelete);
+        
+        if (!error) {
+            fixedCount += toDelete.length;
+            continue;
+        }
+        // If error is "column does not exist", fall through to name-based logic
+        if (error.code !== '42703') {
+            console.error('Error deleting positions:', error);
+            continue;
+        }
+    }
+    
+    // Fallback: Delete ALL by name and re-insert ONE
+    console.warn(`Re-creating position "${dup.name}" to fix duplicates...`);
+    
+    // 1. Get the data of the one we want to keep (first one)
+    const { data: allPos } = await supabase.from('positions').select('*').eq('name', dup.name).eq('organization_id', orgId);
+    
+    if (allPos && allPos.length > 1) {
+      const keeper = allPos[0];
+      
+      // 2. Delete ALL with this name
+      await supabase.from('positions').delete().eq('name', dup.name).eq('organization_id', orgId);
+      
+      // 3. Insert ONE back
+      // Remove ID if it exists but is null/undefined to let DB generate it if needed, 
+      // or just insert as is if we want to keep properties
+      const { id, ...rest } = keeper; 
+      await supabase.from('positions').insert(rest);
+      
+      fixedCount += (allPos.length - 1);
+    }
   }
   return fixedCount;
 };
