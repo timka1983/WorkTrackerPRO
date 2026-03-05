@@ -203,6 +203,7 @@ const App: React.FC = () => {
                 onRemoveBase64Photos={appData.handleRemoveBase64Photos}
                 onRunDiagnostics={appData.handleRunDiagnostics}
                 onMergeDuplicates={appData.handleMergeDuplicates}
+                onFixDbStructure={appData.handleFixDbStructure}
                 isSyncing={appData.isSyncing}
                 nightShiftBonusMinutes={appData.nightShiftBonus}
                 onUpdateNightBonus={appData.setNightShiftBonus}

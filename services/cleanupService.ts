@@ -275,3 +275,68 @@ export const mergeDuplicateUsersByName = async (orgId: string) => {
   }
   return results;
 };
+
+export const checkDuplicatePositions = async (orgId: string) => {
+  const { data: positions } = await supabase.from('positions').select('*').eq('organization_id', orgId);
+  if (!positions) return [];
+  
+  const groups = new Map<string, any[]>();
+  positions.forEach(p => {
+    const key = p.name;
+    if (!groups.has(key)) groups.set(key, []);
+    groups.get(key)?.push(p);
+  });
+  
+  const duplicates: any[] = [];
+  groups.forEach((group, name) => {
+    if (group.length > 1) {
+      duplicates.push({ name, count: group.length, ids: group.map(p => p.id) });
+    }
+  });
+  return duplicates;
+};
+
+export const fixDuplicatePositions = async (orgId: string) => {
+  const duplicates = await checkDuplicatePositions(orgId);
+  let fixedCount = 0;
+  
+  for (const dup of duplicates) {
+    // Keep the first one
+    const toDelete = dup.ids.slice(1);
+    await supabase.from('positions').delete().in('id', toDelete);
+    fixedCount += toDelete.length;
+  }
+  return fixedCount;
+};
+
+export const checkDuplicateActiveShifts = async (orgId: string) => {
+  const { data: shifts } = await supabase.from('active_shifts').select('*').eq('organization_id', orgId);
+  if (!shifts) return [];
+  
+  const groups = new Map<string, any[]>();
+  shifts.forEach(s => {
+    const key = s.user_id;
+    if (!groups.has(key)) groups.set(key, []);
+    groups.get(key)?.push(s);
+  });
+  
+  const duplicates: any[] = [];
+  groups.forEach((group, userId) => {
+    if (group.length > 1) {
+      duplicates.push({ userId, count: group.length, ids: group.map(s => s.id) });
+    }
+  });
+  return duplicates;
+};
+
+export const fixDuplicateActiveShifts = async (orgId: string) => {
+  const duplicates = await checkDuplicateActiveShifts(orgId);
+  let fixedCount = 0;
+  
+  for (const dup of duplicates) {
+    const toDelete = dup.ids.slice(1);
+    await supabase.from('active_shifts').delete().in('id', toDelete);
+    fixedCount += toDelete.length;
+  }
+  return fixedCount;
+};

@@ -13,7 +13,10 @@ import {
 import { sendNotification } from '../utils';
 
 import { useTimeSync } from './useTimeSync';
-import { cleanupDatabase, removeBase64Photos, mergeDuplicateUsersByName } from '../services/cleanupService';
+import { 
+  cleanupDatabase, removeBase64Photos, mergeDuplicateUsersByName,
+  checkDuplicatePositions, fixDuplicatePositions, checkDuplicateActiveShifts, fixDuplicateActiveShifts
+} from '../services/cleanupService';
 
 const DEFAULT_ORG_ID = 'demo_org';
 
@@ -1097,6 +1100,50 @@ export const useAppData = (currentUser: User | null) => {
     }
   };
 
+  const handleFixDbStructure = async () => {
+    if (!currentOrg) return;
+    
+    let message = 'Проверка структуры БД...\n';
+    let needsFix = false;
+    
+    // 1. Check Positions
+    const dupPositions = await checkDuplicatePositions(currentOrg.id);
+    if (dupPositions.length > 0) {
+      message += `\nНайдены дубликаты должностей: ${dupPositions.length} шт.\n`;
+      needsFix = true;
+    } else {
+      message += `\nДубликатов должностей не найдено.\n`;
+    }
+    
+    // 2. Check Active Shifts
+    const dupShifts = await checkDuplicateActiveShifts(currentOrg.id);
+    if (dupShifts.length > 0) {
+      message += `\nНайдены дубликаты активных смен: ${dupShifts.length} шт.\n`;
+      needsFix = true;
+    } else {
+      message += `\nДубликатов активных смен не найдено.\n`;
+    }
+    
+    if (needsFix) {
+      if (confirm(message + '\nИсправить эти проблемы автоматически?')) {
+        let fixedPos = 0;
+        let fixedShifts = 0;
+        
+        if (dupPositions.length > 0) {
+           fixedPos = await fixDuplicatePositions(currentOrg.id);
+        }
+        if (dupShifts.length > 0) {
+           fixedShifts = await fixDuplicateActiveShifts(currentOrg.id);
+        }
+        
+        alert(`Исправлено:\nДолжностей: ${fixedPos}\nАктивных смен: ${fixedShifts}\n\nПожалуйста, перезагрузите страницу.`);
+        window.location.reload();
+      }
+    } else {
+      alert(message + '\nВсе в порядке!');
+    }
+  };
+
   return {
     currentOrg: currentOrg || null,
     setCurrentOrg: (val: Organization | null | ((prev: Organization | null) => Organization | null)) => {
@@ -1142,6 +1189,7 @@ export const useAppData = (currentUser: User | null) => {
     handleCleanupDatabase,
     handleRemoveBase64Photos,
     handleRunDiagnostics,
-    handleMergeDuplicates
+    handleMergeDuplicates,
+    handleFixDbStructure
   };
 };
