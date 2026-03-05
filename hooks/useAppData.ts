@@ -1044,6 +1044,46 @@ export const useAppData = (currentUser: User | null) => {
     }
   };
 
+  const handleRunDiagnostics = async () => {
+    if (!currentOrg) return;
+    
+    // 1. Check DB connection
+    const isConnected = await db.checkConnection();
+    if (!isConnected) {
+      alert('Нет подключения к базе данных!');
+      return;
+    }
+    
+    // 2. Check for duplicates
+    const duplicates = await db.getDuplicateUsers(currentOrg.id);
+    
+    // 3. Check for orphaned logs
+    const orphaned = await db.getOrphanedLogs(currentOrg.id);
+    
+    let message = 'Диагностика завершена:\n\n';
+    message += `Подключение к БД: OK\n`;
+    
+    if (duplicates.length > 0) {
+      message += `\nНАЙДЕНЫ ДУБЛИКАТЫ СОТРУДНИКОВ (${duplicates.length}):\n`;
+      duplicates.forEach(d => {
+        message += `- ${d.name}: ID [${d.users.map((u: any) => u.id).join(', ')}]\n`;
+      });
+      message += '\nРешение: Удалите лишних сотрудников вручную через "Сотрудники", предварительно перенеся их смены (если нужно).\n';
+    } else {
+      message += `\nДубликатов сотрудников по имени не найдено.\n`;
+    }
+    
+    if (orphaned.length > 0) {
+      message += `\nНАЙДЕНЫ ЛОГИ БЕЗ СОТРУДНИКОВ (${orphaned.length}):\n`;
+      message += `ID сотрудников: ${orphaned.join(', ')}\n`;
+      message += '\nРешение: Эти логи ссылаются на удаленных сотрудников. Они могут отображаться как "Unknown" или дубликаты в отчетах.\n';
+    } else {
+      message += `\nЛогов без привязки к сотрудникам не найдено.\n`;
+    }
+    
+    alert(message);
+  };
+
   return {
     currentOrg: currentOrg || null,
     setCurrentOrg: (val: Organization | null | ((prev: Organization | null) => Organization | null)) => {
@@ -1087,6 +1127,7 @@ export const useAppData = (currentUser: User | null) => {
     checkLimit,
     forceCleanAll,
     handleCleanupDatabase,
-    handleRemoveBase64Photos
+    handleRemoveBase64Photos,
+    handleRunDiagnostics
   };
 };

@@ -201,6 +201,7 @@ const App: React.FC = () => {
                 forceCleanAll={appData.forceCleanAll}
                 onCleanupDatabase={appData.handleCleanupDatabase}
                 onRemoveBase64Photos={appData.handleRemoveBase64Photos}
+                onRunDiagnostics={appData.handleRunDiagnostics}
                 isSyncing={appData.isSyncing}
                 nightShiftBonusMinutes={appData.nightShiftBonus}
                 onUpdateNightBonus={appData.setNightShiftBonus}

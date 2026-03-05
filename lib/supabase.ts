@@ -1240,6 +1240,58 @@ $$ LANGUAGE plpgsql SECURITY DEFINER;
       return { ...results, status: 'error', message: e.message };
     }
   },
+  
+  // Diagnostics
+  getDuplicateUsers: async (orgId: string) => {
+    if (!checkConfig()) return [];
+    const { data: users, error } = await supabase
+      .from('users')
+      .select('id, name, position')
+      .eq('organization_id', orgId);
+      
+    if (error || !users) return [];
+    
+    const nameMap = new Map<string, any[]>();
+    users.forEach(u => {
+      const name = u.name.trim().toLowerCase();
+      if (!nameMap.has(name)) nameMap.set(name, []);
+      nameMap.get(name)?.push(u);
+    });
+    
+    const duplicates: any[] = [];
+    nameMap.forEach((list, name) => {
+      if (list.length > 1) {
+        duplicates.push({ name: list[0].name, users: list });
+      }
+    });
+    
+    return duplicates;
+  },
+  
+  getOrphanedLogs: async (orgId: string) => {
+    if (!checkConfig()) return [];
+    
+    // 1. Get all user IDs
+    const { data: users } = await supabase.from('users').select('id').eq('organization_id', orgId);
+    const userIds = new Set((users || []).map(u => u.id));
+    
+    // 2. Get all logs (limit to recent 1000 to avoid huge query if possible, or use a join if we could)
+    // Since we can't do a "NOT IN" join easily with simple client without fetching all, 
+    // we'll fetch unique user_ids from logs.
+    
+    const { data: logUserIds, error } = await supabase
+      .from('work_logs')
+      .select('user_id')
+      .eq('organization_id', orgId);
+      
+    if (error || !logUserIds) return [];
+    
+    const uniqueLogUserIds = Array.from(new Set(logUserIds.map(l => l.user_id)));
+    const orphanedIds = uniqueLogUserIds.filter(id => !userIds.has(id));
+    
+    return orphanedIds;
+  },
+
   subscribeToChanges: (orgId: string, table: string, callback: (payload: any) => void) => {
     if (!isConfigured()) return () => {};
     
