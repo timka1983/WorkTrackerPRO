@@ -893,6 +893,31 @@ const EmployerView: React.FC<EmployerViewProps> = ({
             >
               Исправить дубликаты в БД
             </button>
+            <button 
+              onClick={() => {
+                let storageCount = 0;
+                let base64Count = 0;
+                let totalPhotos = 0;
+                
+                logs.forEach(l => {
+                  if (l.photoIn) {
+                    totalPhotos++;
+                    if (l.photoIn.startsWith('http')) storageCount++;
+                    else if (l.photoIn.startsWith('data:')) base64Count++;
+                  }
+                  if (l.photoOut) {
+                    totalPhotos++;
+                    if (l.photoOut.startsWith('http')) storageCount++;
+                    else if (l.photoOut.startsWith('data:')) base64Count++;
+                  }
+                });
+                
+                alert(`Анализ фото:\nВсего фото: ${totalPhotos}\nВ хранилище (Storage): ${storageCount}\nВ базе (Base64): ${base64Count}\n\n${base64Count > 0 ? 'ВНИМАНИЕ: Фото в Base64 сильно нагружают базу! Проверьте настройки Storage.' : 'Отлично! Все фото в хранилище.'}`);
+              }} 
+              className="px-2 py-1 bg-purple-100 text-purple-600 rounded hover:bg-purple-200"
+            >
+              Проверить фото
+            </button>
           </div>
         </div>
       )}
