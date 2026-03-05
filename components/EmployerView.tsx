@@ -700,12 +700,14 @@ const EmployerView: React.FC<EmployerViewProps> = ({
                   console.warn('Non-critical SQL fixes detected:', results.sqlFixes);
                 }
                 
-                // Logic to "re-bind" orphaned records
-                // This is a bit complex to do safely without a dedicated RPC, 
-                // but we can try to update current users/logs
-                alert('Синхронизация запущена. Пожалуйста, подождите...');
-                if (onRefresh) await onRefresh();
-                alert('Данные обновлены. Если сотрудники всё еще отсутствуют, попробуйте "Полный сброс" в шапке сайта.');
+                // Deep repair
+                const repairResult = await db.repairOrganizationData(currentOrg?.id || '');
+                if (repairResult.error) {
+                  alert('Ошибка при восстановлении: ' + repairResult.error);
+                } else {
+                  alert('Восстановление завершено. Страница будет перезагружена.');
+                  window.location.reload();
+                }
               }
             }}
             className="p-2.5 rounded-xl bg-amber-50 text-amber-600 hover:bg-amber-100 transition-all"
@@ -836,6 +838,13 @@ const EmployerView: React.FC<EmployerViewProps> = ({
           handleExportAll={handleExportAll}
           handleFileImport={handleFileImport}
         />
+      )}
+      {/* Debug Info (Only for admins) */}
+      {currentUser?.isAdmin && (
+        <div className="mt-4 p-4 bg-slate-100 rounded-2xl text-[10px] font-mono text-slate-500">
+          <p>Debug: OrgID: {currentOrg?.id} | Users in prop: {users.length} | Logs in prop: {logs.length}</p>
+          {users.length === 0 && <p className="text-rose-600 font-bold">ВНИМАНИЕ: Список сотрудников пуст. Попробуйте "Восстановить данные".</p>}
+        </div>
       )}
     </div>
   );

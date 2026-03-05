@@ -903,6 +903,43 @@ export const db = {
     });
     return { data, error };
   },
+  repairOrganizationData: async (orgId: string) => {
+    if (!checkConfig()) return { error: 'Not configured' };
+    try {
+      console.log('Starting deep repair for organization:', orgId);
+      
+      // 1. Find all active shifts for this org
+      const { data: activeShifts } = await supabase.from('active_shifts').select('user_id').eq('organization_id', orgId);
+      const userIdsFromShifts = [...new Set((activeShifts || []).map(s => s.user_id))];
+      
+      // 2. Find all work logs for this org
+      const { data: logs } = await supabase.from('work_logs').select('user_id').eq('organization_id', orgId);
+      const userIdsFromLogs = [...new Set((logs || []).map(l => l.user_id))];
+      
+      const allKnownUserIds = [...new Set([...userIdsFromShifts, ...userIdsFromLogs])];
+      
+      if (allKnownUserIds.length > 0) {
+        console.log(`Found ${allKnownUserIds.length} unique user IDs in logs/shifts for this org.`);
+        
+        // 3. Update these users to have the correct organization_id if they don't have it
+        // We do this one by one or in a batch if we can find them
+        const { error: updateError } = await supabase
+          .from('users')
+          .update({ organization_id: orgId })
+          .in('id', allKnownUserIds)
+          .or(`organization_id.is.null,organization_id.eq.,organization_id.eq.demo_org`);
+          
+        if (updateError) console.error('Error updating users during repair:', updateError);
+      }
+      
+      // 4. Also check if there are users with THIS orgId but they are not in our list
+      // This is handled by the regular fetch, but we can try to "touch" them
+      
+      return { success: true };
+    } catch (e: any) {
+      return { error: e.message };
+    }
+  },
   getDiagnostics: async () => {
     const results: Record<string, any> = {
       config: {
@@ -933,38 +970,52 @@ export const db = {
           } else {
             results.storage.photos = { status: 'missing', message: 'Bucket "photos" не найден' };
             results.sqlFixes.push(`
--- 1. Создание бакета для фотографий (если нет)
+-- === ИСПРАВЛЕНИЕ ХРАНИЛИЩА (STORAGE) ===
+-- Если при выполнении возникает ошибка "must be owner", 
+-- попробуйте создать бакет "photos" вручную через интерфейс Supabase (Storage -> New Bucket)
+
+-- 1. Создание бакета "photos"
 INSERT INTO storage.buckets (id, name, public) 
 VALUES ('photos', 'photos', true) 
 ON CONFLICT (id) DO NOTHING;
 
--- 2. Разрешаем анонимным пользователям видеть бакеты (нужно для диагностики)
--- Внимание: это безопасно, так как список бакетов не дает доступа к файлам
+-- 2. Политики для объектов в бакете "photos"
+-- Мы используем проверку существования, чтобы избежать ошибок
+
 DO $$
 BEGIN
-    IF NOT EXISTS (SELECT 1 FROM pg_policies WHERE policyname = 'Allow public read buckets' AND tablename = 'buckets') THEN
-        CREATE POLICY "Allow public read buckets" ON storage.buckets FOR SELECT USING (true);
+    -- Разрешаем публичное чтение
+    IF NOT EXISTS (SELECT 1 FROM pg_policies WHERE policyname = 'Public Access' AND tablename = 'objects' AND schemaname = 'storage') THEN
+        CREATE POLICY "Public Access" ON storage.objects FOR SELECT USING (bucket_id = 'photos');
+    END IF;
+
+    -- Разрешаем загрузку (INSERT)
+    IF NOT EXISTS (SELECT 1 FROM pg_policies WHERE policyname = 'Allow Uploads' AND tablename = 'objects' AND schemaname = 'storage') THEN
+        CREATE POLICY "Allow Uploads" ON storage.objects FOR INSERT WITH CHECK (bucket_id = 'photos');
+    END IF;
+
+    -- Разрешаем удаление (DELETE)
+    IF NOT EXISTS (SELECT 1 FROM pg_policies WHERE policyname = 'Allow Delete' AND tablename = 'objects' AND schemaname = 'storage') THEN
+        CREATE POLICY "Allow Delete" ON storage.objects FOR DELETE USING (bucket_id = 'photos');
+    END IF;
+
+    -- Разрешаем обновление (UPDATE)
+    IF NOT EXISTS (SELECT 1 FROM pg_policies WHERE policyname = 'Allow Update' AND tablename = 'objects' AND schemaname = 'storage') THEN
+        CREATE POLICY "Allow Update" ON storage.objects FOR UPDATE USING (bucket_id = 'photos');
     END IF;
 END
 $$;
 
--- 3. Политики доступа для объектов в бакете photos
+-- 3. Разрешаем анонимный доступ к списку бакетов (для диагностики)
+-- Если эта часть выдает ошибку, просто пропустите её - она нужна только для работы кнопки "Проверить" в админке
 DO $$
 BEGIN
-    -- Политика на чтение (публичный доступ)
-    IF NOT EXISTS (SELECT 1 FROM pg_policies WHERE policyname = 'Public Access' AND tablename = 'objects') THEN
-        CREATE POLICY "Public Access" ON storage.objects FOR SELECT USING (bucket_id = 'photos');
+    IF NOT EXISTS (SELECT 1 FROM pg_policies WHERE policyname = 'Allow public read buckets' AND tablename = 'buckets' AND schemaname = 'storage') THEN
+        CREATE POLICY "Allow public read buckets" ON storage.buckets FOR SELECT USING (true);
     END IF;
-
-    -- Политика на вставку (загрузка фото)
-    IF NOT EXISTS (SELECT 1 FROM pg_policies WHERE policyname = 'Allow Uploads' AND tablename = 'objects') THEN
-        CREATE POLICY "Allow Uploads" ON storage.objects FOR INSERT WITH CHECK (bucket_id = 'photos');
-    END IF;
-    
-    -- Политика на удаление (для очистки)
-    IF NOT EXISTS (SELECT 1 FROM pg_policies WHERE policyname = 'Allow Delete' AND tablename = 'objects') THEN
-        CREATE POLICY "Allow Delete" ON storage.objects FOR DELETE USING (bucket_id = 'photos');
-    END IF;
+EXCEPTION
+    WHEN OTHERS THEN
+        RAISE NOTICE 'Could not create policy on buckets table, skipping...';
 END
 $$;
             `);
