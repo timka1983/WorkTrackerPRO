@@ -776,7 +776,9 @@ export const useAppData = (currentUser: User | null) => {
       setSyncError(null);
     },
     onSettled: () => {
-      queryClient.invalidateQueries({ queryKey: ['initialLogs', orgId] });
+      // Don't invalidate queries here to prevent excessive DB calls (egress).
+      // We rely on optimistic updates and real-time subscriptions.
+      // queryClient.invalidateQueries({ queryKey: ['initialLogs', orgId] });
     }
   });
 
