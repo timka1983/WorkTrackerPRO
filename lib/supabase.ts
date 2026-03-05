@@ -87,6 +87,7 @@ export const db = {
   getLogs: async (orgId: string, monthPrefix?: string) => {
     if (!checkConfig()) return null;
     try {
+      console.log(`🔍 Fetching logs for Org: ${orgId}, Month: ${monthPrefix}`);
       let query = supabase
         .from('work_logs')
         .select('*');
@@ -108,12 +109,24 @@ export const db = {
         const nextYear = parseInt(month) === 12 ? parseInt(year) + 1 : parseInt(year);
         const endDate = `${nextYear}-${nextMonth.toString().padStart(2, '0')}-01`;
         
+        console.log(`📅 Date range: ${startDate} to ${endDate}`);
         query = query.gte('date', startDate).lt('date', endDate);
       } else {
         query = query.limit(1000);
       }
 
       const { data, error } = await query;
+      
+      if (!error) {
+        console.log(`✅ Fetched ${data?.length || 0} logs`);
+        if (data && data.length > 0) {
+           console.log('First log sample:', data[0]);
+        } else {
+           console.log('⚠️ No logs found for this criteria.');
+        }
+      } else {
+        console.error('❌ Error fetching logs:', error);
+      }
       
       if (error) {
         // Fallback for missing organization_id column
