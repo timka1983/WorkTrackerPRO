@@ -186,8 +186,13 @@ export const db = {
     }
   },
   upsertLog: async (log: any, orgId: string) => {
-    if (!isConfigured()) return;
-    const { error } = await supabase.from('work_logs').upsert({
+    if (!isConfigured()) {
+      console.error('❌ upsertLog: Not configured');
+      return;
+    }
+    console.log('📝 Upserting log:', log, 'Org:', orgId);
+    
+    const payload = {
       id: log.id,
       user_id: log.userId,
       organization_id: orgId,
@@ -204,8 +209,15 @@ export const db = {
       correction_timestamp: log.correctionTimestamp,
       is_night_shift: log.isNightShift,
       fine: log.fine
-    });
-    if (error) console.error('Error upserting log:', error);
+    };
+    
+    const { error } = await supabase.from('work_logs').upsert(payload);
+    
+    if (error) {
+      console.error('❌ Error upserting log:', error);
+    } else {
+      console.log('✅ Log upserted successfully');
+    }
   },
   getDashboardStats: async (orgId: string, monthPrefix: string, last7Days: string[]) => {
     if (!checkConfig()) return null;
