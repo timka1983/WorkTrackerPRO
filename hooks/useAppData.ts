@@ -16,6 +16,16 @@ import { useTimeSync } from './useTimeSync';
 
 const DEFAULT_ORG_ID = 'demo_org';
 
+// Helper to strip '$' prefix or any other leading non-alphanumeric characters
+const cleanValue = (val: any) => {
+  if (val === null || val === undefined) return val;
+  if (typeof val === 'string') {
+    const cleaned = val.trim().replace(/^[^a-zA-Z0-9]+/, '');
+    return cleaned;
+  }
+  return val;
+};
+
 export const useAppData = (currentUser: User | null) => {
   const queryClient = useQueryClient();
   const { getNow } = useTimeSync();
@@ -315,7 +325,7 @@ export const useAppData = (currentUser: User | null) => {
           if (typeof parsed === 'string') {
             try { parsed = JSON.parse(parsed); } catch (e) { parsed = {}; }
           }
-          map[String(s.user_id).trim()] = parsed || {};
+          map[cleanValue(s.user_id)] = parsed || {};
         });
       }
       setActiveShiftsMap(map);
@@ -338,7 +348,17 @@ export const useAppData = (currentUser: User | null) => {
           db.getLogs(orgId, prevMonth)
         ]);
         
-        const combined = [...(current || []), ...(prev || [])];
+        const combinedRaw = [...(current || []), ...(prev || [])];
+        const combined = combinedRaw.map(l => ({
+          ...l,
+          id: cleanValue(l.id),
+          userId: cleanValue(l.userId),
+          organizationId: cleanValue(l.organizationId),
+          date: cleanValue(l.date),
+          machineId: cleanValue(l.machineId),
+          checkIn: cleanValue(l.checkIn),
+          checkOut: cleanValue(l.checkOut)
+        }));
         
         if (combined.length > 0 || (current !== null && prev !== null)) {
           // Merge with offline queue to prevent losing unsynced logs
@@ -347,7 +367,18 @@ export const useAppData = (currentUser: User | null) => {
             const offlineIds = new Set(offlineLogs.map(l => l.id));
             
             // Keep offline logs, and add server logs that are not in offline queue
-            const merged = [...offlineLogs, ...combined.filter(l => !offlineIds.has(l.id))];
+            const mergedRaw = [...offlineLogs, ...combined.filter(l => !offlineIds.has(l.id))];
+            
+            const merged = mergedRaw.map(l => ({
+              ...l,
+              id: cleanValue(l.id),
+              userId: cleanValue(l.userId),
+              organizationId: cleanValue(l.organizationId),
+              date: cleanValue(l.date),
+              machineId: cleanValue(l.machineId),
+              checkIn: cleanValue(l.checkIn),
+              checkOut: cleanValue(l.checkOut)
+            }));
             
             const sorted = merged.sort((a, b) => {
               const dateCompare = b.date.localeCompare(a.date);
@@ -938,8 +969,8 @@ export const useAppData = (currentUser: User | null) => {
     logs.forEach(log => {
       if (!log.userId || !log.date) return;
       // Normalize date to YYYY-MM-DD
-      const normalizedDate = log.date.includes('T') ? log.date.split('T')[0] : log.date;
-      const userIdStr = String(log.userId).trim();
+      const normalizedDate = cleanValue(log.date).includes('T') ? cleanValue(log.date).split('T')[0] : cleanValue(log.date);
+      const userIdStr = cleanValue(log.userId);
       
       if (!map[userIdStr]) map[userIdStr] = {};
       if (!map[userIdStr][normalizedDate]) map[userIdStr][normalizedDate] = [];
@@ -947,6 +978,45 @@ export const useAppData = (currentUser: User | null) => {
     });
     return map;
   }, [logs]);
+
+  // --- Safety Net: Force clean logs if they somehow got dirty ---
+  useEffect(() => {
+    const hasDirty = logs.some(l => 
+      (typeof l.userId === 'string' && l.userId.startsWith('$')) || 
+      (typeof l.date === 'string' && l.date.startsWith('$'))
+    );
+    if (hasDirty) {
+      console.warn('Safety net: Cleaning dirty logs in state');
+      const cleaned = logs.map(l => ({
+        ...l,
+        id: cleanValue(l.id),
+        userId: cleanValue(l.userId),
+        organizationId: cleanValue(l.organizationId),
+        date: cleanValue(l.date),
+        machineId: cleanValue(l.machineId),
+        checkIn: cleanValue(l.checkIn),
+        checkOut: cleanValue(l.checkOut)
+      }));
+      setLogs(cleaned);
+      localStorage.setItem(STORAGE_KEYS.WORK_LOGS, JSON.stringify(cleaned));
+    }
+  }, [logs]);
+
+  const forceCleanAll = () => {
+    const cleaned = logs.map(l => ({
+      ...l,
+      id: cleanValue(l.id),
+      userId: cleanValue(l.userId),
+      organizationId: cleanValue(l.organizationId),
+      date: cleanValue(l.date),
+      machineId: cleanValue(l.machineId),
+      checkIn: cleanValue(l.checkIn),
+      checkOut: cleanValue(l.checkOut)
+    }));
+    setLogs(cleaned);
+    localStorage.setItem(STORAGE_KEYS.WORK_LOGS, JSON.stringify(cleaned));
+    alert('Данные очищены от лишних символов');
+  };
 
   return {
     currentOrg: currentOrg || null,
@@ -988,6 +1058,7 @@ export const useAppData = (currentUser: User | null) => {
     persistMachines,
     persistPositions,
     handleImportData,
-    checkLimit
+    checkLimit,
+    forceCleanAll
   };
 };

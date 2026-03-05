@@ -35,6 +35,7 @@ interface EmployerViewProps {
   onActiveShiftsUpdate: (userId: string, shifts: any) => void;
   onDeleteLog: (logId: string) => void;
   onRefresh?: () => Promise<void>;
+  forceCleanAll?: () => void;
   isSyncing?: boolean;
   nightShiftBonusMinutes: number;
   onUpdateNightBonus: (minutes: number) => void;
@@ -49,7 +50,7 @@ interface EmployerViewProps {
 const EmployerView: React.FC<EmployerViewProps> = ({ 
   logs, logsLookup = {}, users, onAddUser, onUpdateUser, onDeleteUser, 
   machines, onUpdateMachines, positions, onUpdatePositions, onImportData, onLogsUpsert, activeShiftsMap = {}, onActiveShiftsUpdate, onDeleteLog,
-  onRefresh, isSyncing = false, nightShiftBonusMinutes, onUpdateNightBonus, currentOrg, plans, onUpdateOrg, currentUser: propCurrentUser, onMonthChange, getNow
+  onRefresh, forceCleanAll, isSyncing = false, nightShiftBonusMinutes, onUpdateNightBonus, currentOrg, plans, onUpdateOrg, currentUser: propCurrentUser, onMonthChange, getNow
 }) => {
   const [filterMonth, setFilterMonth] = useState(format(getNow(), 'yyyy-MM'));
   const [viewMode, setViewMode] = useState<'matrix' | 'team' | 'analytics' | 'settings' | 'billing' | 'payroll'>('analytics');
@@ -864,7 +865,27 @@ const EmployerView: React.FC<EmployerViewProps> = ({
           </div>
           {users.length === 0 && <p className="text-rose-600 font-bold">ВНИМАНИЕ: Список сотрудников пуст. Попробуйте "Восстановить данные".</p>}
           <div className="flex gap-2 mt-2">
-            <button onClick={() => { localStorage.clear(); window.location.reload(); }} className="px-2 py-1 bg-slate-200 rounded hover:bg-slate-300">Очистить кэш и перезагрузить</button>
+            <button 
+              onClick={() => {
+                localStorage.clear();
+                window.location.reload();
+              }} 
+              className="px-2 py-1 bg-slate-200 rounded hover:bg-slate-300"
+            >
+              Очистить кэш и перезагрузить
+            </button>
+            <button 
+              onClick={() => onRefresh?.()} 
+              className="px-2 py-1 bg-blue-100 text-blue-600 rounded hover:bg-blue-200"
+            >
+              Обновить данные из БД
+            </button>
+            <button 
+              onClick={() => forceCleanAll?.()} 
+              className="px-2 py-1 bg-amber-100 text-amber-600 rounded hover:bg-amber-200"
+            >
+              Принудительная очистка $
+            </button>
           </div>
         </div>
       )}

@@ -198,6 +198,7 @@ const App: React.FC = () => {
                 onActiveShiftsUpdate={appData.handleActiveShiftsUpdate}
                 onDeleteLog={appData.handleDeleteLog}
                 onRefresh={appData.handleRefresh}
+                forceCleanAll={appData.forceCleanAll}
                 isSyncing={appData.isSyncing}
                 nightShiftBonusMinutes={appData.nightShiftBonus}
                 onUpdateNightBonus={appData.setNightShiftBonus}

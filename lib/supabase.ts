@@ -36,10 +36,14 @@ const checkConfig = () => {
   return _isConfigured;
 };
 
-// Helper to strip '$' prefix that might have been added during some imports
+// Helper to strip '$' prefix or any other leading non-alphanumeric characters
 const cleanValue = (val: any) => {
-  if (typeof val === 'string' && val.startsWith('$')) {
-    return val.substring(1);
+  if (val === null || val === undefined) return val;
+  if (typeof val === 'string') {
+    // Remove leading symbols like $, #, etc. but keep numbers and letters
+    // Also handle cases where the string might be wrapped in quotes or have spaces
+    const cleaned = val.trim().replace(/^[^a-zA-Z0-9]+/, '');
+    return cleaned;
   }
   return val;
 };
