@@ -315,7 +315,7 @@ export const useAppData = (currentUser: User | null) => {
           if (typeof parsed === 'string') {
             try { parsed = JSON.parse(parsed); } catch (e) { parsed = {}; }
           }
-          map[s.user_id] = parsed || {};
+          map[String(s.user_id).trim()] = parsed || {};
         });
       }
       setActiveShiftsMap(map);
@@ -381,10 +381,11 @@ export const useAppData = (currentUser: User | null) => {
             // Add open shifts
             const openLogs = combined.filter(l => !l.checkOut && l.entryType === EntryType.WORK);
             openLogs.forEach(log => {
-              if (!newMap[log.userId] || typeof newMap[log.userId] !== 'object') {
-                newMap[log.userId] = {};
+              const uId = String(log.userId).trim();
+              if (!newMap[uId] || typeof newMap[uId] !== 'object') {
+                newMap[uId] = {};
               }
-              const userShifts = newMap[log.userId];
+              const userShifts = newMap[uId];
               let slot = 1;
               const parts = log.id.split('-');
               if (parts.length >= 4) {
@@ -935,9 +936,14 @@ export const useAppData = (currentUser: User | null) => {
   const logsLookup = useMemo(() => {
     const map: Record<string, Record<string, WorkLog[]>> = {};
     logs.forEach(log => {
-      if (!map[log.userId]) map[log.userId] = {};
-      if (!map[log.userId][log.date]) map[log.userId][log.date] = [];
-      map[log.userId][log.date].push(log);
+      if (!log.userId || !log.date) return;
+      // Normalize date to YYYY-MM-DD
+      const normalizedDate = log.date.includes('T') ? log.date.split('T')[0] : log.date;
+      const userIdStr = String(log.userId).trim();
+      
+      if (!map[userIdStr]) map[userIdStr] = {};
+      if (!map[userIdStr][normalizedDate]) map[userIdStr][normalizedDate] = [];
+      map[userIdStr][normalizedDate].push(log);
     });
     return map;
   }, [logs]);

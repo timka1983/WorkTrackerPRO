@@ -841,9 +841,17 @@ const EmployerView: React.FC<EmployerViewProps> = ({
       )}
       {/* Debug Info (Only for admins) */}
       {currentUser?.isAdmin && (
-        <div className="mt-4 p-4 bg-slate-100 rounded-2xl text-[10px] font-mono text-slate-500">
+        <div className="mt-4 p-4 bg-slate-100 rounded-2xl text-[10px] font-mono text-slate-500 space-y-1">
           <p>Debug: OrgID: {currentOrg?.id} | Users in prop: {users.length} | Logs in prop: {logs.length}</p>
+          <p>Users: {users.slice(0, 5).map(u => u.name).join(', ')}{users.length > 5 ? '...' : ''}</p>
+          {logs.length > 0 && (
+            <p>Sample Log: ID={logs[0].id} User={logs[0].userId} Date={logs[0].date} Type={logs[0].entryType} Out={logs[0].checkOut || 'NULL'}</p>
+          )}
+          <p>Active Shifts Map Keys: {Object.keys(activeShiftsMap).join(', ')}</p>
           {users.length === 0 && <p className="text-rose-600 font-bold">ВНИМАНИЕ: Список сотрудников пуст. Попробуйте "Восстановить данные".</p>}
+          <div className="flex gap-2 mt-2">
+            <button onClick={() => { localStorage.clear(); window.location.reload(); }} className="px-2 py-1 bg-slate-200 rounded hover:bg-slate-300">Очистить кэш и перезагрузить</button>
+          </div>
         </div>
       )}
     </div>

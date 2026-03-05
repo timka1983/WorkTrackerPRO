@@ -921,19 +921,15 @@ export const db = {
       if (allKnownUserIds.length > 0) {
         console.log(`Found ${allKnownUserIds.length} unique user IDs in logs/shifts for this org.`);
         
-        // 3. Update these users to have the correct organization_id if they don't have it
-        // We do this one by one or in a batch if we can find them
+        // 3. Update these users to have the correct organization_id
+        // We do this more aggressively now - even if they have another orgId
         const { error: updateError } = await supabase
           .from('users')
           .update({ organization_id: orgId })
-          .in('id', allKnownUserIds)
-          .or(`organization_id.is.null,organization_id.eq.,organization_id.eq.demo_org`);
+          .in('id', allKnownUserIds);
           
         if (updateError) console.error('Error updating users during repair:', updateError);
       }
-      
-      // 4. Also check if there are users with THIS orgId but they are not in our list
-      // This is handled by the regular fetch, but we can try to "touch" them
       
       return { success: true };
     } catch (e: any) {
