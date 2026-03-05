@@ -794,7 +794,7 @@ export const useAppData = (currentUser: User | null) => {
           return newQueue;
         });
       } else {
-        setSyncError('Ошибка синхронизации. Повторная попытка...');
+        setSyncError(`Ошибка БД: ${error.message || 'Неизвестная ошибка'}`);
       }
     },
     onSuccess: () => {
@@ -818,7 +818,12 @@ export const useAppData = (currentUser: User | null) => {
       localStorage.setItem(STORAGE_KEYS.ACTIVE_SHIFTS, JSON.stringify(updated));
       return updated;
     });
-    db.saveActiveShifts(userId, shifts, currentOrg.id);
+    db.saveActiveShifts(userId, shifts, currentOrg.id).then(res => {
+      if (res && res.error) {
+        setSyncError(`Ошибка статуса: ${res.error.message || res.error}`);
+        setTimeout(() => setSyncError(null), 5000);
+      }
+    });
   }, [currentOrg]);
 
   const handleDeleteLog = (logId: string) => {
