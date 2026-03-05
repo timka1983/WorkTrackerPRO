@@ -18,7 +18,7 @@ import {
   checkDuplicatePositions, fixDuplicatePositions, checkDuplicateActiveShifts, fixDuplicateActiveShifts
 } from '../services/cleanupService';
 
-const DEFAULT_ORG_ID = 'demo_org';
+const DEFAULT_ORG_ID = 'default_org';
 
 // Helper to strip '$' prefix or any other leading non-alphanumeric characters
 const cleanValue = (val: any) => {
@@ -64,6 +64,7 @@ export const useAppData = (currentUser: User | null) => {
     const urlOrgId = urlParams.get('org_switch');
     
     if (urlOrgId) {
+      console.log('🔌 OrgID from URL:', urlOrgId);
       localStorage.setItem(STORAGE_KEYS.ORG_ID, urlOrgId);
       localStorage.removeItem(STORAGE_KEYS.ORG_DATA);
       localStorage.removeItem(STORAGE_KEYS.USERS_LIST);
@@ -73,8 +74,29 @@ export const useAppData = (currentUser: User | null) => {
       window.history.replaceState({}, '', window.location.pathname);
       return urlOrgId;
     }
-    return localStorage.getItem(STORAGE_KEYS.ORG_ID) || DEFAULT_ORG_ID;
+    
+    let stored = localStorage.getItem(STORAGE_KEYS.ORG_ID);
+    
+    // Auto-migrate 'demo_org' to 'default_org' to fix visibility issues
+    if (stored === 'demo_org') {
+      console.log('⚠️ Migrating from demo_org to default_org');
+      stored = 'default_org';
+      localStorage.setItem(STORAGE_KEYS.ORG_ID, 'default_org');
+    }
+    
+    const finalId = stored || DEFAULT_ORG_ID;
+    console.log('🔌 OrgID initialized:', finalId, '(Stored:', stored, 'Default:', DEFAULT_ORG_ID, ')');
+    return finalId;
   });
+
+  // Debug effect to track orgId changes
+  useEffect(() => {
+    console.log('🔄 Current OrgID changed to:', orgId);
+    // Force update local storage if it differs
+    if (localStorage.getItem(STORAGE_KEYS.ORG_ID) !== orgId) {
+      localStorage.setItem(STORAGE_KEYS.ORG_ID, orgId);
+    }
+  }, [orgId]);
 
   // --- Refs for Real-time ---
   const currentUserRef = useRef(currentUser);
