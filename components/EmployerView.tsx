@@ -39,6 +39,7 @@ interface EmployerViewProps {
   onCleanupDatabase?: () => Promise<void>;
   onRemoveBase64Photos?: () => Promise<void>;
   onRunDiagnostics?: () => Promise<void>;
+  onMergeDuplicates?: () => Promise<void>;
   isSyncing?: boolean;
   nightShiftBonusMinutes: number;
   onUpdateNightBonus: (minutes: number) => void;
@@ -53,7 +54,7 @@ interface EmployerViewProps {
 const EmployerView: React.FC<EmployerViewProps> = ({ 
   logs, logsLookup = {}, users, onAddUser, onUpdateUser, onDeleteUser, 
   machines, onUpdateMachines, positions, onUpdatePositions, onImportData, onLogsUpsert, activeShiftsMap = {}, onActiveShiftsUpdate, onDeleteLog,
-  onRefresh, forceCleanAll, onCleanupDatabase, onRemoveBase64Photos, onRunDiagnostics, isSyncing = false, nightShiftBonusMinutes, onUpdateNightBonus, currentOrg, plans, onUpdateOrg, currentUser: propCurrentUser, onMonthChange, getNow
+  onRefresh, forceCleanAll, onCleanupDatabase, onRemoveBase64Photos, onRunDiagnostics, onMergeDuplicates, isSyncing = false, nightShiftBonusMinutes, onUpdateNightBonus, currentOrg, plans, onUpdateOrg, currentUser: propCurrentUser, onMonthChange, getNow
 }) => {
   const [filterMonth, setFilterMonth] = useState(format(getNow(), 'yyyy-MM'));
   const [viewMode, setViewMode] = useState<'matrix' | 'team' | 'analytics' | 'settings' | 'billing' | 'payroll'>('analytics');
@@ -882,6 +883,12 @@ const EmployerView: React.FC<EmployerViewProps> = ({
               className="px-2 py-1 bg-green-100 text-green-600 rounded hover:bg-green-200"
             >
               Диагностика БД
+            </button>
+            <button 
+              onClick={() => onMergeDuplicates?.()} 
+              className="px-2 py-1 bg-orange-100 text-orange-600 rounded hover:bg-orange-200"
+            >
+              Объединить дубликаты (по имени)
             </button>
             <button 
               onClick={() => onRefresh?.()} 

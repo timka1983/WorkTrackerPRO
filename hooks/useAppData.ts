@@ -13,7 +13,7 @@ import {
 import { sendNotification } from '../utils';
 
 import { useTimeSync } from './useTimeSync';
-import { cleanupDatabase, removeBase64Photos } from '../services/cleanupService';
+import { cleanupDatabase, removeBase64Photos, mergeDuplicateUsersByName } from '../services/cleanupService';
 
 const DEFAULT_ORG_ID = 'demo_org';
 
@@ -1084,6 +1084,19 @@ export const useAppData = (currentUser: User | null) => {
     alert(message);
   };
 
+  const handleMergeDuplicates = async () => {
+    if (!currentOrg) return;
+    if (confirm('ВНИМАНИЕ: Это действие объединит всех сотрудников с одинаковыми именами в одного. Логи будут перенесены на "основного" сотрудника (с наибольшим количеством записей), остальные дубликаты будут удалены. Это действие необратимо. Продолжить?')) {
+      const res = await mergeDuplicateUsersByName(currentOrg.id);
+      if (res.errors.length > 0) {
+        alert('Возникли ошибки: ' + res.errors.join(', '));
+      } else {
+        alert(`Объединено групп: ${res.mergedGroups}. Удалено дубликатов: ${res.usersDeleted}. Страница будет перезагружена.`);
+        window.location.reload();
+      }
+    }
+  };
+
   return {
     currentOrg: currentOrg || null,
     setCurrentOrg: (val: Organization | null | ((prev: Organization | null) => Organization | null)) => {
@@ -1128,6 +1141,7 @@ export const useAppData = (currentUser: User | null) => {
     forceCleanAll,
     handleCleanupDatabase,
     handleRemoveBase64Photos,
-    handleRunDiagnostics
+    handleRunDiagnostics,
+    handleMergeDuplicates
   };
 };

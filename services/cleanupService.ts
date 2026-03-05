@@ -202,3 +202,76 @@ export const removeBase64Photos = async (orgId: string) => {
 
   return results;
 };
+
+export const mergeDuplicateUsersByName = async (orgId: string) => {
+  const results = { mergedGroups: 0, usersDeleted: 0, logsMoved: 0, errors: [] as string[] };
+  try {
+    // 1. Get users
+    const { data: users, error } = await supabase.from('users').select('*').eq('organization_id', orgId);
+    if (error) throw error;
+    
+    // 2. Group
+    const groups = new Map<string, any[]>();
+    users.forEach(u => {
+      const key = u.name.trim().toLowerCase();
+      if (!groups.has(key)) groups.set(key, []);
+      groups.get(key)?.push(u);
+    });
+    
+    // 3. Process
+    for (const [name, group] of groups) {
+      if (group.length < 2) continue;
+      
+      console.log(`Merging duplicates for "${name}" (${group.length} users)`);
+      
+      // Find master: prefer one with most logs, or oldest created_at, or just first
+      // We need to check log counts.
+      const counts = await Promise.all(group.map(async u => {
+        const { count } = await supabase.from('work_logs').select('id', { count: 'exact', head: true }).eq('user_id', u.id);
+        return { user: u, count: count || 0 };
+      }));
+      
+      // Sort: Max logs first, then ID length (shorter is usually better/cleaner), then alphanumeric
+      counts.sort((a, b) => {
+        if (b.count !== a.count) return b.count - a.count;
+        return a.user.id.length - b.user.id.length; // Prefer shorter IDs (usually clean ones)
+      });
+      
+      const master = counts[0].user;
+      const slaves = counts.slice(1).map(c => c.user);
+      
+      // Move logs
+      const slaveIds = slaves.map(u => u.id);
+      const { error: moveError } = await supabase
+        .from('work_logs')
+        .update({ user_id: master.id })
+        .in('user_id', slaveIds);
+        
+      if (moveError) {
+        results.errors.push(`Failed to move logs for ${name}: ${moveError.message}`);
+        continue;
+      }
+
+      // Delete active shifts for slaves
+      await supabase.from('active_shifts').delete().in('user_id', slaveIds);
+      
+      // Delete slaves
+      const { error: delError } = await supabase
+        .from('users')
+        .delete()
+        .in('id', slaveIds);
+        
+      if (delError) {
+        results.errors.push(`Failed to delete duplicate users for ${name}: ${delError.message}`);
+      } else {
+        results.mergedGroups++;
+        results.usersDeleted += slaves.length;
+        results.logsMoved += 1; // Just counting groups processed
+      }
+    }
+    
+  } catch (e: any) {
+    results.errors.push(e.message);
+  }
+  return results;
+};
