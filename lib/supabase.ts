@@ -87,7 +87,6 @@ export const db = {
   getLogs: async (orgId: string, monthPrefix?: string) => {
     if (!checkConfig()) return null;
     try {
-      console.log(`🔍 Fetching logs for Org: ${orgId}, Month: ${monthPrefix}`);
       let query = supabase
         .from('work_logs')
         .select('*');
@@ -109,24 +108,12 @@ export const db = {
         const nextYear = parseInt(month) === 12 ? parseInt(year) + 1 : parseInt(year);
         const endDate = `${nextYear}-${nextMonth.toString().padStart(2, '0')}-01`;
         
-        console.log(`📅 Date range: ${startDate} to ${endDate}`);
         query = query.gte('date', startDate).lt('date', endDate);
       } else {
         query = query.limit(1000);
       }
 
       const { data, error } = await query;
-      
-      if (!error) {
-        console.log(`✅ Fetched ${data?.length || 0} logs`);
-        if (data && data.length > 0) {
-           console.log('First log sample:', data[0]);
-        } else {
-           console.log('⚠️ No logs found for this criteria.');
-        }
-      } else {
-        console.error('❌ Error fetching logs:', error);
-      }
       
       if (error) {
         // Fallback for missing organization_id column
@@ -160,7 +147,7 @@ export const db = {
         }
         throw error;
       }
-        
+      
       return (data || []).map(l => ({
         id: cleanValue(l.id),
         userId: cleanValue(l.user_id),
@@ -186,11 +173,7 @@ export const db = {
     }
   },
   upsertLog: async (log: any, orgId: string) => {
-    if (!isConfigured()) {
-      console.error('❌ upsertLog: Not configured');
-      return;
-    }
-    console.log('📝 Upserting log:', log, 'Org:', orgId);
+    if (!isConfigured()) return;
     
     const payload = {
       id: log.id,
@@ -212,12 +195,7 @@ export const db = {
     };
     
     const { error } = await supabase.from('work_logs').upsert(payload);
-    
-    if (error) {
-      console.error('❌ Error upserting log:', error);
-    } else {
-      console.log('✅ Log upserted successfully');
-    }
+    if (error) console.error('Error upserting log:', error);
   },
   getDashboardStats: async (orgId: string, monthPrefix: string, last7Days: string[]) => {
     if (!checkConfig()) return null;
