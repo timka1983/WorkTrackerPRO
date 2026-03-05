@@ -721,11 +721,15 @@ export const db = {
   saveActiveShifts: async (userId: string, shifts: any, orgId: string) => {
     if (!isConfigured()) return { error: 'Not configured' };
     
+    console.log('📝 Saving Active Shifts:', userId, shifts, orgId);
+    
     // Check if shifts object is effectively empty (all slots are null)
     const isEmpty = !shifts || (typeof shifts === 'object' && Object.values(shifts).every(s => s === null));
     
     if (isEmpty) {
+      console.log('🗑️ Deleting active shifts for user:', userId);
       const { error } = await supabase.from('active_shifts').delete().eq('user_id', userId);
+      if (error) console.error('❌ Error deleting active shifts:', error);
       return { error };
     }
     
@@ -748,13 +752,16 @@ export const db = {
       const { error } = await supabase.from('active_shifts').upsert(payload, { onConflict: 'user_id' });
       
       if (error) {
-        console.warn('First upsert attempt failed, trying fallback:', error);
+        console.warn('⚠️ First upsert attempt failed, trying fallback:', error);
         
         // If error is about missing columns (42703)
         if (error.code === '42703' || error.message?.includes('column')) {
           // Try removing 'shifts' first
           const { shifts, ...payloadNoShifts } = payload;
           const { error: error2 } = await supabase.from('active_shifts').upsert(payloadNoShifts, { onConflict: 'user_id' });
+          
+          if (error2) console.error('❌ Fallback upsert failed:', error2);
+          else console.log('✅ Fallback upsert successful');
           
           if (error2 && (error2.code === '42703' || error2.message?.includes('column'))) {
             // Try removing only shifts_json if that was the issue, but keep organization_id
@@ -773,6 +780,7 @@ export const db = {
         
         return { error };
       }
+      console.log('✅ Active shifts saved successfully');
       return { error: null };
     } catch (e: any) {
       console.error('Exception in saveActiveShifts:', e);
