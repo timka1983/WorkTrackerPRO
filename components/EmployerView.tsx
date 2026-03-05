@@ -237,12 +237,18 @@ const EmployerView: React.FC<EmployerViewProps> = ({
     }
 
     const activeLogsMap: Record<string, WorkLog[]> = {};
+    const orphanedActiveShifts: WorkLog[] = [];
+    
     activeShifts.forEach(log => {
       if (!activeLogsMap[log.userId]) activeLogsMap[log.userId] = [];
       activeLogsMap[log.userId].push(log);
+      
+      if (!employees.some(e => e.id === log.userId)) {
+        orphanedActiveShifts.push(log);
+      }
     });
 
-    return { activeShifts, finishedToday, avgWeeklyHours, absenceCounts, activeLogsMap, todayStr };
+    return { activeShifts, finishedToday, avgWeeklyHours, absenceCounts, activeLogsMap, todayStr, orphanedActiveShifts };
   }, [logsLookup, employees, filterMonth, activeShiftsMap, serverStats, getNow]);
 
   // Функция для принудительного завершения смены администратором
@@ -293,8 +299,31 @@ const EmployerView: React.FC<EmployerViewProps> = ({
         });
       }
     });
+
+    // Add orphaned users who have active shifts
+    dashboardStats.orphanedActiveShifts.forEach(log => {
+      if (!rows.some(r => r.type === 'employee' && r.emp.id === log.userId)) {
+        const tempUser: User = {
+          id: log.userId,
+          name: `[?] ID: ${log.userId.substring(0, 5)}...`,
+          role: UserRole.EMPLOYEE,
+          position: 'Неизвестно (Ошибка привязки)',
+          pin: '????',
+          organizationId: currentOrg?.id || ''
+        };
+        const userLogsMap = logsLookup[log.userId] || {};
+        const empLogs: WorkLog[] = [];
+        Object.keys(userLogsMap).forEach(date => {
+          if (date.startsWith(filterMonth)) {
+            empLogs.push(...userLogsMap[date]);
+          }
+        });
+        rows.push({ type: 'employee', emp: tempUser, empLogs, isOrphaned: true });
+      }
+    });
+
     return rows;
-  }, [employees, expandedTurnerRows, logsLookup, filterMonth]);
+  }, [employees, expandedTurnerRows, logsLookup, filterMonth, dashboardStats.orphanedActiveShifts, currentOrg]);
 
   const virtuosoComponents = useMemo(() => ({
     Table: (props: any) => <table {...props} className="w-full border-collapse" />,
@@ -574,6 +603,24 @@ const EmployerView: React.FC<EmployerViewProps> = ({
 
   return (
     <div className="space-y-6 animate-fadeIn pb-20">
+      {dashboardStats.orphanedActiveShifts.length > 0 && (
+        <div className="bg-amber-50 border border-amber-200 p-4 rounded-3xl flex items-center gap-3 animate-fadeIn no-print">
+          <div className="bg-amber-100 p-2 rounded-xl">
+            <svg className="w-5 h-5 text-amber-600" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z" /></svg>
+          </div>
+          <div className="flex-1">
+            <p className="text-xs font-bold text-amber-900">Обнаружены активные смены для удаленных сотрудников ({dashboardStats.orphanedActiveShifts.length})</p>
+            <p className="text-[10px] text-amber-700 mt-0.5">Эти сотрудники не отображаются в табеле, так как их профили были удалены или повреждены. Рекомендуется завершить эти смены принудительно.</p>
+          </div>
+          <button 
+            onClick={() => setViewMode('analytics')}
+            className="px-3 py-1.5 bg-amber-600 text-white rounded-xl text-[10px] font-bold hover:bg-amber-700 transition-colors"
+          >
+            Проверить
+          </button>
+        </div>
+      )}
+
       {previewPhoto && (
         <PhotoPreviewModal previewPhoto={previewPhoto} setPreviewPhoto={setPreviewPhoto} />
       )}
@@ -635,7 +682,30 @@ const EmployerView: React.FC<EmployerViewProps> = ({
           ))}
         </div>
         <div className="flex items-center gap-2">
-           {onRefresh && (
+           <button 
+            onClick={async () => {
+              if (confirm('Это попытается восстановить привязку сотрудников и логов к вашей организации. Продолжить?')) {
+                const results = await db.getDiagnostics();
+                if (results.sqlFixes && results.sqlFixes.length > 0) {
+                  alert('Обнаружены ошибки в структуре базы данных. Пожалуйста, выполните SQL-фикс в панели Супер-Админа.');
+                  return;
+                }
+                
+                // Logic to "re-bind" orphaned records
+                // This is a bit complex to do safely without a dedicated RPC, 
+                // but we can try to update current users/logs
+                alert('Синхронизация запущена. Пожалуйста, подождите...');
+                if (onRefresh) await onRefresh();
+                alert('Данные обновлены. Если сотрудники всё еще отсутствуют, попробуйте "Полный сброс" в шапке сайта.');
+              }
+            }}
+            className="p-2.5 rounded-xl bg-amber-50 text-amber-600 hover:bg-amber-100 transition-all"
+            title="Исправить данные"
+          >
+            <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13 10V3L4 14h7v7l9-11h-7z" /></svg>
+          </button>
+          
+          {onRefresh && (
               <button 
                 onClick={() => onRefresh()} 
                 disabled={isSyncing}

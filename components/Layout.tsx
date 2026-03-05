@@ -66,6 +66,20 @@ const Layout: React.FC<LayoutProps> = ({ children, user, currentOrg, onLogout, o
                       </svg>
                     )}
                   </button>
+                  <button 
+                    onClick={() => {
+                      if (confirm('Это полностью очистит локальный кэш и перезагрузит приложение. Используйте это, если данные отображаются некорректно. Продолжить?')) {
+                        const orgId = localStorage.getItem(STORAGE_KEYS.ORG_ID);
+                        localStorage.clear();
+                        const nextUrl = orgId ? `/?org_switch=${orgId}&reset=${Date.now()}` : `/?reset=${Date.now()}`;
+                        window.location.replace(nextUrl);
+                      }
+                    }}
+                    className="p-1 text-slate-300 hover:text-rose-500 transition-colors rounded-md hover:bg-rose-50"
+                    title="Полная очистка кэша"
+                  >
+                    <svg className="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={3} d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" /></svg>
+                  </button>
                 </div>
                 {currentOrg && (
                   <div className="flex flex-col">

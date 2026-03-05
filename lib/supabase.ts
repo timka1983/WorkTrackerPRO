@@ -77,13 +77,19 @@ export const db = {
     try {
       let query = supabase
         .from('work_logs')
-        .select('*')
-        .eq('organization_id', orgId)
+        .select('*');
+        
+      if (orgId === 'demo_org') {
+        query = query.or('organization_id.eq.demo_org,organization_id.is.null,organization_id.eq.');
+      } else {
+        query = query.eq('organization_id', orgId);
+      }
+
+      query = query
         .order('date', { ascending: false })
         .order('check_in', { ascending: false });
         
       if (monthPrefix) {
-        // monthPrefix is like '2023-10'
         const startDate = `${monthPrefix}-01`;
         const [year, month] = monthPrefix.split('-');
         const nextMonth = parseInt(month) === 12 ? 1 : parseInt(month) + 1;
@@ -92,17 +98,45 @@ export const db = {
         
         query = query.gte('date', startDate).lt('date', endDate);
       } else {
-        // Fallback to limit if no month specified
         query = query.limit(1000);
       }
 
       const { data, error } = await query;
-        
+      
       if (error) {
-        console.error('Error fetching logs:', error);
-        return null;
+        // Fallback for missing organization_id column
+        if (error.code === '42703' || error.message?.includes('column')) {
+          console.warn('organization_id column missing in work_logs, fetching all logs');
+          const { data: allData, error: allError } = await supabase
+            .from('work_logs')
+            .select('*')
+            .order('date', { ascending: false })
+            .limit(1000);
+          if (allError) throw allError;
+          return (allData || []).map(l => ({
+            id: l.id,
+            userId: l.user_id,
+            organizationId: l.organization_id,
+            date: l.date,
+            entryType: l.entry_type,
+            machineId: l.machine_id,
+            checkIn: l.check_in,
+            checkOut: l.check_out,
+            durationMinutes: l.duration_minutes,
+            photoIn: l.photo_in,
+            photoOut: l.photo_out,
+            isCorrected: l.is_corrected,
+            correctionNote: l.correction_note,
+            correctionTimestamp: l.correction_timestamp,
+            isNightShift: l.is_night_shift,
+            fine: l.fine,
+            bonus: l.bonus
+          }));
+        }
+        throw error;
       }
-      return data.map(l => ({
+        
+      return (data || []).map(l => ({
         id: l.id,
         userId: l.user_id,
         organizationId: l.organization_id,
@@ -122,7 +156,7 @@ export const db = {
         bonus: l.bonus
       }));
     } catch (e) {
-      console.error('Database connection failed:', e);
+      console.error('Error in getLogs:', e);
       return null;
     }
   },
@@ -241,7 +275,7 @@ export const db = {
       if (log.isNightShift) item.is_night_shift = true;
       if (log.fine) item.fine = log.fine;
       if (log.bonus) item.bonus = log.bonus;
-      if (orgId && orgId !== 'demo_org') item.organization_id = orgId;
+      if (orgId) item.organization_id = orgId;
       
       return item;
     });
@@ -253,7 +287,7 @@ export const db = {
       // Если ошибка в колонках (42703) или неопределенная ошибка, пробуем минимальный набор
       if (error.code === '42703' || error.message?.includes('column')) {
         const minimalPayload = payload.map(p => {
-          const { is_night_shift, organization_id, photo_in, photo_out, machine_id, fine, bonus, ...rest } = p;
+          const { is_night_shift, photo_in, photo_out, machine_id, fine, bonus, ...rest } = p;
           return rest;
         });
         console.warn('Retrying with minimal payload...');
@@ -276,17 +310,56 @@ export const db = {
   },
   deleteLog: async (id: string, orgId: string) => {
     if (!isConfigured()) return;
-    await supabase.from('work_logs').delete().eq('id', id).eq('organization_id', orgId);
+    let query = supabase.from('work_logs').delete().eq('id', id);
+    if (orgId === 'demo_org') {
+      query = query.or(`organization_id.eq.${orgId},organization_id.is.null`);
+    } else {
+      query = query.eq('organization_id', orgId);
+    }
+    await query;
   },
   getUsers: async (orgId: string) => {
     if (!checkConfig()) return null;
     try {
-      const { data, error } = await supabase.from('users').select('*').eq('organization_id', orgId).order('name');
-      if (error) {
-        console.error('Error fetching users:', error);
-        return null;
+      let query = supabase.from('users').select('*');
+      
+      if (orgId === 'demo_org') {
+        query = query.or('organization_id.eq.demo_org,organization_id.is.null,organization_id.eq.');
+      } else {
+        query = query.eq('organization_id', orgId);
       }
-      return data.map(u => ({
+      
+      const { data, error } = await query.order('name');
+      
+      if (error) {
+        // Fallback for missing organization_id column
+        if (error.code === '42703' || error.message?.includes('column')) {
+          console.warn('organization_id column missing in users, fetching all users');
+          const { data: allData, error: allError } = await supabase
+            .from('users')
+            .select('*')
+            .order('name');
+          if (allError) throw allError;
+          return (allData || []).map(u => ({
+            id: u.id,
+            name: u.name,
+            role: u.role,
+            department: u.department,
+            position: u.position,
+            pin: u.pin,
+            requirePhoto: u.require_photo,
+            isAdmin: u.is_admin,
+            forcePinChange: u.force_pin_change,
+            organizationId: u.organization_id,
+            pushToken: u.push_token,
+            plannedShifts: u.planned_shifts,
+            payroll: u.payroll
+          }));
+        }
+        throw error;
+      }
+      
+      return (data || []).map(u => ({
         id: u.id,
         name: u.name,
         role: u.role,
@@ -302,6 +375,7 @@ export const db = {
         payroll: u.payroll
       }));
     } catch (e) {
+      console.error('Error in getUsers:', e);
       return null;
     }
   },
@@ -417,12 +491,26 @@ export const db = {
   },
   deleteUser: async (id: string, orgId: string) => {
     if (!isConfigured()) return { error: 'Not configured' };
-    const { error } = await supabase.from('users').delete().eq('id', id).eq('organization_id', orgId);
+    let query = supabase.from('users').delete().eq('id', id);
+    if (orgId === 'demo_org') {
+      query = query.or(`organization_id.eq.${orgId},organization_id.is.null`);
+    } else {
+      query = query.eq('organization_id', orgId);
+    }
+    const { error } = await query;
     return { error };
   },
   getMachines: async (orgId: string) => {
     if (!checkConfig()) return null;
-    const { data } = await supabase.from('machines').select('*').eq('organization_id', orgId).order('name');
+    let query = supabase.from('machines').select('*');
+    
+    if (orgId === 'demo_org') {
+      query = query.or('organization_id.eq.demo_org,organization_id.is.null');
+    } else {
+      query = query.eq('organization_id', orgId);
+    }
+    
+    const { data } = await query.order('name');
     return data || null;
   },
   saveMachines: async (machines: any[], orgId: string) => {
@@ -438,7 +526,15 @@ export const db = {
   },
   getPositions: async (orgId: string) => {
     if (!checkConfig()) return null;
-    const { data, error } = await supabase.from('positions').select('*').eq('organization_id', orgId).order('name');
+    let query = supabase.from('positions').select('*');
+    
+    if (orgId === 'demo_org') {
+      query = query.or('organization_id.eq.demo_org,organization_id.is.null');
+    } else {
+      query = query.eq('organization_id', orgId);
+    }
+    
+    const { data, error } = await query.order('name');
     if (error) {
       console.error('Error fetching positions:', error);
       return null;
@@ -620,8 +716,8 @@ export const db = {
           const { error: error2 } = await supabase.from('active_shifts').upsert(payloadNoShifts, { onConflict: 'user_id' });
           
           if (error2 && (error2.code === '42703' || error2.message?.includes('column'))) {
-            // If still failing, remove organization_id too
-            const { organization_id, ...minimalPayload } = payloadNoShifts;
+            // Try removing only shifts_json if that was the issue, but keep organization_id
+            const { shifts_json, ...minimalPayload } = payloadNoShifts;
             const { error: error3 } = await supabase.from('active_shifts').upsert(minimalPayload, { onConflict: 'user_id' });
             return { error: error3 };
           }
@@ -646,7 +742,14 @@ export const db = {
     if (!checkConfig()) return null;
     
     // Try with organization_id filter
-    const { data, error } = await supabase.from('active_shifts').select('*').eq('organization_id', orgId);
+    let query = supabase.from('active_shifts').select('*');
+    if (orgId === 'demo_org') {
+      query = query.or('organization_id.eq.demo_org,organization_id.is.null');
+    } else {
+      query = query.eq('organization_id', orgId);
+    }
+    
+    const { data, error } = await query;
     
     if (error) {
       // If organization_id column is missing, fetch all and we'll filter in memory or just use all

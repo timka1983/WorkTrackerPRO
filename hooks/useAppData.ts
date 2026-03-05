@@ -12,10 +12,13 @@ import {
 } from '../constants';
 import { sendNotification } from '../utils';
 
+import { useTimeSync } from './useTimeSync';
+
 const DEFAULT_ORG_ID = 'demo_org';
 
 export const useAppData = (currentUser: User | null) => {
   const queryClient = useQueryClient();
+  const { getNow } = useTimeSync();
   
   // --- State for UI and Logic ---
   const [logs, setLogs] = useState<WorkLog[]>(() => {
@@ -135,16 +138,30 @@ export const useAppData = (currentUser: User | null) => {
   const { data: users = [], isFetching: isUsersFetching } = useQuery<User[]>({
     queryKey: ['users', orgId],
     queryFn: async () => {
-      let fetchedUsers = (await db.getUsers(orgId)) as User[] | null;
-      
-      // Seeding logic
-      if (fetchedUsers !== null && orgId === DEFAULT_ORG_ID && fetchedUsers.length === 0) {
-        for (const u of INITIAL_USERS) await db.upsertUser(u, orgId);
-        fetchedUsers = INITIAL_USERS;
-      } else if (fetchedUsers && fetchedUsers.length > 0) {
-        const hasAdmin = fetchedUsers.some(u => u.id === 'admin');
-        if (!hasAdmin) {
-           const defaultAdmin: User = {
+      try {
+        let fetchedUsers = (await db.getUsers(orgId)) as User[] | null;
+        
+        // Seeding logic
+        if (fetchedUsers !== null && orgId === DEFAULT_ORG_ID && fetchedUsers.length === 0) {
+          for (const u of INITIAL_USERS) await db.upsertUser(u, orgId);
+          fetchedUsers = INITIAL_USERS;
+        } else if (fetchedUsers && fetchedUsers.length > 0) {
+          const hasAdmin = fetchedUsers.some(u => u.id === 'admin');
+          if (!hasAdmin) {
+            const defaultAdmin: User = {
+              id: 'admin',
+              name: 'Администратор',
+              role: UserRole.EMPLOYER,
+              position: 'Администратор',
+              pin: '0000',
+              isAdmin: true,
+              organizationId: orgId
+            };
+            await db.upsertUser(defaultAdmin, orgId);
+            fetchedUsers.push(defaultAdmin);
+          }
+        } else if (fetchedUsers !== null && orgId !== DEFAULT_ORG_ID && fetchedUsers.length === 0) {
+          const defaultAdmin: User = {
             id: 'admin',
             name: 'Администратор',
             role: UserRole.EMPLOYER,
@@ -154,22 +171,21 @@ export const useAppData = (currentUser: User | null) => {
             organizationId: orgId
           };
           await db.upsertUser(defaultAdmin, orgId);
-          fetchedUsers.push(defaultAdmin);
+          fetchedUsers = [defaultAdmin];
         }
-      } else if (fetchedUsers !== null && orgId !== DEFAULT_ORG_ID && fetchedUsers.length === 0) {
-         const defaultAdmin: User = {
-          id: 'admin',
-          name: 'Администратор',
-          role: UserRole.EMPLOYER,
-          position: 'Администратор',
-          pin: '0000',
-          isAdmin: true,
-          organizationId: orgId
-        };
-        await db.upsertUser(defaultAdmin, orgId);
-        fetchedUsers = [defaultAdmin];
+        
+        if (fetchedUsers === null) {
+          // Keep cached data on error
+          const cached = localStorage.getItem(STORAGE_KEYS.USERS_LIST);
+          return cached ? JSON.parse(cached) : [];
+        }
+        
+        return fetchedUsers;
+      } catch (e) {
+        console.error('Error fetching users:', e);
+        const cached = localStorage.getItem(STORAGE_KEYS.USERS_LIST);
+        return cached ? JSON.parse(cached) : [];
       }
-      return fetchedUsers || [];
     },
     initialData: () => {
       const cached = localStorage.getItem(STORAGE_KEYS.USERS_LIST);
@@ -309,67 +325,89 @@ export const useAppData = (currentUser: User | null) => {
   });
 
   // 8. Initial Logs Load (Current + Prev Month)
-  const { isFetching: isLogsFetching } = useQuery({
+  const { isFetching: isLogsFetching, error: logsError } = useQuery({
     queryKey: ['initialLogs', orgId],
     queryFn: async () => {
-      const currentMonth = format(new Date(), 'yyyy-MM');
-      const prevMonth = format(new Date(new Date().setMonth(new Date().getMonth() - 1)), 'yyyy-MM');
-      
-      const [current, prev] = await Promise.all([
-        db.getLogs(orgId, currentMonth),
-        db.getLogs(orgId, prevMonth)
-      ]);
-      
-      const combined = [...(current || []), ...(prev || [])];
-      
-      // Update local state
-      setLogs(combined);
-      localStorage.setItem(STORAGE_KEYS.WORK_LOGS, JSON.stringify(combined));
-      
-      // Sync Active Shifts Map with Logs
-      setActiveShiftsMap(prevMap => {
-        const newMap = { ...prevMap };
-        // Clear finished shifts
-        Object.keys(newMap).forEach(userId => {
-          const userShifts = newMap[userId];
-          if (userShifts && typeof userShifts === 'object') {
-            Object.keys(userShifts).forEach(slot => {
-              const shift = userShifts[slot];
-              if (shift && shift.id) {
-                const log = combined.find(l => l.id === shift.id);
-                if (log && log.checkOut) {
-                  userShifts[slot] = null;
-                }
+      try {
+        const now = getNow();
+        const currentMonth = format(now, 'yyyy-MM');
+        const prevMonth = format(new Date(now.getFullYear(), now.getMonth() - 1, 1), 'yyyy-MM');
+        
+        const [current, prev] = await Promise.all([
+          db.getLogs(orgId, currentMonth),
+          db.getLogs(orgId, prevMonth)
+        ]);
+        
+        const combined = [...(current || []), ...(prev || [])];
+        
+        if (combined.length > 0 || (current !== null && prev !== null)) {
+          // Merge with offline queue to prevent losing unsynced logs
+          setLogs(prevLogs => {
+            const offlineLogs = offlineQueue.flat();
+            const offlineIds = new Set(offlineLogs.map(l => l.id));
+            
+            // Keep offline logs, and add server logs that are not in offline queue
+            const merged = [...offlineLogs, ...combined.filter(l => !offlineIds.has(l.id))];
+            
+            const sorted = merged.sort((a, b) => {
+              const dateCompare = b.date.localeCompare(a.date);
+              if (dateCompare !== 0) return dateCompare;
+              return (b.checkIn || '').localeCompare(a.checkIn || '');
+            });
+            
+            localStorage.setItem(STORAGE_KEYS.WORK_LOGS, JSON.stringify(sorted));
+            return sorted;
+          });
+
+          // Sync Active Shifts Map with Logs
+          setActiveShiftsMap(prevMap => {
+            const newMap = { ...prevMap };
+            // Clear finished shifts
+            Object.keys(newMap).forEach(userId => {
+              const userShifts = newMap[userId];
+              if (userShifts && typeof userShifts === 'object') {
+                Object.keys(userShifts).forEach(slot => {
+                  const shift = userShifts[slot];
+                  if (shift && shift.id) {
+                    const log = combined.find(l => l.id === shift.id);
+                    if (log && log.checkOut) {
+                      userShifts[slot] = null;
+                    }
+                  }
+                });
               }
             });
-          }
-        });
-        
-        // Add open shifts
-        const openLogs = combined.filter(l => !l.checkOut && l.entryType === EntryType.WORK);
-        openLogs.forEach(log => {
-          if (!newMap[log.userId] || typeof newMap[log.userId] !== 'object') {
-            newMap[log.userId] = {};
-          }
-          const userShifts = newMap[log.userId];
-          let slot = 1;
-          const parts = log.id.split('-');
-          if (parts.length >= 4) {
-            const parsedSlot = parseInt(parts[parts.length - 1]);
-            if (!isNaN(parsedSlot)) slot = parsedSlot;
-          }
-          if (!userShifts[slot] || userShifts[slot].id !== log.id) {
-            userShifts[slot] = log;
-          }
-        });
-        
-        localStorage.setItem(STORAGE_KEYS.ACTIVE_SHIFTS, JSON.stringify(newMap));
-        return newMap;
-      });
-
-      return combined;
+            
+            // Add open shifts
+            const openLogs = combined.filter(l => !l.checkOut && l.entryType === EntryType.WORK);
+            openLogs.forEach(log => {
+              if (!newMap[log.userId] || typeof newMap[log.userId] !== 'object') {
+                newMap[log.userId] = {};
+              }
+              const userShifts = newMap[log.userId];
+              let slot = 1;
+              const parts = log.id.split('-');
+              if (parts.length >= 4) {
+                const parsedSlot = parseInt(parts[parts.length - 1]);
+                if (!isNaN(parsedSlot)) slot = parsedSlot;
+              }
+              if (!userShifts[slot] || userShifts[slot].id !== log.id) {
+                userShifts[slot] = log;
+              }
+            });
+            
+            localStorage.setItem(STORAGE_KEYS.ACTIVE_SHIFTS, JSON.stringify(newMap));
+            return newMap;
+          });
+        }
+        return combined;
+      } catch (e: any) {
+        setDbError(`Ошибка загрузки данных: ${e.message || 'Проверьте подключение'}`);
+        throw e;
+      }
     },
-    refetchOnWindowFocus: false
+    refetchOnWindowFocus: false,
+    retry: 2
   });
 
   // --- Real-time Subscriptions ---
@@ -394,10 +432,16 @@ export const useAppData = (currentUser: User | null) => {
           isCorrected: payload.new.is_corrected,
           correctionNote: payload.new.correction_note,
           correctionTimestamp: payload.new.correction_timestamp,
-          isNightShift: payload.new.is_night_shift
+          isNightShift: payload.new.is_night_shift,
+          fine: payload.new.fine,
+          bonus: payload.new.bonus
         };
 
         setLogs(prev => {
+          // Skip if this log is currently in the offline queue (being synced)
+          const isOffline = offlineQueue.flat().some(l => l.id === newLog.id);
+          if (isOffline) return prev;
+
           const exists = prev.find(l => l.id === newLog.id);
           
           // Notifications
