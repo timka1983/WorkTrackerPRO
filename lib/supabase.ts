@@ -36,6 +36,14 @@ const checkConfig = () => {
   return _isConfigured;
 };
 
+// Helper to strip '$' prefix that might have been added during some imports
+const cleanValue = (val: any) => {
+  if (typeof val === 'string' && val.startsWith('$')) {
+    return val.substring(1);
+  }
+  return val;
+};
+
 export const db = {
   isConfigured: checkConfig,
   checkConnection: async () => {
@@ -114,14 +122,14 @@ export const db = {
             .limit(1000);
           if (allError) throw allError;
           return (allData || []).map(l => ({
-            id: l.id,
-            userId: l.user_id,
-            organizationId: l.organization_id,
-            date: l.date,
+            id: cleanValue(l.id),
+            userId: cleanValue(l.user_id),
+            organizationId: cleanValue(l.organization_id),
+            date: cleanValue(l.date),
             entryType: l.entry_type,
-            machineId: l.machine_id,
-            checkIn: l.check_in,
-            checkOut: l.check_out,
+            machineId: cleanValue(l.machine_id),
+            checkIn: cleanValue(l.check_in),
+            checkOut: cleanValue(l.check_out),
             durationMinutes: l.duration_minutes,
             photoIn: l.photo_in,
             photoOut: l.photo_out,
@@ -137,14 +145,14 @@ export const db = {
       }
         
       return (data || []).map(l => ({
-        id: l.id,
-        userId: l.user_id,
-        organizationId: l.organization_id,
-        date: l.date,
+        id: cleanValue(l.id),
+        userId: cleanValue(l.user_id),
+        organizationId: cleanValue(l.organization_id),
+        date: cleanValue(l.date),
         entryType: l.entry_type,
-        machineId: l.machine_id,
-        checkIn: l.check_in,
-        checkOut: l.check_out,
+        machineId: cleanValue(l.machine_id),
+        checkIn: cleanValue(l.check_in),
+        checkOut: cleanValue(l.check_out),
         durationMinutes: l.duration_minutes,
         photoIn: l.photo_in,
         photoOut: l.photo_out,
@@ -341,7 +349,7 @@ export const db = {
             .order('name');
           if (allError) throw allError;
           return (allData || []).map(u => ({
-            id: u.id,
+            id: cleanValue(u.id),
             name: u.name,
             role: u.role,
             department: u.department,
@@ -350,7 +358,7 @@ export const db = {
             requirePhoto: u.require_photo,
             isAdmin: u.is_admin,
             forcePinChange: u.force_pin_change,
-            organizationId: u.organization_id,
+            organizationId: cleanValue(u.organization_id),
             pushToken: u.push_token,
             plannedShifts: u.planned_shifts,
             payroll: u.payroll
@@ -360,7 +368,7 @@ export const db = {
       }
       
       return (data || []).map(u => ({
-        id: u.id,
+        id: cleanValue(u.id),
         name: u.name,
         role: u.role,
         department: u.department,
@@ -369,7 +377,7 @@ export const db = {
         requirePhoto: u.require_photo,
         isAdmin: u.is_admin,
         forcePinChange: u.force_pin_change,
-        organizationId: u.organization_id,
+        organizationId: cleanValue(u.organization_id),
         pushToken: u.push_token,
         plannedShifts: u.planned_shifts,
         payroll: u.payroll
@@ -511,7 +519,11 @@ export const db = {
     }
     
     const { data } = await query.order('name');
-    return data || null;
+    return (data || []).map(m => ({
+      ...m,
+      id: cleanValue(m.id),
+      organization_id: cleanValue(m.organization_id)
+    })) || null;
   },
   saveMachines: async (machines: any[], orgId: string) => {
     if (!checkConfig()) return { error: 'Not configured' };
@@ -756,12 +768,20 @@ export const db = {
       if (error.code === '42703' || error.message?.includes('column')) {
         const { data: allData, error: allErrors } = await supabase.from('active_shifts').select('*');
         if (allErrors) return null;
-        return allData;
+        return (allData || []).map(s => ({
+          ...s,
+          user_id: cleanValue(s.user_id),
+          organization_id: cleanValue(s.organization_id)
+        }));
       }
       console.error('Error fetching active shifts:', error);
       return null;
     }
-    return data;
+    return (data || []).map(s => ({
+      ...s,
+      user_id: cleanValue(s.user_id),
+      organization_id: cleanValue(s.organization_id)
+    }));
   },
   // Super-Admin methods
   getPlans: async () => {

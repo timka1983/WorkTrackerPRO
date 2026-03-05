@@ -82,7 +82,7 @@ export const MatrixView: React.FC<MatrixViewProps> = ({
                     <UserMatrixRowCells
                       emp={row.emp}
                       empLogs={row.empLogs}
-                      userLogsLookup={logsLookup[row.emp.id]}
+                      userLogsLookup={logsLookup[String(row.emp.id).trim()]}
                       days={days}
                       today={today}
                       filterMonth={filterMonth}
