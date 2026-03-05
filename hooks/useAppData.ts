@@ -13,6 +13,7 @@ import {
 import { sendNotification } from '../utils';
 
 import { useTimeSync } from './useTimeSync';
+import { cleanupDatabase } from '../services/cleanupService';
 
 const DEFAULT_ORG_ID = 'demo_org';
 
@@ -1018,6 +1019,16 @@ export const useAppData = (currentUser: User | null) => {
     alert('Данные очищены от лишних символов');
   };
 
+  const handleCleanupDatabase = async () => {
+    if (!currentOrg) return;
+    if (confirm('Это действие объединит дубликаты сотрудников (например, admin и $admin) и исправит ссылки в логах. Продолжить?')) {
+      await cleanupDatabase(currentOrg.id);
+      await initData(true);
+      alert('База данных очищена. Страница будет перезагружена.');
+      window.location.reload();
+    }
+  };
+
   return {
     currentOrg: currentOrg || null,
     setCurrentOrg: (val: Organization | null | ((prev: Organization | null) => Organization | null)) => {
@@ -1059,6 +1070,7 @@ export const useAppData = (currentUser: User | null) => {
     persistPositions,
     handleImportData,
     checkLimit,
-    forceCleanAll
+    forceCleanAll,
+    handleCleanupDatabase
   };
 };

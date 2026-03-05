@@ -199,6 +199,7 @@ const App: React.FC = () => {
                 onDeleteLog={appData.handleDeleteLog}
                 onRefresh={appData.handleRefresh}
                 forceCleanAll={appData.forceCleanAll}
+                onCleanupDatabase={appData.handleCleanupDatabase}
                 isSyncing={appData.isSyncing}
                 nightShiftBonusMinutes={appData.nightShiftBonus}
                 onUpdateNightBonus={appData.setNightShiftBonus}

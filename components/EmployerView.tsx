@@ -36,6 +36,7 @@ interface EmployerViewProps {
   onDeleteLog: (logId: string) => void;
   onRefresh?: () => Promise<void>;
   forceCleanAll?: () => void;
+  onCleanupDatabase?: () => Promise<void>;
   isSyncing?: boolean;
   nightShiftBonusMinutes: number;
   onUpdateNightBonus: (minutes: number) => void;
@@ -50,7 +51,7 @@ interface EmployerViewProps {
 const EmployerView: React.FC<EmployerViewProps> = ({ 
   logs, logsLookup = {}, users, onAddUser, onUpdateUser, onDeleteUser, 
   machines, onUpdateMachines, positions, onUpdatePositions, onImportData, onLogsUpsert, activeShiftsMap = {}, onActiveShiftsUpdate, onDeleteLog,
-  onRefresh, forceCleanAll, isSyncing = false, nightShiftBonusMinutes, onUpdateNightBonus, currentOrg, plans, onUpdateOrg, currentUser: propCurrentUser, onMonthChange, getNow
+  onRefresh, forceCleanAll, onCleanupDatabase, isSyncing = false, nightShiftBonusMinutes, onUpdateNightBonus, currentOrg, plans, onUpdateOrg, currentUser: propCurrentUser, onMonthChange, getNow
 }) => {
   const [filterMonth, setFilterMonth] = useState(format(getNow(), 'yyyy-MM'));
   const [viewMode, setViewMode] = useState<'matrix' | 'team' | 'analytics' | 'settings' | 'billing' | 'payroll'>('analytics');
@@ -885,6 +886,12 @@ const EmployerView: React.FC<EmployerViewProps> = ({
               className="px-2 py-1 bg-amber-100 text-amber-600 rounded hover:bg-amber-200"
             >
               Принудительная очистка $
+            </button>
+            <button 
+              onClick={() => onCleanupDatabase?.()} 
+              className="px-2 py-1 bg-rose-100 text-rose-600 rounded hover:bg-rose-200"
+            >
+              Исправить дубликаты в БД
             </button>
           </div>
         </div>
