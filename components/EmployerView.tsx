@@ -686,9 +686,18 @@ const EmployerView: React.FC<EmployerViewProps> = ({
             onClick={async () => {
               if (confirm('Это попытается восстановить привязку сотрудников и логов к вашей организации. Продолжить?')) {
                 const results = await db.getDiagnostics();
-                if (results.sqlFixes && results.sqlFixes.length > 0) {
-                  alert('Обнаружены ошибки в структуре базы данных. Пожалуйста, выполните SQL-фикс в панели Супер-Админа.');
+                
+                // Only block if critical tables are missing
+                const criticalTables = ['organizations', 'users', 'work_logs'];
+                const missingCritical = criticalTables.some(t => results.tables[t]?.status !== 'ok');
+                
+                if (missingCritical) {
+                  alert('Обнаружены критические ошибки в структуре базы данных (отсутствуют таблицы). Пожалуйста, выполните SQL-фикс в панели Супер-Админа.');
                   return;
+                }
+                
+                if (results.sqlFixes && results.sqlFixes.length > 0) {
+                  console.warn('Non-critical SQL fixes detected:', results.sqlFixes);
                 }
                 
                 // Logic to "re-bind" orphaned records

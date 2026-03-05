@@ -933,12 +933,22 @@ export const db = {
           } else {
             results.storage.photos = { status: 'missing', message: 'Bucket "photos" не найден' };
             results.sqlFixes.push(`
--- Создание бакета для фотографий
+-- 1. Создание бакета для фотографий (если нет)
 INSERT INTO storage.buckets (id, name, public) 
 VALUES ('photos', 'photos', true) 
 ON CONFLICT (id) DO NOTHING;
 
--- Политики доступа для бакета photos
+-- 2. Разрешаем анонимным пользователям видеть бакеты (нужно для диагностики)
+-- Внимание: это безопасно, так как список бакетов не дает доступа к файлам
+DO $$
+BEGIN
+    IF NOT EXISTS (SELECT 1 FROM pg_policies WHERE policyname = 'Allow public read buckets' AND tablename = 'buckets') THEN
+        CREATE POLICY "Allow public read buckets" ON storage.buckets FOR SELECT USING (true);
+    END IF;
+END
+$$;
+
+-- 3. Политики доступа для объектов в бакете photos
 DO $$
 BEGIN
     -- Политика на чтение (публичный доступ)
@@ -949,6 +959,11 @@ BEGIN
     -- Политика на вставку (загрузка фото)
     IF NOT EXISTS (SELECT 1 FROM pg_policies WHERE policyname = 'Allow Uploads' AND tablename = 'objects') THEN
         CREATE POLICY "Allow Uploads" ON storage.objects FOR INSERT WITH CHECK (bucket_id = 'photos');
+    END IF;
+    
+    -- Политика на удаление (для очистки)
+    IF NOT EXISTS (SELECT 1 FROM pg_policies WHERE policyname = 'Allow Delete' AND tablename = 'objects') THEN
+        CREATE POLICY "Allow Delete" ON storage.objects FOR DELETE USING (bucket_id = 'photos');
     END IF;
 END
 $$;

@@ -1139,24 +1139,24 @@ const SuperAdminView: React.FC<SuperAdminViewProps> = ({ onLogout, onUpdateSyste
                             ) : (
                               <div className="space-y-2">
                                 <p className="text-[10px] text-rose-600 leading-tight">{status.message}</p>
-                                {status.message && status.message.includes('не найден') && (
+                                <div className="flex gap-2">
                                   <button
                                     onClick={async () => {
-                                      if (!confirm(`Попытаться создать бакет "${bucket}"?`)) return;
+                                      if (!confirm(`Попытаться создать бакет "${bucket}" через API?`)) return;
                                       const { error } = await db.createBucket(bucket);
                                       if (error) {
                                         const msg = typeof error === 'string' ? error : error.message;
-                                        alert('Ошибка: ' + msg);
+                                        alert('Ошибка API: ' + msg + '\n\nПопробуйте использовать SQL-фикс ниже.');
                                       } else {
-                                        alert('Бакет создан!');
+                                        alert('Бакет создан через API!');
                                         runDiagnostics();
                                       }
                                     }}
-                                    className="w-full py-1 bg-indigo-600 text-white text-[10px] rounded font-bold hover:bg-indigo-700"
+                                    className="flex-1 py-1 bg-indigo-600 text-white text-[10px] rounded font-bold hover:bg-indigo-700"
                                   >
-                                    Создать
+                                    Создать (API)
                                   </button>
-                                )}
+                                </div>
                               </div>
                             )}
                           </div>
