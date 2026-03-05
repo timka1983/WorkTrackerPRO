@@ -42,7 +42,7 @@ interface EmployeeViewProps {
 const EmployeeView: React.FC<EmployeeViewProps> = ({ 
   user, logs, logsLookup = {}, onLogsUpsert, activeShifts, onActiveShiftsUpdate, onOvertime, machines, positions, onUpdateUser, nightShiftBonusMinutes, onRefresh, planLimits, currentOrg, onMonthChange, getNow
 }) => {
-  const orgId = localStorage.getItem(STORAGE_KEYS.ORG_ID) || 'demo_org';
+  const orgId = localStorage.getItem(STORAGE_KEYS.ORG_ID) || 'default_org';
 
   const perms = useMemo(() => {
     const config = positions.find(p => p.name === user.position);

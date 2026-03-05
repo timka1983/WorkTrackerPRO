@@ -57,10 +57,26 @@ const LoginScreen: React.FC<LoginScreenProps> = ({
             </svg>
           </div>
           <h1 className="text-2xl font-black text-slate-900 tracking-tight">{currentOrg?.name || 'WorkTracker PRO'}</h1>
-          <div className="flex justify-center mt-1">
+          <div className="flex justify-center mt-1 gap-2">
              <span className="bg-blue-50 text-blue-600 text-[8px] font-black px-2 py-0.5 rounded-full uppercase tracking-widest border border-blue-100">
                 Тариф: {currentOrg?.plan || PlanType.FREE}
              </span>
+             {currentOrg?.id && currentOrg.id !== 'default_org' && (
+               <button 
+                 onClick={() => {
+                   if (confirm(`Вы сейчас находитесь в организации "${currentOrg.name}" (${currentOrg.id}). Вернуться к стандартной организации?`)) {
+                     localStorage.setItem(STORAGE_KEYS.ORG_ID, 'default_org');
+                     localStorage.removeItem(STORAGE_KEYS.ORG_DATA);
+                     localStorage.removeItem(STORAGE_KEYS.USERS_LIST);
+                     localStorage.removeItem(STORAGE_KEYS.WORK_LOGS);
+                     window.location.reload();
+                   }
+                 }}
+                 className="bg-amber-50 text-amber-600 text-[8px] font-black px-2 py-0.5 rounded-full uppercase tracking-widest border border-amber-100 hover:bg-amber-100 transition-colors"
+               >
+                 Выйти из {currentOrg.id}
+               </button>
+             )}
           </div>
         </div>
 
