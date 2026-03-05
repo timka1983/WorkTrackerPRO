@@ -37,6 +37,7 @@ interface EmployerViewProps {
   onRefresh?: () => Promise<void>;
   forceCleanAll?: () => void;
   onCleanupDatabase?: () => Promise<void>;
+  onRemoveBase64Photos?: () => Promise<void>;
   isSyncing?: boolean;
   nightShiftBonusMinutes: number;
   onUpdateNightBonus: (minutes: number) => void;
@@ -51,7 +52,7 @@ interface EmployerViewProps {
 const EmployerView: React.FC<EmployerViewProps> = ({ 
   logs, logsLookup = {}, users, onAddUser, onUpdateUser, onDeleteUser, 
   machines, onUpdateMachines, positions, onUpdatePositions, onImportData, onLogsUpsert, activeShiftsMap = {}, onActiveShiftsUpdate, onDeleteLog,
-  onRefresh, forceCleanAll, onCleanupDatabase, isSyncing = false, nightShiftBonusMinutes, onUpdateNightBonus, currentOrg, plans, onUpdateOrg, currentUser: propCurrentUser, onMonthChange, getNow
+  onRefresh, forceCleanAll, onCleanupDatabase, onRemoveBase64Photos, isSyncing = false, nightShiftBonusMinutes, onUpdateNightBonus, currentOrg, plans, onUpdateOrg, currentUser: propCurrentUser, onMonthChange, getNow
 }) => {
   const [filterMonth, setFilterMonth] = useState(format(getNow(), 'yyyy-MM'));
   const [viewMode, setViewMode] = useState<'matrix' | 'team' | 'analytics' | 'settings' | 'billing' | 'payroll'>('analytics');
@@ -912,11 +913,17 @@ const EmployerView: React.FC<EmployerViewProps> = ({
                   }
                 });
                 
-                alert(`Анализ фото:\nВсего фото: ${totalPhotos}\nВ хранилище (Storage): ${storageCount}\nВ базе (Base64): ${base64Count}\n\n${base64Count > 0 ? 'ВНИМАНИЕ: Фото в Base64 сильно нагружают базу! Проверьте настройки Storage.' : 'Отлично! Все фото в хранилище.'}`);
+                if (base64Count > 0) {
+                  if (confirm(`Найдено ${base64Count} фото в Base64. Они нагружают базу. Удалить их? (Фото в хранилище останутся)`)) {
+                    onRemoveBase64Photos?.();
+                  }
+                } else {
+                  alert('Фото в Base64 не найдено. Все отлично!');
+                }
               }} 
               className="px-2 py-1 bg-purple-100 text-purple-600 rounded hover:bg-purple-200"
             >
-              Проверить фото
+              Проверить и удалить Base64 фото
             </button>
           </div>
         </div>

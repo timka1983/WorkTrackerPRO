@@ -13,7 +13,7 @@ import {
 import { sendNotification } from '../utils';
 
 import { useTimeSync } from './useTimeSync';
-import { cleanupDatabase } from '../services/cleanupService';
+import { cleanupDatabase, removeBase64Photos } from '../services/cleanupService';
 
 const DEFAULT_ORG_ID = 'demo_org';
 
@@ -1031,6 +1031,19 @@ export const useAppData = (currentUser: User | null) => {
     }
   };
 
+  const handleRemoveBase64Photos = async () => {
+    if (!currentOrg) return;
+    if (confirm('Это действие удалит все фото, сохраненные в формате Base64 (внутри базы), чтобы снизить нагрузку. Фото в хранилище останутся. Продолжить?')) {
+      const res = await removeBase64Photos(currentOrg.id);
+      if (res.errors.length > 0) {
+        alert('Возникли ошибки: ' + res.errors.join(', '));
+      } else {
+        alert(`Удалено фото из ${res.photosRemoved} записей. Страница будет перезагружена.`);
+        window.location.reload();
+      }
+    }
+  };
+
   return {
     currentOrg: currentOrg || null,
     setCurrentOrg: (val: Organization | null | ((prev: Organization | null) => Organization | null)) => {
@@ -1073,6 +1086,7 @@ export const useAppData = (currentUser: User | null) => {
     handleImportData,
     checkLimit,
     forceCleanAll,
-    handleCleanupDatabase
+    handleCleanupDatabase,
+    handleRemoveBase64Photos
   };
 };

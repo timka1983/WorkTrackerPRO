@@ -118,3 +118,87 @@ export const cleanupDatabase = async (orgId: string) => {
 
   return results;
 };
+
+export const removeBase64Photos = async (orgId: string) => {
+  console.log('Starting Base64 photos cleanup for org:', orgId);
+  const results = {
+    photosRemoved: 0,
+    errors: [] as string[]
+  };
+
+  try {
+    // 1. Fetch all logs (we have to fetch them to check content unfortunately, 
+    // unless we can do a SQL query like "WHERE photo_in LIKE 'data:%'")
+    // Since we can't do LIKE on encrypted/text fields easily without knowing schema specifics or using RPC,
+    // we'll try to fetch logs in batches or just use the client side filter if the dataset isn't too huge.
+    // BUT, fetching huge base64 logs is exactly what causes the egress issue.
+    
+    // Better approach: Use a specific RPC if possible, but we can't create one here.
+    // So we will try to select only ID and photo fields to minimize data, but even that is heavy.
+    // Actually, we can use the `like` filter in Supabase client!
+    
+    // Find logs with photo_in as base64
+    const { data: logsIn, error: errorIn } = await supabase
+      .from('work_logs')
+      .select('id')
+      .eq('organization_id', orgId)
+      .ilike('photo_in', 'data:%');
+
+    if (errorIn) throw errorIn;
+
+    // Find logs with photo_out as base64
+    const { data: logsOut, error: errorOut } = await supabase
+      .from('work_logs')
+      .select('id')
+      .eq('organization_id', orgId)
+      .ilike('photo_out', 'data:%');
+
+    if (errorOut) throw errorOut;
+
+    const idsIn = (logsIn || []).map(l => l.id);
+    const idsOut = (logsOut || []).map(l => l.id);
+    const allIds = Array.from(new Set([...idsIn, ...idsOut]));
+
+    console.log(`Found ${allIds.length} logs with Base64 photos.`);
+
+    // Update in batches
+    const BATCH_SIZE = 50;
+    for (let i = 0; i < allIds.length; i += BATCH_SIZE) {
+      const batchIds = allIds.slice(i, i + BATCH_SIZE);
+      
+      // We set them to null. 
+      // Note: We can't easily distinguish which one was base64 in a single update if we just have IDs,
+      // so we might clear both if one of them is base64, OR we have to be more specific.
+      // To be safe and simple: we will clear BOTH photo fields for these logs. 
+      // If the user wants to keep the non-base64 one, this logic is imperfect.
+      // But usually if one is base64, the system configuration was wrong for both.
+      
+      // A better way: Update photo_in where id in idsIn, update photo_out where id in idsOut.
+      
+      const batchIn = idsIn.filter(id => batchIds.includes(id));
+      const batchOut = idsOut.filter(id => batchIds.includes(id));
+
+      if (batchIn.length > 0) {
+        await supabase
+          .from('work_logs')
+          .update({ photo_in: null })
+          .in('id', batchIn);
+      }
+
+      if (batchOut.length > 0) {
+        await supabase
+          .from('work_logs')
+          .update({ photo_out: null })
+          .in('id', batchOut);
+      }
+      
+      results.photosRemoved += batchIds.length; // Approximate count
+    }
+
+  } catch (e: any) {
+    console.error('Base64 cleanup failed:', e);
+    results.errors.push(e.message);
+  }
+
+  return results;
+};
