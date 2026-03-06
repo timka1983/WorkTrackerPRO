@@ -1,10 +1,10 @@
-import React, { memo, useState } from 'react';
-import { format } from 'date-fns';
+import React, { memo, useState, useMemo } from 'react';
+import { format, isAfter, startOfWeek, endOfWeek, eachDayOfInterval, isSameMonth, isSameDay, startOfMonth, endOfMonth, addMonths, subMonths, startOfDay } from 'date-fns';
 import { ru } from 'date-fns/locale/ru';
 import { WorkLog, User, EntryType, Machine, PositionPermissions } from '../../types';
-import { EmployeeMatrixRow } from './EmployeeMatrixRow';
 import { ScheduleModal } from './ScheduleModal';
-import { CalendarDays } from 'lucide-react';
+import { CalendarDays, ChevronLeft, ChevronRight } from 'lucide-react';
+import { formatDurationShort } from '../../utils';
 
 interface EmployeeMatrixProps {
   filterMonth: string;
@@ -21,6 +21,14 @@ interface EmployeeMatrixProps {
   logsLookup?: Record<string, Record<string, WorkLog[]>>;
   downloadCalendarPDF: () => void;
 }
+
+const SHIFT_COLORS = {
+  'Р': 'bg-blue-100 text-blue-700',
+  'В': 'bg-slate-100 text-slate-500',
+  'Д': 'bg-amber-100 text-amber-700',
+  'О': 'bg-purple-100 text-purple-700',
+  'Н': 'bg-indigo-100 text-indigo-700',
+};
 
 export const EmployeeMatrix = memo<EmployeeMatrixProps>(({
   filterMonth,
@@ -39,6 +47,29 @@ export const EmployeeMatrix = memo<EmployeeMatrixProps>(({
 }) => {
   const userLogsLookup = logsLookup[user.id] || {};
   const [isScheduleModalOpen, setIsScheduleModalOpen] = useState(false);
+
+  const monthStart = startOfMonth(new Date(filterMonth + '-01'));
+  const monthEnd = endOfMonth(monthStart);
+  
+  const calendarDays = useMemo(() => {
+    const start = startOfWeek(monthStart, { weekStartsOn: 1 });
+    const end = endOfWeek(monthEnd, { weekStartsOn: 1 });
+    return eachDayOfInterval({ start, end });
+  }, [monthStart, monthEnd]);
+
+  const handlePrevMonth = () => {
+    const prev = subMonths(monthStart, 1);
+    const val = format(prev, 'yyyy-MM');
+    setFilterMonth(val);
+    if (onMonthChange) onMonthChange(val);
+  };
+
+  const handleNextMonth = () => {
+    const next = addMonths(monthStart, 1);
+    const val = format(next, 'yyyy-MM');
+    setFilterMonth(val);
+    if (onMonthChange) onMonthChange(val);
+  };
 
   return (
     <section className="bg-white rounded-3xl shadow-sm border border-slate-200 overflow-hidden print-monochrome relative">
@@ -60,10 +91,18 @@ export const EmployeeMatrix = memo<EmployeeMatrixProps>(({
              </button>
           </div>
         </div>
-        <input type="month" value={filterMonth} onChange={(e) => {
-          setFilterMonth(e.target.value);
-          if (onMonthChange) onMonthChange(e.target.value);
-        }} className="border border-slate-200 rounded-xl p-2 text-sm font-bold w-full md:w-auto" />
+        <div className="flex items-center gap-1 bg-white border border-slate-200 rounded-xl p-1 w-full md:w-auto justify-between md:justify-start">
+          <button onClick={handlePrevMonth} className="p-1.5 rounded-lg hover:bg-slate-100 text-slate-600 transition-colors">
+            <ChevronLeft className="w-5 h-5" />
+          </button>
+          <input type="month" value={filterMonth} onChange={(e) => {
+            setFilterMonth(e.target.value);
+            if (onMonthChange) onMonthChange(e.target.value);
+          }} className="border-none bg-transparent p-1 text-sm font-bold text-center focus:ring-0 cursor-pointer flex-1 md:w-32" />
+          <button onClick={handleNextMonth} className="p-1.5 rounded-lg hover:bg-slate-100 text-slate-600 transition-colors">
+            <ChevronRight className="w-5 h-5" />
+          </button>
+        </div>
       </div>
 
       <div className="p-4 bg-slate-50/30 border-b border-slate-100 no-print">
@@ -76,80 +115,90 @@ export const EmployeeMatrix = memo<EmployeeMatrixProps>(({
         </div>
       </div>
       
-      <div className="overflow-x-auto">
-        <table className="w-full border-collapse">
-          <thead>
-            <tr className="bg-slate-50 border-b border-slate-200">
-              <th className="sticky left-0 z-20 bg-slate-50 px-4 py-4 text-left text-[10px] font-bold text-slate-600 uppercase border-r min-w-[160px]">День</th>
-              {daysInMonth.map(day => (
-                <th key={day.toString()} className={`px-1 py-2 text-center text-[9px] font-bold border-r min-w-[40px] ${[0, 6].includes(day.getDay()) ? 'text-red-500 bg-red-50/20' : 'text-slate-500'}`}>
-                  <div className="flex flex-col items-center">
-                    <span>{format(day, 'd')}</span>
-                    <span className="text-[7px] uppercase opacity-60 font-medium">{format(day, 'eeeeee', { locale: ru })}</span>
-                  </div>
-                </th>
-              ))}
-            </tr>
-          </thead>
-          <tbody>
-            <tr className="border-b border-slate-100 bg-slate-50/50">
-              <td className="sticky left-0 z-10 bg-slate-50 border-r px-4 py-3 text-[11px] font-black text-blue-600">График</td>
-              {daysInMonth.map(day => {
-                const dateStr = format(day, 'yyyy-MM-dd');
-                const planned = user.plannedShifts?.[dateStr];
-                const isFuture = day >= today;
-                
-                const handleClick = () => {
-                  if (!isFuture) return;
-                  const cycle = ['', 'Р', 'В', 'Д', 'О', 'Н'];
-                  const currentVal = planned || '';
-                  const nextIdx = (cycle.indexOf(currentVal) + 1) % cycle.length;
-                  const nextVal = cycle[nextIdx];
-                  const newPlannedShifts = { ...(user.plannedShifts || {}) };
-                  if (nextVal === '') delete newPlannedShifts[dateStr];
-                  else newPlannedShifts[dateStr] = nextVal;
-                  onUpdateUser({ ...user, plannedShifts: newPlannedShifts });
-                };
+      <div className="p-6">
+        <div className="grid grid-cols-7 gap-2 sm:gap-4 mb-2">
+          {['Пн', 'Вт', 'Ср', 'Чт', 'Пт', 'Сб', 'Вс'].map(day => (
+            <div key={day} className="text-center text-xs font-bold text-slate-400 uppercase">{day}</div>
+          ))}
+        </div>
+        
+        <div className="grid grid-cols-7 gap-2 sm:gap-4">
+          {calendarDays.map((day, i) => {
+            const dateStr = format(day, 'yyyy-MM-dd');
+            const shift = user.plannedShifts?.[dateStr] as keyof typeof SHIFT_COLORS | undefined;
+            const isCurrentMonth = isSameMonth(day, monthStart);
+            const isPast = day < startOfDay(today);
+            const isToday = isSameDay(day, today);
+            const isFutureOrToday = !isPast;
+            
+            const dayLogs = userLogsLookup[dateStr] || filteredLogs.filter(l => l.date === dateStr);
+            const workEntries = dayLogs.filter(l => l.entryType === EntryType.WORK);
+            
+            let mins = 0;
+            const machineTotals: Record<string, number> = {};
+            workEntries.forEach(l => {
+              const mid = l.machineId || 'unknown';
+              machineTotals[mid] = (machineTotals[mid] || 0) + l.durationMinutes;
+            });
+            mins = Object.values(machineTotals).reduce((max, val) => Math.max(max, val), 0);
 
-                return (
-                  <td key={dateStr} onClick={handleClick} className={`border-r p-1 text-center h-12 tabular-nums transition-colors ${isFuture ? 'cursor-pointer hover:bg-blue-50' : ''}`}>
-                    {planned && (
-                      <span className={`text-[10px] font-black ${
-                        planned === 'Р' ? 'text-blue-600' :
-                        planned === 'В' ? 'text-slate-400' :
-                        planned === 'Д' ? 'text-amber-600' :
-                        planned === 'О' ? 'text-purple-600' :
-                        planned === 'Н' ? 'text-indigo-600' : 'text-slate-400'
-                      }`}>
-                        {planned}
-                      </span>
-                    )}
-                  </td>
+            const hasWork = workEntries.length > 0;
+            const absence = dayLogs.find(l => l.entryType !== EntryType.WORK);
+            
+            let actualContent = null;
+            if (isPast || isToday) {
+              if (absence) {
+                actualContent = <span className="font-black text-blue-600 text-[10px] sm:text-[11px] leading-tight">{absence.entryType === EntryType.SICK ? 'Болезнь' : absence.entryType === EntryType.VACATION ? 'Отпуск' : 'Выходной'}</span>;
+              } else if (hasWork) {
+                actualContent = (
+                  <span className={`font-black text-[11px] sm:text-xs leading-tight ${workEntries.some(l => !l.checkOut) ? 'text-blue-500 italic' : 'text-slate-900'}`}>
+                    {mins > 0 ? formatDurationShort(mins) : (workEntries.some(l => !l.checkOut) ? '--:--' : '0:00')}
+                  </span>
                 );
-              })}
-            </tr>
-            {perms.useMachines ? (
-              usedMachines.map(m => (
-                <EmployeeMatrixRow
-                  key={m.id}
-                  machine={m}
-                  daysInMonth={daysInMonth}
-                  today={today}
-                  filteredLogs={filteredLogs}
-                  userLogsLookup={userLogsLookup}
-                />
-              ))
-            ) : (
-              <EmployeeMatrixRow
-                machine={null}
-                daysInMonth={daysInMonth}
-                today={today}
-                filteredLogs={filteredLogs}
-                userLogsLookup={userLogsLookup}
-              />
-            )}
-          </tbody>
-        </table>
+              } else if (isPast) {
+                actualContent = <span className="font-bold text-slate-300 text-[10px] sm:text-[11px] leading-tight">В</span>;
+              }
+            }
+
+            const handleClick = () => {
+              const cycle = ['', 'Р', 'В', 'Д', 'О', 'Н'];
+              const currentVal = shift || '';
+              const nextIdx = (cycle.indexOf(currentVal) + 1) % cycle.length;
+              const nextVal = cycle[nextIdx];
+              const newPlannedShifts = { ...(user.plannedShifts || {}) };
+              if (nextVal === '') delete newPlannedShifts[dateStr];
+              else newPlannedShifts[dateStr] = nextVal;
+              onUpdateUser({ ...user, plannedShifts: newPlannedShifts });
+            };
+
+            return (
+              <div
+                key={i}
+                onClick={handleClick}
+                className={`
+                  aspect-square sm:aspect-auto sm:min-h-[90px] rounded-2xl flex flex-col p-1 sm:p-2 relative border cursor-pointer transition-colors
+                  ${!isCurrentMonth ? 'opacity-40 bg-slate-50/50 border-transparent' : 'bg-white border-slate-100'}
+                  ${shift ? SHIFT_COLORS[shift].split(' ')[0] + '/50' : 'hover:bg-slate-50'}
+                `}
+              >
+                <div className="flex flex-col items-center mb-auto">
+                  <span className={`text-sm font-bold ${shift ? '' : 'text-slate-600'} ${isToday ? 'bg-blue-600 text-white w-6 h-6 rounded-full flex items-center justify-center' : ''}`}>
+                    {format(day, 'd')}
+                  </span>
+                  {shift && isFutureOrToday && (
+                    <span className={`text-sm font-bold mt-0.5 ${SHIFT_COLORS[shift].split(' ')[1]}`}>
+                      {shift}
+                    </span>
+                  )}
+                </div>
+                
+                <div className="flex flex-col items-center justify-center mt-auto min-h-[20px]">
+                  {actualContent}
+                </div>
+              </div>
+            );
+          })}
+        </div>
       </div>
 
       <ScheduleModal
