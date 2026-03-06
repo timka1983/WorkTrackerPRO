@@ -15,12 +15,14 @@ interface LayoutProps {
   isSyncing?: boolean;
   employerViewMode?: 'matrix' | 'team' | 'analytics' | 'settings' | 'billing' | 'payroll';
   setEmployerViewMode?: (mode: 'matrix' | 'team' | 'analytics' | 'settings' | 'billing' | 'payroll') => void;
+  employeeViewMode?: 'control' | 'matrix';
+  setEmployeeViewMode?: (mode: 'control' | 'matrix') => void;
   canUsePayroll?: boolean;
 }
 
 const Layout: React.FC<LayoutProps> = ({ 
   children, user, currentOrg, onLogout, onSwitchRole, onRefresh, version, isSyncing = false,
-  employerViewMode, setEmployerViewMode, canUsePayroll = false
+  employerViewMode, setEmployerViewMode, employeeViewMode, setEmployeeViewMode, canUsePayroll = false
 }) => {
   const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
 
@@ -139,10 +141,39 @@ const Layout: React.FC<LayoutProps> = ({
                   );
                 })
               ) : (
-                <div className="flex items-center sm:justify-center lg:justify-start gap-3 p-3 rounded-xl bg-blue-50 text-blue-600 shadow-sm border border-blue-100">
-                  <CalendarDays className="w-5 h-5 shrink-0 stroke-[2.5px]" />
-                  <span className="font-semibold sm:hidden lg:block">Мой Табель</span>
-                </div>
+                <>
+                  <button
+                    onClick={() => {
+                      setEmployeeViewMode?.('control');
+                      setIsMobileMenuOpen(false);
+                    }}
+                    className={`flex items-center sm:justify-center lg:justify-start gap-3 p-3 rounded-xl transition-all group ${
+                      employeeViewMode === 'control' 
+                        ? 'bg-blue-50 text-blue-600 shadow-sm border border-blue-100' 
+                        : 'text-slate-500 hover:bg-slate-50 hover:text-slate-900'
+                    }`}
+                    title="Управление"
+                  >
+                    <LayoutDashboard className={`w-5 h-5 shrink-0 ${employeeViewMode === 'control' ? 'stroke-[2.5px]' : 'stroke-2 group-hover:scale-110 transition-transform'}`} />
+                    <span className={`font-medium sm:hidden lg:block ${employeeViewMode === 'control' ? 'font-semibold' : ''}`}>Управление</span>
+                  </button>
+                  
+                  <button
+                    onClick={() => {
+                      setEmployeeViewMode?.('matrix');
+                      setIsMobileMenuOpen(false);
+                    }}
+                    className={`flex items-center sm:justify-center lg:justify-start gap-3 p-3 rounded-xl transition-all group ${
+                      employeeViewMode === 'matrix' 
+                        ? 'bg-blue-50 text-blue-600 shadow-sm border border-blue-100' 
+                        : 'text-slate-500 hover:bg-slate-50 hover:text-slate-900'
+                    }`}
+                    title="Мой Табель"
+                  >
+                    <CalendarDays className={`w-5 h-5 shrink-0 ${employeeViewMode === 'matrix' ? 'stroke-[2.5px]' : 'stroke-2 group-hover:scale-110 transition-transform'}`} />
+                    <span className={`font-medium sm:hidden lg:block ${employeeViewMode === 'matrix' ? 'font-semibold' : ''}`}>Мой Табель</span>
+                  </button>
+                </>
               )}
             </nav>
 

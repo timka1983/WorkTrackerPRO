@@ -30,6 +30,7 @@ const App: React.FC = () => {
   const [showRegistration, setShowRegistration] = useState(false);
   const [showResetModal, setShowResetModal] = useState(false);
   const [employerViewMode, setEmployerViewMode] = useState<'matrix' | 'team' | 'analytics' | 'settings' | 'billing' | 'payroll'>('analytics');
+  const [employeeViewMode, setEmployeeViewMode] = useState<'control' | 'matrix'>('control');
 
   useEffect(() => {
     const lastUserId = localStorage.getItem(STORAGE_KEYS.LAST_USER_ID);
@@ -128,6 +129,8 @@ const App: React.FC = () => {
         isSyncing={appData.isSyncing}
         employerViewMode={employerViewMode}
         setEmployerViewMode={setEmployerViewMode}
+        employeeViewMode={employeeViewMode}
+        setEmployeeViewMode={setEmployeeViewMode}
         canUsePayroll={appData.currentOrg ? (appData.plans.find(p => p.type === appData.currentOrg!.plan)?.limits.features.payroll ?? PLAN_LIMITS[appData.currentOrg!.plan].features.payroll) : false}
       >
         {appData.dbError && (
@@ -182,6 +185,8 @@ const App: React.FC = () => {
               currentOrg={appData.currentOrg}
               onMonthChange={appData.loadLogsForMonth}
               getNow={getNow}
+              viewMode={employeeViewMode}
+              setViewMode={setEmployeeViewMode}
             />
           ) : (
             isEmployerAuthorized ? (

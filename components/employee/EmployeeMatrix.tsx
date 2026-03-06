@@ -1,8 +1,10 @@
-import React, { memo } from 'react';
+import React, { memo, useState } from 'react';
 import { format } from 'date-fns';
 import { ru } from 'date-fns/locale/ru';
 import { WorkLog, User, EntryType, Machine, PositionPermissions } from '../../types';
 import { EmployeeMatrixRow } from './EmployeeMatrixRow';
+import { ScheduleModal } from './ScheduleModal';
+import { CalendarDays } from 'lucide-react';
 
 interface EmployeeMatrixProps {
   filterMonth: string;
@@ -36,13 +38,18 @@ export const EmployeeMatrix = memo<EmployeeMatrixProps>(({
   downloadCalendarPDF
 }) => {
   const userLogsLookup = logsLookup[user.id] || {};
+  const [isScheduleModalOpen, setIsScheduleModalOpen] = useState(false);
 
   return (
-    <section className="bg-white rounded-3xl shadow-sm border border-slate-200 overflow-hidden print-monochrome">
+    <section className="bg-white rounded-3xl shadow-sm border border-slate-200 overflow-hidden print-monochrome relative">
       <div className="p-6 border-b border-slate-100 flex flex-col md:flex-row justify-between items-center bg-slate-50/50 no-print gap-4">
         <div className="flex flex-col md:flex-row items-center gap-4 w-full md:w-auto">
           <h3 className="font-bold text-slate-900">Мой Табель</h3>
-          <div className="flex gap-2">
+          <div className="flex flex-wrap gap-2">
+             <button onClick={() => setIsScheduleModalOpen(true)} className="flex items-center gap-2 px-4 py-2 bg-blue-600 text-white rounded-xl text-xs font-bold hover:bg-blue-700 transition-colors">
+               <CalendarDays className="w-4 h-4" />
+               Составить график
+             </button>
              <button onClick={() => window.print()} className="flex items-center gap-2 px-4 py-2 bg-slate-100 text-slate-600 border border-slate-200 rounded-xl text-xs font-bold hover:bg-white transition-colors">
                <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M17 17h2a2 2 0 002-2v-4a2 2 0 00-2-2H5a2 2 0 00-2 2v4a2 2 0 00-2 2h2m2 4h6a2 2 0 002-2v-4a2 2 0 00-2-2H9a2 2 0 00-2 2v4a2 2 0 002 2zm8-12V5a2 2 0 00-2-2H9a2 2 0 00-2 2v4h10z" /></svg>
                Обычная печать
@@ -144,6 +151,14 @@ export const EmployeeMatrix = memo<EmployeeMatrixProps>(({
           </tbody>
         </table>
       </div>
+
+      <ScheduleModal
+        isOpen={isScheduleModalOpen}
+        onClose={() => setIsScheduleModalOpen(false)}
+        user={user}
+        onUpdateUser={onUpdateUser}
+        currentMonth={filterMonth}
+      />
     </section>
   );
 });

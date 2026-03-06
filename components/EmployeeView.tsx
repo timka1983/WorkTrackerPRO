@@ -37,10 +37,12 @@ interface EmployeeViewProps {
   currentOrg: Organization | null;
   onMonthChange?: (month: string) => void;
   getNow: () => Date;
+  viewMode: 'control' | 'matrix';
+  setViewMode: (mode: 'control' | 'matrix') => void;
 }
 
 const EmployeeView: React.FC<EmployeeViewProps> = ({ 
-  user, logs, logsLookup = {}, onLogsUpsert, activeShifts, onActiveShiftsUpdate, onOvertime, machines, positions, onUpdateUser, nightShiftBonusMinutes, onRefresh, planLimits, currentOrg, onMonthChange, getNow
+  user, logs, logsLookup = {}, onLogsUpsert, activeShifts, onActiveShiftsUpdate, onOvertime, machines, positions, onUpdateUser, nightShiftBonusMinutes, onRefresh, planLimits, currentOrg, onMonthChange, getNow, viewMode, setViewMode
 }) => {
   const orgId = localStorage.getItem(STORAGE_KEYS.ORG_ID) || 'default_org';
 
@@ -121,7 +123,6 @@ const EmployeeView: React.FC<EmployeeViewProps> = ({
   }, [machines]);
 
   const [filterMonth, setFilterMonth] = useState(new Date().toISOString().substring(0, 7));
-  const [viewMode, setViewMode] = useState<'control' | 'matrix'>('control');
   
   const shiftCounts = useMemo(() => {
     const counts = { 'Р': 0, 'В': 0, 'Д': 0, 'О': 0, 'Н': 0 };
