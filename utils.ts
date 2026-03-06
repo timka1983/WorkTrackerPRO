@@ -66,7 +66,17 @@ export const sendNotification = (title: string, body: string) => {
   if (!('Notification' in window)) return;
   
   if (Notification.permission === 'granted') {
-    new Notification(title, { body, icon: '/manifest.json' });
+    try {
+      // Try standard constructor first (works on desktop)
+      new Notification(title, { body, icon: '/manifest.json' });
+    } catch (e) {
+      // Fallback for mobile devices (especially Android/Chrome)
+      if (navigator.serviceWorker) {
+        navigator.serviceWorker.ready.then(registration => {
+          registration.showNotification(title, { body, icon: '/manifest.json' });
+        }).catch(err => console.error('ServiceWorker notification failed:', err));
+      }
+    }
   }
 };
 
