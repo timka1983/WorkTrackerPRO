@@ -1,7 +1,8 @@
 
-import React, { useMemo } from 'react';
+import React, { useMemo, useState } from 'react';
 import { User, UserRole, Organization } from '../types';
 import { STORAGE_KEYS } from '../constants';
+import { LayoutDashboard, CalendarDays, CircleDollarSign, Users, CreditCard, Settings, LogOut, RefreshCw, Trash2, Menu, X, ArrowLeftRight } from 'lucide-react';
 
 interface LayoutProps {
   children: React.ReactNode;
@@ -12,13 +13,21 @@ interface LayoutProps {
   onRefresh?: () => void;
   version: string;
   isSyncing?: boolean;
+  employerViewMode?: 'matrix' | 'team' | 'analytics' | 'settings' | 'billing' | 'payroll';
+  setEmployerViewMode?: (mode: 'matrix' | 'team' | 'analytics' | 'settings' | 'billing' | 'payroll') => void;
+  canUsePayroll?: boolean;
 }
 
-const Layout: React.FC<LayoutProps> = ({ children, user, currentOrg, onLogout, onSwitchRole, onRefresh, version, isSyncing = false }) => {
+const Layout: React.FC<LayoutProps> = ({ 
+  children, user, currentOrg, onLogout, onSwitchRole, onRefresh, version, isSyncing = false,
+  employerViewMode, setEmployerViewMode, canUsePayroll = false
+}) => {
+  const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
+
   // Check if current position has admin permissions
-  const hasAdminPermissions = useMemo(() => {
-    if (!user) return false;
-    if (user.id === 'admin' || user.isAdmin) return true;
+  const { hasAdminPermissions, userPerms } = useMemo(() => {
+    if (!user) return { hasAdminPermissions: false, userPerms: null };
+    if (user.id === 'admin' || user.isAdmin) return { hasAdminPermissions: true, userPerms: { isFullAdmin: true } };
     
     // Position permissions check
     const cachedPositions = localStorage.getItem('timesheet_positions_list');
@@ -26,133 +35,242 @@ const Layout: React.FC<LayoutProps> = ({ children, user, currentOrg, onLogout, o
       try {
         const positions = JSON.parse(cachedPositions);
         const pos = positions.find((p: any) => p.name === user.position);
-        return pos?.permissions?.isFullAdmin || pos?.permissions?.isLimitedAdmin;
+        const perms = pos?.permissions;
+        return {
+          hasAdminPermissions: perms?.isFullAdmin || perms?.isLimitedAdmin,
+          userPerms: perms
+        };
       } catch (e) {
-        return false;
+        return { hasAdminPermissions: false, userPerms: null };
       }
     }
-    return false;
+    return { hasAdminPermissions: false, userPerms: null };
   }, [user]);
 
+  const employerTabs = useMemo(() => {
+    let tabs = [
+      { id: 'analytics', label: 'Дашборд', icon: LayoutDashboard },
+      { id: 'matrix', label: 'Табель', icon: CalendarDays },
+      { id: 'payroll', label: 'Зарплата', icon: CircleDollarSign, hidden: !canUsePayroll },
+      { id: 'team', label: 'Команда', icon: Users },
+      { id: 'billing', label: 'Биллинг', icon: CreditCard },
+      { id: 'settings', label: 'Настройки', icon: Settings }
+    ].filter(t => !t.hidden);
+
+    if (!userPerms) return [];
+    if (userPerms.isFullAdmin) return tabs;
+    
+    if (userPerms.isLimitedAdmin) {
+      return tabs.filter(t => ['analytics', 'matrix'].includes(t.id));
+    }
+
+    if (!userPerms.canViewPayroll) {
+      tabs = tabs.filter(t => t.id !== 'payroll');
+    }
+    if (!userPerms.canManageUsers) {
+      tabs = tabs.filter(t => t.id !== 'team');
+    }
+    if (!userPerms.canManageSettings) {
+      tabs = tabs.filter(t => t.id !== 'settings' && t.id !== 'billing');
+    }
+
+    return tabs;
+  }, [canUsePayroll, userPerms]);
+
   return (
-    <div className="min-h-screen flex flex-col">
-      <header className="bg-white border-b border-slate-200 sticky top-0 z-50 no-print">
-        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
-          <div className="flex justify-between items-center h-16">
-            <div className="flex items-center gap-3">
-              <div className="bg-blue-600 text-white p-2 rounded-lg">
-                <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z" />
-                </svg>
-              </div>
-              <div className="flex flex-col">
-                <div className="flex items-center gap-2">
-                  <span className="text-xl font-bold text-slate-900 tracking-tight leading-none">WorkTracker</span>
-                  <button 
-                    onClick={() => onRefresh?.()}
-                    disabled={isSyncing}
-                    className={`flex items-center gap-1 p-1 rounded-md transition-all ${isSyncing ? 'bg-blue-50' : 'hover:bg-slate-100'}`}
-                    title="Синхронизировать данные"
-                  >
-                    {isSyncing ? (
-                      <div className="flex items-center gap-1">
-                        <div className="w-1 h-1 bg-blue-500 rounded-full animate-bounce [animation-delay:-0.3s]"></div>
-                        <div className="w-1 h-1 bg-blue-500 rounded-full animate-bounce [animation-delay:-0.15s]"></div>
-                        <div className="w-1 h-1 bg-blue-500 rounded-full animate-bounce"></div>
-                      </div>
-                    ) : (
-                      <svg className="w-3 h-3 text-slate-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={3} d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15" />
-                      </svg>
-                    )}
-                  </button>
-                  <button 
-                    onClick={() => {
-                      if (confirm('Это полностью очистит локальный кэш и перезагрузит приложение. Используйте это, если данные отображаются некорректно. Продолжить?')) {
-                        const orgId = localStorage.getItem(STORAGE_KEYS.ORG_ID);
-                        localStorage.clear();
-                        const nextUrl = orgId ? `/?org_switch=${orgId}&reset=${Date.now()}` : `/?reset=${Date.now()}`;
-                        window.location.replace(nextUrl);
-                      }
-                    }}
-                    className="p-1 text-slate-300 hover:text-rose-500 transition-colors rounded-md hover:bg-rose-50"
-                    title="Полная очистка кэша"
-                  >
-                    <svg className="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={3} d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" /></svg>
-                  </button>
+    <div className="min-h-screen flex bg-slate-50">
+      {/* Sidebar Navigation (Desktop) */}
+      {user && (
+        <>
+          {/* Mobile Menu Overlay */}
+          {isMobileMenuOpen && (
+            <div 
+              className="fixed inset-0 bg-black/20 z-40 sm:hidden"
+              onClick={() => setIsMobileMenuOpen(false)}
+            />
+          )}
+
+          <aside className={`
+            fixed sm:sticky top-0 left-0 h-screen z-50 bg-white border-r border-slate-200 
+            flex flex-col py-4 shadow-sm transition-transform duration-300 ease-in-out
+            w-64 sm:w-20 lg:w-64
+            ${isMobileMenuOpen ? 'translate-x-0' : '-translate-x-full sm:translate-x-0'}
+            no-print
+          `}>
+            <div className="flex items-center justify-between px-4 sm:px-0 lg:px-4 mb-6 sm:mb-8">
+              <div className="flex items-center gap-3 sm:justify-center lg:justify-start w-full">
+                <div className="bg-blue-600 text-white p-2 rounded-xl shadow-md shrink-0">
+                  <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2.5} d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z" />
+                  </svg>
                 </div>
-                {currentOrg && (
-                  <div className="flex flex-col">
-                    <span className="text-[10px] font-bold text-indigo-600 uppercase tracking-wider mt-0.5">
-                      {currentOrg.name}
-                    </span>
-                    <span className="text-[7px] font-mono text-slate-400 uppercase tracking-tighter">
-                      ID: {currentOrg.id}
-                    </span>
-                  </div>
-                )}
+                <span className="font-bold text-slate-900 sm:hidden lg:block">WorkTracker</span>
               </div>
+              <button 
+                className="sm:hidden p-2 text-slate-400 hover:text-slate-600"
+                onClick={() => setIsMobileMenuOpen(false)}
+              >
+                <X className="w-5 h-5" />
+              </button>
             </div>
 
-            {user && (
-              <div className="flex items-center gap-3 sm:gap-6">
-                {hasAdminPermissions && (
-                  <div className="hidden md:flex items-center gap-4 text-sm font-medium">
-                     <button 
-                      onClick={() => onSwitchRole(UserRole.EMPLOYEE)}
-                      className={`px-3 py-1 rounded-full transition-colors ${user.role === UserRole.EMPLOYEE ? 'bg-blue-100 text-blue-700' : 'text-slate-500 hover:text-slate-900'}`}
+            <nav className="flex-1 flex flex-col gap-2 px-3 sm:px-2 lg:px-3 overflow-y-auto custom-scrollbar">
+              {user.role === UserRole.EMPLOYER && setEmployerViewMode ? (
+                employerTabs.map(tab => {
+                  const Icon = tab.icon;
+                  const isActive = employerViewMode === tab.id;
+                  return (
+                    <button
+                      key={tab.id}
+                      onClick={() => {
+                        setEmployerViewMode(tab.id as any);
+                        setIsMobileMenuOpen(false);
+                      }}
+                      className={`flex items-center sm:justify-center lg:justify-start gap-3 p-3 rounded-xl transition-all group ${
+                        isActive 
+                          ? 'bg-blue-50 text-blue-600 shadow-sm border border-blue-100' 
+                          : 'text-slate-500 hover:bg-slate-50 hover:text-slate-900'
+                      }`}
+                      title={tab.label}
                     >
-                      Сотрудник
+                      <Icon className={`w-5 h-5 shrink-0 ${isActive ? 'stroke-[2.5px]' : 'stroke-2 group-hover:scale-110 transition-transform'}`} />
+                      <span className={`font-medium sm:hidden lg:block ${isActive ? 'font-semibold' : ''}`}>{tab.label}</span>
+                    </button>
+                  );
+                })
+              ) : (
+                <div className="flex items-center sm:justify-center lg:justify-start gap-3 p-3 rounded-xl bg-blue-50 text-blue-600 shadow-sm border border-blue-100">
+                  <CalendarDays className="w-5 h-5 shrink-0 stroke-[2.5px]" />
+                  <span className="font-semibold sm:hidden lg:block">Мой Табель</span>
+                </div>
+              )}
+            </nav>
+
+            <div className="mt-auto flex flex-col gap-2 px-3 sm:px-2 lg:px-3 pt-4 border-t border-slate-100">
+              {hasAdminPermissions && (
+                <button
+                  onClick={() => {
+                    onSwitchRole(user.role === UserRole.EMPLOYER ? UserRole.EMPLOYEE : UserRole.EMPLOYER);
+                    setIsMobileMenuOpen(false);
+                  }}
+                  className="flex items-center sm:justify-center lg:justify-start gap-3 p-3 rounded-xl text-slate-500 hover:bg-slate-50 hover:text-slate-900 transition-all group"
+                  title={user.role === UserRole.EMPLOYER ? 'В режим сотрудника' : 'В режим админа'}
+                >
+                  <ArrowLeftRight className="w-5 h-5 shrink-0 stroke-2 group-hover:scale-110 transition-transform" />
+                  <span className="font-medium sm:hidden lg:block">
+                    {user.role === UserRole.EMPLOYER ? 'Режим сотрудника' : 'Режим админа'}
+                  </span>
+                </button>
+              )}
+              <button
+                onClick={onLogout}
+                className="flex items-center sm:justify-center lg:justify-start gap-3 p-3 rounded-xl text-slate-500 hover:bg-rose-50 hover:text-rose-600 transition-all group"
+                title="Выйти"
+              >
+                <LogOut className="w-5 h-5 shrink-0 stroke-2 group-hover:scale-110 transition-transform" />
+                <span className="font-medium sm:hidden lg:block">Выйти</span>
+              </button>
+            </div>
+          </aside>
+        </>
+      )}
+
+      {/* Main Content Area */}
+      <div className="flex-1 flex flex-col min-w-0">
+        <header className="bg-white border-b border-slate-200 sticky top-0 z-40 no-print shadow-sm">
+          <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+            <div className="flex justify-between items-center h-16">
+              <div className="flex items-center gap-3">
+                {user && (
+                  <button 
+                    className="sm:hidden p-2 -ml-2 text-slate-500 hover:text-slate-900 rounded-lg hover:bg-slate-50"
+                    onClick={() => setIsMobileMenuOpen(true)}
+                  >
+                    <Menu className="w-6 h-6" />
+                  </button>
+                )}
+                {!user && (
+                  <div className="bg-blue-600 text-white p-2 rounded-lg">
+                    <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z" />
+                    </svg>
+                  </div>
+                )}
+                <div className="flex flex-col">
+                  <div className="flex items-center gap-2">
+                    <span className="text-xl font-bold text-slate-900 tracking-tight leading-none hidden sm:block">WorkTracker</span>
+                    <button 
+                      onClick={() => onRefresh?.()}
+                      disabled={isSyncing}
+                      className={`flex items-center justify-center w-6 h-6 rounded-md transition-all ${isSyncing ? 'bg-blue-50' : 'hover:bg-slate-100'}`}
+                      title="Синхронизировать данные"
+                    >
+                      {isSyncing ? (
+                        <div className="flex items-center gap-0.5">
+                          <div className="w-1 h-1 bg-blue-500 rounded-full animate-bounce [animation-delay:-0.3s]"></div>
+                          <div className="w-1 h-1 bg-blue-500 rounded-full animate-bounce [animation-delay:-0.15s]"></div>
+                          <div className="w-1 h-1 bg-blue-500 rounded-full animate-bounce"></div>
+                        </div>
+                      ) : (
+                        <RefreshCw className="w-3.5 h-3.5 text-slate-400" />
+                      )}
                     </button>
                     <button 
-                      onClick={() => onSwitchRole(UserRole.EMPLOYER)}
-                      className={`px-3 py-1 rounded-full transition-colors ${user.role === UserRole.EMPLOYER ? 'bg-blue-100 text-blue-700' : 'text-slate-500 hover:text-slate-900'}`}
+                      onClick={() => {
+                        if (confirm('Это полностью очистит локальный кэш и перезагрузит приложение. Используйте это, если данные отображаются некорректно. Продолжить?')) {
+                          const orgId = localStorage.getItem(STORAGE_KEYS.ORG_ID);
+                          localStorage.clear();
+                          const nextUrl = orgId ? `/?org_switch=${orgId}&reset=${Date.now()}` : `/?reset=${Date.now()}`;
+                          window.location.replace(nextUrl);
+                        }
+                      }}
+                      className="flex items-center justify-center w-6 h-6 text-slate-300 hover:text-rose-500 transition-colors rounded-md hover:bg-rose-50"
+                      title="Полная очистка кэша"
                     >
-                      Работодатель
+                      <Trash2 className="w-3.5 h-3.5" />
                     </button>
                   </div>
-                )}
-
-                {hasAdminPermissions && (
-                  <button 
-                    onClick={() => onSwitchRole(user.role === UserRole.EMPLOYER ? UserRole.EMPLOYEE : UserRole.EMPLOYER)}
-                    className="md:hidden flex items-center px-3 py-1.5 bg-blue-50 text-blue-700 rounded-full text-[10px] font-black uppercase tracking-tighter active:scale-95 transition-transform border border-blue-100 shadow-sm"
-                  >
-                    {user.role === UserRole.EMPLOYER ? 'В Табель' : 'В Админ'}
-                  </button>
-                )}
-                
-                <div className="flex items-center gap-3 border-l pl-3 sm:pl-6 border-slate-200">
-                  <div className="text-right hidden sm:block">
-                    <p className="text-sm font-semibold text-slate-900">{user.name}</p>
-                    <p className="text-xs text-slate-500">{user.role === UserRole.EMPLOYER ? 'Администратор' : 'Сотрудник'}</p>
-                  </div>
-                  <button 
-                    onClick={onLogout}
-                    className="p-2 text-slate-400 hover:text-red-500 transition-colors"
-                    title="Выйти"
-                  >
-                    <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M17 16l4-4m0 0l-4-4m4 4H7m6 4v1a3 3 0 01-3 3H6a3 3 0 01-3-3V7a3 3 0 013-3h4a3 3 0 013 3v1" />
-                    </svg>
-                  </button>
+                  {currentOrg && (
+                    <div className="flex flex-col">
+                      <span className="text-[10px] font-bold text-indigo-600 uppercase tracking-wider mt-0.5">
+                        {currentOrg.name}
+                      </span>
+                      <span className="text-[7px] font-mono text-slate-400 uppercase tracking-tighter hidden sm:block">
+                        ID: {currentOrg.id}
+                      </span>
+                    </div>
+                  )}
                 </div>
               </div>
-            )}
+
+              {user && (
+                <div className="flex items-center gap-3 sm:gap-6">
+                  <div className="flex items-center gap-3">
+                    <div className="text-right hidden sm:block">
+                      <p className="text-sm font-semibold text-slate-900">{user.name}</p>
+                      <p className="text-xs text-slate-500">{user.role === UserRole.EMPLOYER ? 'Администратор' : 'Сотрудник'}</p>
+                    </div>
+                    <div className="w-9 h-9 sm:w-10 sm:h-10 rounded-full bg-blue-100 text-blue-700 border-2 border-white shadow-sm flex items-center justify-center font-bold text-sm sm:text-base">
+                      {user.name.charAt(0).toUpperCase()}
+                    </div>
+                  </div>
+                </div>
+              )}
+            </div>
           </div>
-        </div>
-      </header>
+        </header>
 
-      <main className="flex-1 max-w-7xl w-full mx-auto px-4 sm:px-6 lg:px-8 py-8">
-        {children}
-      </main>
+        <main className="flex-1 w-full mx-auto px-2 sm:px-6 lg:px-8 py-4 sm:py-8 max-w-7xl">
+          {children}
+        </main>
 
-      <footer className="bg-white border-t border-slate-200 py-6 no-print">
-        <div className="max-w-7xl mx-auto px-4 flex flex-col sm:flex-row justify-between items-center gap-4 text-sm text-slate-500">
-          <div>© 2026 Система учета рабочего времени. Все права защищены.</div>
-          <div className="font-bold text-slate-300 uppercase tracking-widest text-[10px]">{version}</div>
-        </div>
-      </footer>
+        <footer className="bg-white border-t border-slate-200 py-6 no-print mt-auto">
+          <div className="max-w-7xl mx-auto px-4 flex flex-col sm:flex-row justify-between items-center gap-4 text-sm text-slate-500">
+            <div>© 2026 Система учета рабочего времени. Все права защищены.</div>
+            <div className="font-bold text-slate-300 uppercase tracking-widest text-[10px]">{version}</div>
+          </div>
+        </footer>
+      </div>
     </div>
   );
 };

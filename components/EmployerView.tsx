@@ -50,15 +50,16 @@ interface EmployerViewProps {
   currentUser?: User | null;
   onMonthChange?: (month: string) => void;
   getNow: () => Date;
+  viewMode: 'matrix' | 'team' | 'analytics' | 'settings' | 'billing' | 'payroll';
+  setViewMode: (mode: 'matrix' | 'team' | 'analytics' | 'settings' | 'billing' | 'payroll') => void;
 }
 
 const EmployerView: React.FC<EmployerViewProps> = ({ 
   logs, logsLookup = {}, users, onAddUser, onUpdateUser, onDeleteUser, 
   machines, onUpdateMachines, positions, onUpdatePositions, onImportData, onLogsUpsert, activeShiftsMap = {}, onActiveShiftsUpdate, onDeleteLog,
-  onRefresh, forceCleanAll, onCleanupDatabase, onRemoveBase64Photos, onRunDiagnostics, onMergeDuplicates, onFixDbStructure, isSyncing = false, nightShiftBonusMinutes, onUpdateNightBonus, currentOrg, plans, onUpdateOrg, currentUser: propCurrentUser, onMonthChange, getNow
+  onRefresh, forceCleanAll, onCleanupDatabase, onRemoveBase64Photos, onRunDiagnostics, onMergeDuplicates, onFixDbStructure, isSyncing = false, nightShiftBonusMinutes, onUpdateNightBonus, currentOrg, plans, onUpdateOrg, currentUser: propCurrentUser, onMonthChange, getNow, viewMode, setViewMode
 }) => {
   const [filterMonth, setFilterMonth] = useState(format(getNow(), 'yyyy-MM'));
-  const [viewMode, setViewMode] = useState<'matrix' | 'team' | 'analytics' | 'settings' | 'billing' | 'payroll'>('analytics');
   const [editingLog, setEditingLog] = useState<{ userId: string; date: string } | null>(null);
   const [tempNotes, setTempNotes] = useState<Record<string, string>>({});
   const [previewPhoto, setPreviewPhoto] = useState<string | null>(null);
@@ -676,18 +677,7 @@ const EmployerView: React.FC<EmployerViewProps> = ({
       )}
 
       <div className="flex flex-col sm:flex-row justify-between items-center bg-white p-4 rounded-3xl border border-slate-200 gap-4 shadow-sm no-print">
-        <div className="flex bg-slate-100 p-1 rounded-2xl w-full sm:w-auto overflow-x-auto">
-          {tabs.map(tab => (
-            <button 
-              key={tab.id}
-              onClick={() => setViewMode(tab.id as any)} 
-              className={`px-5 py-2.5 rounded-xl text-xs font-bold transition-all whitespace-nowrap ${viewMode === tab.id ? 'bg-white shadow-sm text-blue-600' : 'text-slate-500 hover:text-slate-900'}`}
-            >
-              {tab.label}
-            </button>
-          ))}
-        </div>
-        <div className="flex items-center gap-2">
+        <div className="flex items-center gap-2 w-full sm:w-auto">
            <button 
             onClick={async () => {
               if (confirm('Это попытается восстановить привязку сотрудников и логов к вашей организации. Продолжить?')) {
