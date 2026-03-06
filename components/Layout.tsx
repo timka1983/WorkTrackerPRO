@@ -164,7 +164,7 @@ const Layout: React.FC<LayoutProps> = ({
                       setIsMobileMenuOpen(false);
                     }}
                     className={`flex items-center sm:justify-center lg:justify-start gap-3 p-3 rounded-xl transition-all group ${
-                      employeeViewMode === 'matrix' 
+                      employeeViewMode === 'matrix'
                         ? 'bg-blue-50 text-blue-600 shadow-sm border border-blue-100' 
                         : 'text-slate-500 hover:bg-slate-50 hover:text-slate-900'
                     }`}
@@ -172,6 +172,18 @@ const Layout: React.FC<LayoutProps> = ({
                   >
                     <CalendarDays className={`w-5 h-5 shrink-0 ${employeeViewMode === 'matrix' ? 'stroke-[2.5px]' : 'stroke-2 group-hover:scale-110 transition-transform'}`} />
                     <span className={`font-medium sm:hidden lg:block ${employeeViewMode === 'matrix' ? 'font-semibold' : ''}`}>Мой Табель</span>
+                  </button>
+
+                  <button
+                    onClick={() => {
+                      window.dispatchEvent(new CustomEvent('open-pin-change'));
+                      setIsMobileMenuOpen(false);
+                    }}
+                    className="flex items-center sm:justify-center lg:justify-start gap-3 p-3 rounded-xl transition-all group text-slate-500 hover:bg-slate-50 hover:text-slate-900"
+                    title="Сменить PIN"
+                  >
+                    <svg className="w-5 h-5 shrink-0 stroke-2 group-hover:scale-110 transition-transform" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 7a2 2 0 012 2m4 0a6 6 0 01-7.743 5.743L11 17H9v2H7v2H4a1 1 0 01-1-1v-2.586a1 1 0 01.293-.707l5.964-5.964A6 6 0 1121 9z" /></svg>
+                    <span className="font-medium sm:hidden lg:block">Сменить PIN</span>
                   </button>
                 </>
               )}
@@ -261,18 +273,19 @@ const Layout: React.FC<LayoutProps> = ({
                       <Trash2 className="w-3.5 h-3.5" />
                     </button>
                   </div>
-                  {currentOrg && (
-                    <div className="flex flex-col">
-                      <span className="text-[10px] font-bold text-indigo-600 uppercase tracking-wider mt-0.5">
-                        {currentOrg.name}
-                      </span>
-                      <span className="text-[7px] font-mono text-slate-400 uppercase tracking-tighter hidden sm:block">
-                        ID: {currentOrg.id}
-                      </span>
-                    </div>
-                  )}
                 </div>
               </div>
+
+              {currentOrg && (
+                <div className="absolute left-1/2 -translate-x-1/2 flex flex-col items-center justify-center pointer-events-none">
+                  <span className="text-sm sm:text-base font-bold text-indigo-600 uppercase tracking-wider mt-0.5">
+                    {currentOrg.name}
+                  </span>
+                  <span className="text-[9px] font-mono text-slate-400 uppercase tracking-tighter hidden sm:block">
+                    ID: {currentOrg.id}
+                  </span>
+                </div>
+              )}
 
               {user && (
                 <div className="flex items-center gap-3 sm:gap-6">

@@ -1,8 +1,8 @@
 import React, { useState, useMemo } from 'react';
-import { format, addDays, startOfMonth, endOfMonth, eachDayOfInterval, isSameMonth, isSameDay, startOfWeek, endOfWeek } from 'date-fns';
+import { format, addDays, startOfMonth, endOfMonth, eachDayOfInterval, isSameMonth, isSameDay, startOfWeek, endOfWeek, subMonths, addMonths } from 'date-fns';
 import { ru } from 'date-fns/locale/ru';
 import { User } from '../../types';
-import { X, Calendar as CalendarIcon, Wand2, Trash2 } from 'lucide-react';
+import { X, Calendar as CalendarIcon, Wand2, Trash2, ChevronLeft, ChevronRight } from 'lucide-react';
 
 interface ScheduleModalProps {
   isOpen: boolean;
@@ -10,6 +10,8 @@ interface ScheduleModalProps {
   user: User;
   onUpdateUser: (user: User) => void;
   currentMonth: string;
+  setFilterMonth: (month: string) => void;
+  onMonthChange?: (month: string) => void;
 }
 
 type ShiftType = 'Р' | 'В' | 'Д' | 'О' | 'Н';
@@ -35,7 +37,9 @@ export const ScheduleModal: React.FC<ScheduleModalProps> = ({
   onClose,
   user,
   onUpdateUser,
-  currentMonth
+  currentMonth,
+  setFilterMonth,
+  onMonthChange
 }) => {
   const [selectedDate, setSelectedDate] = useState<Date>(new Date());
   const [pattern, setPattern] = useState<ShiftType[]>([]);
@@ -52,8 +56,39 @@ export const ScheduleModal: React.FC<ScheduleModalProps> = ({
 
   if (!isOpen) return null;
 
-  const handleDayClick = (day: Date) => {
+  const handleDayClick = (day: Date, currentShift?: ShiftType) => {
     setSelectedDate(day);
+    
+    // Cycle shift
+    const cycle = ['', 'Р', 'В', 'Д', 'О', 'Н'];
+    const currentVal = currentShift || '';
+    const nextIdx = (cycle.indexOf(currentVal) + 1) % cycle.length;
+    const nextVal = cycle[nextIdx];
+    
+    const dateStr = format(day, 'yyyy-MM-dd');
+    const newPlannedShifts = { ...(user.plannedShifts || {}) };
+    
+    if (nextVal === '') {
+      delete newPlannedShifts[dateStr];
+    } else {
+      newPlannedShifts[dateStr] = nextVal as ShiftType;
+    }
+    
+    onUpdateUser({ ...user, plannedShifts: newPlannedShifts });
+  };
+
+  const handlePrevMonth = () => {
+    const prev = subMonths(monthStart, 1);
+    const val = format(prev, 'yyyy-MM');
+    setFilterMonth(val);
+    if (onMonthChange) onMonthChange(val);
+  };
+
+  const handleNextMonth = () => {
+    const next = addMonths(monthStart, 1);
+    const val = format(next, 'yyyy-MM');
+    setFilterMonth(val);
+    if (onMonthChange) onMonthChange(val);
   };
 
   const handleSetShift = (shift: ShiftType | null) => {
@@ -114,7 +149,13 @@ export const ScheduleModal: React.FC<ScheduleModalProps> = ({
           {/* Calendar View */}
           <div className="mb-6">
             <div className="flex items-center justify-between mb-4">
+              <button onClick={handlePrevMonth} className="p-1.5 rounded-lg hover:bg-slate-100 text-slate-600 transition-colors">
+                <ChevronLeft className="w-5 h-5" />
+              </button>
               <h3 className="font-bold text-slate-700 capitalize">{format(monthStart, 'LLLL yyyy', { locale: ru })}</h3>
+              <button onClick={handleNextMonth} className="p-1.5 rounded-lg hover:bg-slate-100 text-slate-600 transition-colors">
+                <ChevronRight className="w-5 h-5" />
+              </button>
             </div>
             
             <div className="grid grid-cols-7 gap-1 mb-2">
@@ -133,7 +174,7 @@ export const ScheduleModal: React.FC<ScheduleModalProps> = ({
                 return (
                   <button
                     key={i}
-                    onClick={() => handleDayClick(day)}
+                    onClick={() => handleDayClick(day, shift)}
                     className={`
                       aspect-square rounded-xl flex flex-col items-center justify-center relative transition-all
                       ${!isCurrentMonth ? 'opacity-30' : ''}

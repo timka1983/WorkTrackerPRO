@@ -145,6 +145,12 @@ const EmployeeView: React.FC<EmployeeViewProps> = ({
   const [pinState, setPinState] = useState({ old: '', new: '', confirm: '' });
   const [pinError, setPinError] = useState('');
 
+  useEffect(() => {
+    const handleOpenPinChange = () => setShowPinChange(true);
+    window.addEventListener('open-pin-change', handleOpenPinChange);
+    return () => window.removeEventListener('open-pin-change', handleOpenPinChange);
+  }, []);
+
   const [isNightModeGlobal, setIsNightModeGlobal] = useState(false);
   const videoRef = useRef<HTMLVideoElement>(null);
   
@@ -421,15 +427,22 @@ const EmployeeView: React.FC<EmployeeViewProps> = ({
     
     const pastDaysInMonth = daysInMonth.filter(d => !isAfter(d, today));
     const autoDayOffs = pastDaysInMonth.filter(d => !allLoggedDates.has(format(d, 'yyyy-MM-dd'))).length;
+    
+    const futureDaysInMonth = daysInMonth.filter(d => isAfter(d, today));
+    const plannedDayOffs = futureDaysInMonth.filter(d => {
+      const dateStr = format(d, 'yyyy-MM-dd');
+      const shift = user.plannedShifts?.[dateStr];
+      return !shift || shift === 'В';
+    }).length;
 
     return {
       workDays: workDaysCount,
       workTime: totalWorkMinutes,
       sick: sickDays,
       vacation: vacationDays,
-      off: explicitDayOffs + autoDayOffs
+      off: explicitDayOffs + autoDayOffs + plannedDayOffs
     };
-  }, [filteredLogs, daysInMonth, today]);
+  }, [filteredLogs, daysInMonth, today, user.plannedShifts]);
 
   const effectivePayroll = useMemo(() => {
      if (user.payroll) return user.payroll;
@@ -443,8 +456,7 @@ const EmployeeView: React.FC<EmployeeViewProps> = ({
     const todayStr = format(getNow(), 'yyyy-MM-dd');
     const closedWorkLogs = filteredLogs.filter(l => 
       l.entryType === EntryType.WORK && 
-      l.checkOut && 
-      l.date !== todayStr
+      l.checkOut
     );
     
     const logsByDate: Record<string, WorkLog[]> = {};
@@ -539,18 +551,6 @@ const EmployeeView: React.FC<EmployeeViewProps> = ({
         filteredLogs={filteredLogs}
       />
 
-      {planLimits.features.payroll && effectivePayroll && (
-        <div className="bg-emerald-50 border border-emerald-200 rounded-2xl p-4 flex justify-between items-center no-print">
-           <div>
-              <h3 className="text-emerald-900 font-bold text-lg">Зарплата за месяц</h3>
-              <p className="text-emerald-700 text-sm">По предыдущую смену (закрытые)</p>
-           </div>
-           <div className="text-right">
-              <p className="text-3xl font-black text-emerald-600">{Math.floor(monthEarnings)} ₽</p>
-           </div>
-        </div>
-      )}
-
       <CameraModal
         showCamera={showCamera}
         setShowCamera={setShowCamera}
@@ -581,6 +581,17 @@ const EmployeeView: React.FC<EmployeeViewProps> = ({
         setViewMode={setViewMode}
         perms={perms}
       />
+
+      {planLimits.features.payroll && effectivePayroll && (
+        <div className="bg-emerald-50 border border-emerald-200 rounded-2xl p-4 flex justify-between items-center no-print">
+           <div>
+              <h3 className="text-emerald-900 font-bold text-lg">Зарплата за месяц</h3>
+           </div>
+           <div className="text-right">
+              <p className="text-3xl font-black text-emerald-600">{Math.floor(monthEarnings)} ₽</p>
+           </div>
+        </div>
+      )}
 
       {viewMode === 'control' ? (
         <>

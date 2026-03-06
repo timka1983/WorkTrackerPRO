@@ -57,6 +57,53 @@ export const EmployeeMatrix = memo<EmployeeMatrixProps>(({
     return eachDayOfInterval({ start, end });
   }, [monthStart, monthEnd]);
 
+  const computedShiftCounts = useMemo(() => {
+    const counts = { 'Р': 0, 'В': 0, 'Д': 0, 'О': 0, 'Н': 0 };
+    
+    calendarDays.forEach(day => {
+      if (!isSameMonth(day, monthStart)) return;
+      
+      const dateStr = format(day, 'yyyy-MM-dd');
+      const shift = user.plannedShifts?.[dateStr] as keyof typeof SHIFT_COLORS | undefined;
+      const isPast = day < startOfDay(today);
+      const isToday = isSameDay(day, today);
+      
+      const dayLogs = userLogsLookup[dateStr] || filteredLogs.filter(l => l.date === dateStr);
+      const workEntries = dayLogs.filter(l => l.entryType === EntryType.WORK);
+      const hasWork = workEntries.length > 0;
+      const absence = dayLogs.find(l => l.entryType !== EntryType.WORK);
+      
+      if (isPast || isToday) {
+        if (absence) {
+          if (absence.entryType === EntryType.VACATION) counts['О']++;
+          else counts['В']++; // Both SICK and DAY_OFF map to 'В'
+        } else if (hasWork) {
+          if (shift && counts[shift as keyof typeof counts] !== undefined) {
+            counts[shift as keyof typeof counts]++;
+          } else {
+            counts['Р']++;
+          }
+        } else if (isPast) {
+          counts['В']++;
+        } else if (isToday) {
+          if (shift && counts[shift as keyof typeof counts] !== undefined) {
+            counts[shift as keyof typeof counts]++;
+          } else {
+            counts['В']++;
+          }
+        }
+      } else {
+        if (shift && counts[shift as keyof typeof counts] !== undefined) {
+          counts[shift as keyof typeof counts]++;
+        } else {
+          counts['В']++;
+        }
+      }
+    });
+    
+    return counts;
+  }, [calendarDays, monthStart, today, user.plannedShifts, userLogsLookup, filteredLogs]);
+
   const handlePrevMonth = () => {
     const prev = subMonths(monthStart, 1);
     const val = format(prev, 'yyyy-MM');
@@ -77,17 +124,15 @@ export const EmployeeMatrix = memo<EmployeeMatrixProps>(({
         <div className="flex flex-col md:flex-row items-center gap-4 w-full md:w-auto">
           <h3 className="font-bold text-slate-900">Мой Табель</h3>
           <div className="flex flex-wrap gap-2">
-             <button onClick={() => setIsScheduleModalOpen(true)} className="flex items-center gap-2 px-4 py-2 bg-blue-600 text-white rounded-xl text-xs font-bold hover:bg-blue-700 transition-colors">
-               <CalendarDays className="w-4 h-4" />
+             <button onClick={() => setIsScheduleModalOpen(true)} className="flex items-center gap-2 px-4 py-2 bg-blue-50 text-blue-600 rounded-xl hover:bg-blue-100 transition-colors text-sm font-bold" title="Составить график">
+               <CalendarDays className="w-5 h-5" />
                Составить график
              </button>
-             <button onClick={() => window.print()} className="flex items-center gap-2 px-4 py-2 bg-slate-100 text-slate-600 border border-slate-200 rounded-xl text-xs font-bold hover:bg-white transition-colors">
-               <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M17 17h2a2 2 0 002-2v-4a2 2 0 00-2-2H5a2 2 0 00-2 2v4a2 2 0 00-2 2h2m2 4h6a2 2 0 002-2v-4a2 2 0 00-2-2H9a2 2 0 00-2 2v4a2 2 0 002 2zm8-12V5a2 2 0 00-2-2H9a2 2 0 00-2 2v4h10z" /></svg>
-               Обычная печать
+             <button onClick={() => window.print()} className="p-2 bg-slate-50 text-slate-600 rounded-xl hover:bg-slate-100 transition-colors" title="Обычная печать">
+               <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M17 17h2a2 2 0 002-2v-4a2 2 0 00-2-2H5a2 2 0 00-2 2v4a2 2 0 00-2 2h2m2 4h6a2 2 0 002-2v-4a2 2 0 00-2-2H9a2 2 0 00-2 2v4a2 2 0 002 2zm8-12V5a2 2 0 00-2-2H9a2 2 0 00-2 2v4h10z" /></svg>
              </button>
-             <button onClick={downloadCalendarPDF} className="flex items-center gap-2 px-4 py-2 bg-slate-900 text-white rounded-xl text-xs font-bold hover:bg-slate-800 transition-colors">
-               <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z" /></svg>
-               Скачать календарь
+             <button onClick={downloadCalendarPDF} className="p-2 bg-slate-50 text-slate-600 rounded-xl hover:bg-slate-100 transition-colors" title="Скачать календарь">
+               <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z" /></svg>
              </button>
           </div>
         </div>
@@ -107,11 +152,11 @@ export const EmployeeMatrix = memo<EmployeeMatrixProps>(({
 
       <div className="p-4 bg-slate-50/30 border-b border-slate-100 no-print">
         <div className="flex flex-wrap gap-4 text-[10px] font-bold text-slate-500">
-          <span className="flex items-center gap-1.5"><span className="w-5 h-5 rounded bg-blue-100 text-blue-700 flex items-center justify-center text-[9px]">Р</span> Рабочий - {shiftCounts['Р']}</span>
-          <span className="flex items-center gap-1.5"><span className="w-5 h-5 rounded bg-slate-100 text-slate-400 flex items-center justify-center text-[9px]">В</span> Выходной - {shiftCounts['В']}</span>
-          <span className="flex items-center gap-1.5"><span className="w-5 h-5 rounded bg-amber-100 text-amber-700 flex items-center justify-center text-[9px]">Д</span> День - {shiftCounts['Д']}</span>
-          <span className="flex items-center gap-1.5"><span className="w-5 h-5 rounded bg-purple-100 text-purple-700 flex items-center justify-center text-[9px]">О</span> Отпуск - {shiftCounts['О']}</span>
-          <span className="flex items-center gap-1.5"><span className="w-5 h-5 rounded bg-indigo-100 text-indigo-700 flex items-center justify-center text-[9px]">Н</span> Ночь - {shiftCounts['Н']}</span>
+          <span className="flex items-center gap-1.5"><span className="w-5 h-5 rounded bg-blue-100 text-blue-700 flex items-center justify-center text-[9px]">Р</span> Рабочий - {computedShiftCounts['Р']}</span>
+          <span className="flex items-center gap-1.5"><span className="w-5 h-5 rounded bg-slate-100 text-slate-400 flex items-center justify-center text-[9px]">В</span> Выходной - {computedShiftCounts['В']}</span>
+          <span className="flex items-center gap-1.5"><span className="w-5 h-5 rounded bg-amber-100 text-amber-700 flex items-center justify-center text-[9px]">Д</span> День - {computedShiftCounts['Д']}</span>
+          <span className="flex items-center gap-1.5"><span className="w-5 h-5 rounded bg-purple-100 text-purple-700 flex items-center justify-center text-[9px]">О</span> Отпуск - {computedShiftCounts['О']}</span>
+          <span className="flex items-center gap-1.5"><span className="w-5 h-5 rounded bg-indigo-100 text-indigo-700 flex items-center justify-center text-[9px]">Н</span> Ночь - {computedShiftCounts['Н']}</span>
         </div>
       </div>
       
@@ -207,6 +252,8 @@ export const EmployeeMatrix = memo<EmployeeMatrixProps>(({
         user={user}
         onUpdateUser={onUpdateUser}
         currentMonth={filterMonth}
+        setFilterMonth={setFilterMonth}
+        onMonthChange={onMonthChange}
       />
     </section>
   );
