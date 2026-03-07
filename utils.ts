@@ -35,8 +35,11 @@ export const calculateMinutes = (start: string, end: string) => {
 
 export const applyRounding = (minutes: number, enabled?: boolean) => {
   if (!enabled) return minutes;
+  // Округление вниз до ближайшего часа, если прошло менее 15 минут
+  // Например: 1ч 10м -> 1ч 00м (60 мин)
+  // 1ч 20м -> 1ч 20м (без изменений)
   const remainder = minutes % 60;
-  if (remainder <= 15) {
+  if (remainder > 0 && remainder <= 15) {
     return minutes - remainder;
   }
   return minutes;

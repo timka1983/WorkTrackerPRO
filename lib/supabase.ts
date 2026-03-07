@@ -1270,7 +1270,7 @@ INSERT INTO system_config (id, super_admin_pin, global_admin_pin) VALUES ('globa
 
       // Check specific columns
       const expectedSchema: Record<string, string[]> = {
-        organizations: ['id', 'name', 'email', 'owner_id', 'plan', 'status', 'expiry_date', 'notification_settings'],
+        organizations: ['id', 'name', 'email', 'owner_id', 'plan', 'status', 'expiry_date', 'notification_settings', 'max_shift_duration', 'round_shift_minutes'],
         users: ['id', 'organization_id', 'name', 'role', 'department', 'position', 'pin', 'require_photo', 'is_admin', 'force_pin_change', 'push_token', 'planned_shifts', 'payroll'],
         work_logs: ['id', 'user_id', 'organization_id', 'date', 'entry_type', 'machine_id', 'check_in', 'check_out', 'duration_minutes', 'photo_in', 'photo_out', 'is_corrected', 'correction_note', 'correction_timestamp', 'is_night_shift', 'fine', 'bonus'],
         machines: ['id', 'organization_id', 'name'],

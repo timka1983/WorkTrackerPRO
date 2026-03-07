@@ -174,11 +174,19 @@ export const SettingsView: React.FC<SettingsViewProps> = ({
                    <input 
                      type="checkbox" 
                      checked={currentOrg?.roundShiftMinutes || false}
-                     onChange={(e) => {
+                     onChange={async (e) => {
                        if (currentOrg) {
-                         const updatedOrg = { ...currentOrg, roundShiftMinutes: e.target.checked };
+                         const val = e.target.checked;
+                         const updatedOrg = { ...currentOrg, roundShiftMinutes: val };
                          onUpdateOrg(updatedOrg);
-                         db.updateOrganization(currentOrg.id, { roundShiftMinutes: e.target.checked });
+                         try {
+                           const { error } = await db.updateOrganization(currentOrg.id, { roundShiftMinutes: val });
+                           if (error) throw error;
+                         } catch (err: any) {
+                           alert('Ошибка сохранения: ' + (err.message || err));
+                           // Revert on error
+                           onUpdateOrg({ ...currentOrg, roundShiftMinutes: !val });
+                         }
                        }
                      }}
                      className="w-4 h-4 rounded accent-blue-600"
