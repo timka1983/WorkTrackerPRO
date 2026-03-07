@@ -3,8 +3,8 @@ import { TableVirtuoso } from 'react-virtuoso';
 import { format, isAfter } from 'date-fns';
 import { ru } from 'date-fns/locale';
 import { UserMatrixRowCells } from './UserMatrixRowCells';
-import { EntryType, Machine, WorkLog } from '../../types';
-import { formatDurationShort } from '../../utils';
+import { EntryType, Machine, WorkLog, Branch, Organization } from '../../types';
+import { formatDurationShort, applyRounding } from '../../utils';
 
 interface MatrixViewProps {
   filterMonth: string;
@@ -17,6 +17,8 @@ interface MatrixViewProps {
   machines: Machine[];
   virtuosoComponents: any;
   logsLookup?: Record<string, Record<string, WorkLog[]>>;
+  branches: Branch[];
+  currentOrg?: Organization | null;
 }
 
 export const MatrixView: React.FC<MatrixViewProps> = ({
@@ -29,7 +31,9 @@ export const MatrixView: React.FC<MatrixViewProps> = ({
   setEditingLog,
   machines,
   virtuosoComponents,
-  logsLookup = {}
+  logsLookup = {},
+  branches,
+  currentOrg
 }) => {
   return (
     <section className="bg-white rounded-3xl shadow-sm border border-slate-200 overflow-hidden h-[700px] flex flex-col" id="employer-matrix-report">
@@ -77,6 +81,11 @@ export const MatrixView: React.FC<MatrixViewProps> = ({
                       </div>
                       <div className="flex items-center gap-1.5 mt-0.5">
                         <div className="text-[8px] text-blue-600 font-black uppercase">{row.emp.position}</div>
+                        {row.emp.branchId && branches.find(b => b.id === row.emp.branchId) && (
+                          <div className="text-[7px] text-slate-400 font-bold uppercase truncate max-w-[60px]">
+                            • {branches.find(b => b.id === row.emp.branchId)?.name}
+                          </div>
+                        )}
                       </div>
                     </td>
                     <UserMatrixRowCells
@@ -87,12 +96,20 @@ export const MatrixView: React.FC<MatrixViewProps> = ({
                       today={today}
                       filterMonth={filterMonth}
                       setEditingLog={setEditingLog}
+                      roundShiftMinutes={currentOrg?.roundShiftMinutes}
                     />
                   </tr>
                 );
               } else {
                 const machineName = machines.find(m => m.id === row.mId)?.name || 'Работа';
-                const mMinsTotal = row.empLogs.filter((l: any) => l.machineId === row.mId && l.entryType === EntryType.WORK).reduce((s: number, l: any) => s + l.durationMinutes, 0);
+                
+                // Calculate total for machine with rounding per day
+                const mMinsTotal = days.reduce((total, day) => {
+                  const dateStr = format(day, 'yyyy-MM-dd');
+                  const mLogs = row.empLogs.filter((l: any) => l.date === dateStr && l.machineId === row.mId && l.entryType === EntryType.WORK);
+                  const mMins = mLogs.reduce((s: number, l: any) => s + l.durationMinutes, 0);
+                  return total + applyRounding(mMins, currentOrg?.roundShiftMinutes);
+                }, 0);
                 
                 return (
                   <tr key={`mach-${row.emp.id}-${row.mId}`} className={rowClassName}>
@@ -104,10 +121,11 @@ export const MatrixView: React.FC<MatrixViewProps> = ({
                       if (isAfter(day, today)) return <td key={dateStr} className="border-r p-1 h-8"></td>;
                       const mLogs = row.empLogs.filter((l: any) => l.date === dateStr && l.machineId === row.mId && l.entryType === EntryType.WORK);
                       const mMins = mLogs.reduce((s: number, l: any) => s + l.durationMinutes, 0);
+                      const roundedMins = applyRounding(mMins, currentOrg?.roundShiftMinutes);
                       const hasMLogs = mLogs.length > 0;
                       return (
                         <td key={dateStr} className="border-r p-1 text-center h-8 text-[9px] font-bold text-slate-400 tabular-nums italic">
-                          {hasMLogs ? formatDurationShort(mMins) : ''}
+                          {hasMLogs ? formatDurationShort(roundedMins) : ''}
                         </td>
                       );
                     })}

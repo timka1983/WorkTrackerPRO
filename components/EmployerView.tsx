@@ -1,6 +1,7 @@
 
 import React, { useState, useMemo, useEffect } from 'react';
-import { WorkLog, User, EntryType, UserRole, Machine, FIXED_POSITION_TURNER, PositionConfig, PositionPermissions, Organization, PlanType, Plan, PayrollConfig, PlanLimits } from '../types';
+import * as XLSX from 'xlsx';
+import { WorkLog, User, EntryType, UserRole, Machine, FIXED_POSITION_TURNER, PositionConfig, PositionPermissions, Organization, PlanType, Plan, PayrollConfig, PlanLimits, Branch } from '../types';
 import { getDaysInMonthArray, formatTime, calculateMinutes } from '../utils';
 import { format } from 'date-fns';
 import { startOfDay } from 'date-fns/startOfDay';
@@ -29,6 +30,9 @@ interface EmployerViewProps {
   onUpdateMachines: (machines: Machine[]) => void;
   positions: PositionConfig[];
   onUpdatePositions: (positions: PositionConfig[]) => void;
+  branches: Branch[];
+  onUpdateBranches: (branch: Branch) => void;
+  onDeleteBranch: (branchId: string) => void;
   onImportData: (data: string) => void;
   onLogsUpsert: (logs: WorkLog[]) => void;
   activeShiftsMap?: Record<string, any>;
@@ -56,16 +60,18 @@ interface EmployerViewProps {
 
 const EmployerView: React.FC<EmployerViewProps> = ({ 
   logs, logsLookup = {}, users, onAddUser, onUpdateUser, onDeleteUser, 
-  machines, onUpdateMachines, positions, onUpdatePositions, onImportData, onLogsUpsert, activeShiftsMap = {}, onActiveShiftsUpdate, onDeleteLog,
+  machines, onUpdateMachines, positions, onUpdatePositions, branches, onUpdateBranches, onDeleteBranch, onImportData, onLogsUpsert, activeShiftsMap = {}, onActiveShiftsUpdate, onDeleteLog,
   onRefresh, forceCleanAll, onCleanupDatabase, onRemoveBase64Photos, onRunDiagnostics, onMergeDuplicates, onFixDbStructure, isSyncing = false, nightShiftBonusMinutes, onUpdateNightBonus, currentOrg, plans, onUpdateOrg, currentUser: propCurrentUser, onMonthChange, getNow, viewMode, setViewMode
 }) => {
   const [filterMonth, setFilterMonth] = useState(format(getNow(), 'yyyy-MM'));
+  const [selectedBranchId, setSelectedBranchId] = useState<string | null>(null);
   const [editingLog, setEditingLog] = useState<{ userId: string; date: string } | null>(null);
   const [tempNotes, setTempNotes] = useState<Record<string, string>>({});
   const [previewPhoto, setPreviewPhoto] = useState<string | null>(null);
   
   const [editingEmployee, setEditingEmployee] = useState<User | null>(null);
   const [editingMachineId, setEditingMachineId] = useState<string | null>(null);
+  const [editingMachineBranchId, setEditingMachineBranchId] = useState<string | undefined>(undefined);
   const [editingPositionName, setEditingPositionName] = useState<string | null>(null);
   const [editValue, setEditValue] = useState('');
 
@@ -76,8 +82,9 @@ const EmployerView: React.FC<EmployerViewProps> = ({
   const [isApplyingPromo, setIsApplyingPromo] = useState(false);
   const [promoMessage, setPromoMessage] = useState<{ text: string, type: 'success' | 'error' } | null>(null);
 
-  const [newUser, setNewUser] = useState({ name: '', position: positions[0]?.name || '', department: '', pin: '0000', requirePhoto: false });
+  const [newUser, setNewUser] = useState<{ name: string; position: string; department: string; pin: string; requirePhoto: boolean; branchId?: string }>({ name: '', position: positions[0]?.name || '', department: '', pin: '0000', requirePhoto: false, branchId: '' });
   const [newMachineName, setNewMachineName] = useState('');
+  const [newMachineBranchId, setNewMachineBranchId] = useState('');
   const [newPositionName, setNewPositionName] = useState('');
   
   const [serverStats, setServerStats] = useState<{ avgWeeklyHours: number, absenceCounts: any[] } | null>(null);
@@ -99,9 +106,19 @@ const EmployerView: React.FC<EmployerViewProps> = ({
     fetchStats();
   }, [currentOrg, filterMonth, logs, getNow]);
 
+  const filteredUsers = useMemo(() => {
+    if (!selectedBranchId) return users;
+    return users.filter(u => u.branchId === selectedBranchId);
+  }, [users, selectedBranchId]);
+
   const employees = useMemo(() => {
-    return [...users].sort((a, b) => a.name.localeCompare(b.name));
-  }, [users]);
+    return [...filteredUsers].sort((a, b) => a.name.localeCompare(b.name));
+  }, [filteredUsers]);
+
+  const filteredMachines = useMemo(() => {
+    if (!selectedBranchId) return machines;
+    return machines.filter(m => m.branchId === selectedBranchId);
+  }, [machines, selectedBranchId]);
 
   // Расчет текущих лимитов
   const planLimits = useMemo(() => {
@@ -146,6 +163,72 @@ const EmployerView: React.FC<EmployerViewProps> = ({
     setExpandedTurnerRows(newSet);
   };
 
+  const downloadExcel = () => {
+    const wb = XLSX.utils.book_new();
+    
+    // Sheet 1: Detailed Logs
+    const detailedData: any[] = [];
+    employees.forEach(emp => {
+      const userLogsMap = logsLookup[emp.id] || {};
+      Object.keys(userLogsMap).forEach(date => {
+        if (date.startsWith(filterMonth)) {
+          userLogsMap[date].forEach(log => {
+             detailedData.push({
+               'Сотрудник': emp.name,
+               'Должность': emp.position,
+               'Дата': date,
+               'Тип': log.entryType === EntryType.WORK ? 'Смена' : (log.entryType === EntryType.SICK ? 'Больничный' : 'Отпуск'),
+               'Начало': log.checkIn ? formatTime(log.checkIn) : '-',
+               'Конец': log.checkOut ? formatTime(log.checkOut) : '-',
+               'Длительность (мин)': log.durationMinutes,
+               'Длительность (ч)': (log.durationMinutes / 60).toFixed(2),
+               'Оборудование': machines.find(m => m.id === log.machineId)?.name || '-',
+               'Заметка': log.correctionNote || '-'
+             });
+          });
+        }
+      });
+    });
+    
+    const wsDetailed = XLSX.utils.json_to_sheet(detailedData);
+    XLSX.utils.book_append_sheet(wb, wsDetailed, "Детально");
+
+    // Sheet 2: Matrix (Timesheet)
+    const matrixData: any[] = [];
+    
+    employees.forEach(emp => {
+       const row: any = { 'Сотрудник': emp.name };
+       let totalMinutes = 0;
+       
+       days.forEach(day => {
+         const dateStr = format(day, 'yyyy-MM-dd');
+         const dayLogs = logsLookup[emp.id]?.[dateStr] || [];
+         const dayMinutes = dayLogs.reduce((acc, l) => acc + l.durationMinutes, 0);
+         totalMinutes += dayMinutes;
+         
+         // Format cell value
+         let cellValue: string | number = '';
+         if (dayMinutes > 0) {
+           cellValue = Number((dayMinutes / 60).toFixed(1));
+         } else {
+            const nonWork = dayLogs.find(l => l.entryType !== EntryType.WORK);
+            if (nonWork) {
+               cellValue = nonWork.entryType === EntryType.SICK ? 'Б' : 'О';
+            }
+         }
+         row[day.getDate().toString()] = cellValue;
+       });
+       
+       row['Итого (ч)'] = Number((totalMinutes / 60).toFixed(1));
+       matrixData.push(row);
+    });
+    
+    const wsMatrix = XLSX.utils.json_to_sheet(matrixData);
+    XLSX.utils.book_append_sheet(wb, wsMatrix, "Табель");
+
+    XLSX.writeFile(wb, `timesheet_${filterMonth}.xlsx`);
+  };
+
   const downloadPDF = () => {
     const element = document.getElementById('employer-matrix-report');
     if (!element) return;
@@ -171,8 +254,9 @@ const EmployerView: React.FC<EmployerViewProps> = ({
     // Use logsLookup for faster access to today's logs
     const todayLogs: WorkLog[] = [];
     if (logsLookup) {
-      Object.values(logsLookup).forEach(userDates => {
-        if (userDates[todayStr]) {
+      filteredUsers.forEach(u => {
+        const userDates = logsLookup[u.id];
+        if (userDates && userDates[todayStr]) {
           todayLogs.push(...userDates[todayStr]);
         }
       });
@@ -181,20 +265,24 @@ const EmployerView: React.FC<EmployerViewProps> = ({
     // Собираем активные смены из двух источников: из логов и из карты активных смен
     const activeFromLogs: WorkLog[] = [];
     if (logsLookup) {
-      Object.values(logsLookup).forEach(userDates => {
-        Object.values(userDates).forEach(dateLogs => {
-          dateLogs.forEach(l => {
-            if (l.entryType === EntryType.WORK && !l.checkOut) {
-              activeFromLogs.push(l);
-            }
+      filteredUsers.forEach(u => {
+        const userDates = logsLookup[u.id];
+        if (userDates) {
+          Object.values(userDates).forEach(dateLogs => {
+            dateLogs.forEach(l => {
+              if (l.entryType === EntryType.WORK && !l.checkOut) {
+                activeFromLogs.push(l);
+              }
+            });
           });
-        });
+        }
       });
     }
 
     const activeFromMap: WorkLog[] = [];
     
-    Object.values(activeShiftsMap).forEach(userShifts => {
+    filteredUsers.forEach(u => {
+      const userShifts = activeShiftsMap[u.id];
       if (userShifts && typeof userShifts === 'object') {
         Object.values(userShifts).forEach(s => {
           if (s && typeof s === 'object' && !(s as any).checkOut) {
@@ -234,7 +322,19 @@ const EmployerView: React.FC<EmployerViewProps> = ({
         });
       });
 
-      const totalWeeklyMinutes = weekLogs.reduce((s, l) => s + l.durationMinutes, 0);
+      let totalWeeklyMinutes = 0;
+      last7Days.forEach(date => {
+        employees.forEach(emp => {
+          const dayLogs = (logsLookup[emp.id] || {})[date] || [];
+          const workLogs = dayLogs.filter(l => l.entryType === EntryType.WORK);
+          const machineTotals: Record<string, number> = {};
+          workLogs.forEach(l => {
+            const mid = l.machineId || 'unknown';
+            machineTotals[mid] = (machineTotals[mid] || 0) + l.durationMinutes;
+          });
+          totalWeeklyMinutes += Object.values(machineTotals).reduce((max, val) => Math.max(max, val), 0);
+        });
+      });
       avgWeeklyHours = (totalWeeklyMinutes / 60) / 7;
 
       absenceCounts = employees.map(emp => {
@@ -256,7 +356,7 @@ const EmployerView: React.FC<EmployerViewProps> = ({
     });
 
     return { activeShifts, finishedToday, avgWeeklyHours, absenceCounts, activeLogsMap, todayStr, orphanedActiveShifts };
-  }, [logsLookup, employees, filterMonth, activeShiftsMap, serverStats, getNow]);
+  }, [logsLookup, employees, filterMonth, activeShiftsMap, serverStats, getNow, filteredUsers]);
 
   // Функция для принудительного завершения смены администратором
   const handleForceFinish = async (log: WorkLog) => {
@@ -308,29 +408,31 @@ const EmployerView: React.FC<EmployerViewProps> = ({
     });
 
     // Add orphaned users who have active shifts
-    dashboardStats.orphanedActiveShifts.forEach(log => {
-      if (!rows.some(r => r.type === 'employee' && r.emp.id === log.userId)) {
-        const tempUser: User = {
-          id: log.userId,
-          name: `[?] ID: ${log.userId.substring(0, 5)}...`,
-          role: UserRole.EMPLOYEE,
-          position: 'Неизвестно (Ошибка привязки)',
-          pin: '????',
-          organizationId: currentOrg?.id || ''
-        };
-        const userLogsMap = logsLookup[log.userId] || {};
-        const empLogs: WorkLog[] = [];
-        Object.keys(userLogsMap).forEach(date => {
-          if (date.startsWith(filterMonth)) {
-            empLogs.push(...userLogsMap[date]);
-          }
-        });
-        rows.push({ type: 'employee', emp: tempUser, empLogs, isOrphaned: true });
-      }
-    });
+    if (!selectedBranchId) {
+      dashboardStats.orphanedActiveShifts.forEach(log => {
+        if (!rows.some(r => r.type === 'employee' && r.emp.id === log.userId)) {
+          const tempUser: User = {
+            id: log.userId,
+            name: `[?] ID: ${log.userId.substring(0, 5)}...`,
+            role: UserRole.EMPLOYEE,
+            position: 'Неизвестно (Ошибка привязки)',
+            pin: '????',
+            organizationId: currentOrg?.id || ''
+          };
+          const userLogsMap = logsLookup[log.userId] || {};
+          const empLogs: WorkLog[] = [];
+          Object.keys(userLogsMap).forEach(date => {
+            if (date.startsWith(filterMonth)) {
+              empLogs.push(...userLogsMap[date]);
+            }
+          });
+          rows.push({ type: 'employee', emp: tempUser, empLogs, isOrphaned: true });
+        }
+      });
+    }
 
     return rows;
-  }, [employees, expandedTurnerRows, logsLookup, filterMonth, dashboardStats.orphanedActiveShifts, currentOrg]);
+  }, [employees, expandedTurnerRows, logsLookup, filterMonth, dashboardStats.orphanedActiveShifts, currentOrg, selectedBranchId]);
 
   const virtuosoComponents = useMemo(() => ({
     Table: (props: any) => <table {...props} className="w-full border-collapse" />,
@@ -359,7 +461,7 @@ const EmployerView: React.FC<EmployerViewProps> = ({
       forcePinChange: false
     };
     onAddUser(user);
-    setNewUser({ name: '', position: positions[0]?.name || '', department: '', pin: '0000', requirePhoto: false });
+    setNewUser({ name: '', position: positions[0]?.name || '', department: '', pin: '0000', requirePhoto: false, branchId: '' });
   };
 
   const deleteLogItem = (logId: string) => {
@@ -491,9 +593,10 @@ const EmployerView: React.FC<EmployerViewProps> = ({
 
   const saveMachineEdit = (id: string) => {
     if (!editValue.trim()) return;
-    const newMachines = machines.map(m => m.id === id ? { ...m, name: editValue } : m);
+    const newMachines = machines.map(m => m.id === id ? { ...m, name: editValue, branchId: editingMachineBranchId } : m);
     handleUpdateMachinesList(newMachines);
     setEditingMachineId(null);
+    setEditingMachineBranchId(undefined);
     setEditValue('');
   };
 
@@ -657,6 +760,7 @@ const EmployerView: React.FC<EmployerViewProps> = ({
           handleUpdateEmployeePayroll={handleUpdateEmployeePayroll}
           handleResetDevicePairing={handleResetDevicePairing}
           machines={machines}
+          branches={branches}
         />
       )}
 
@@ -724,10 +828,23 @@ const EmployerView: React.FC<EmployerViewProps> = ({
                 </svg>
               </button>
            )}
+           {branches.length > 0 && (
+             <select 
+               value={selectedBranchId || ''} 
+               onChange={(e) => setSelectedBranchId(e.target.value || null)}
+               className="border border-slate-200 rounded-xl px-4 py-2 text-sm font-bold outline-none focus:ring-2 focus:ring-blue-500 bg-white"
+             >
+               <option value="">Все филиалы</option>
+               {branches.map(b => <option key={b.id} value={b.id}>{b.name}</option>)}
+             </select>
+           )}
            <input type="month" value={filterMonth} onChange={(e) => {
              setFilterMonth(e.target.value);
              if (onMonthChange) onMonthChange(e.target.value);
            }} className="border border-slate-200 rounded-xl px-4 py-2 text-sm font-bold outline-none focus:ring-2 focus:ring-blue-500" />
+           <button onClick={downloadExcel} className="p-2.5 bg-green-600 text-white rounded-xl hover:bg-green-700 transition-colors" title="Скачать Excel">
+              <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 17v-2m3 2v-4m3 4v-6m2 10H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" /></svg>
+           </button>
            <button onClick={downloadPDF} className="p-2.5 bg-slate-900 text-white rounded-xl hover:bg-slate-800 transition-colors" title="Скачать PDF">
               <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 10v6m0 0l-3-3m3 3l3-3m2 8H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" /></svg>
            </button>
@@ -737,10 +854,11 @@ const EmployerView: React.FC<EmployerViewProps> = ({
       {viewMode === 'analytics' && (
         <AnalyticsView
           dashboardStats={dashboardStats}
-          users={users}
-          machines={machines}
+          users={filteredUsers}
+          machines={filteredMachines}
           userPerms={userPerms}
           handleForceFinish={handleForceFinish}
+          branches={branches}
         />
       )}
 
@@ -753,15 +871,17 @@ const EmployerView: React.FC<EmployerViewProps> = ({
           expandedTurnerRows={expandedTurnerRows}
           toggleTurnerRow={toggleTurnerRow}
           setEditingLog={setEditingLog}
-          machines={machines}
+          machines={filteredMachines}
           virtuosoComponents={virtuosoComponents}
           logsLookup={logsLookup}
+          branches={branches}
+          currentOrg={currentOrg}
         />
       )}
 
       {viewMode === 'team' && (
         <TeamView
-          users={users}
+          users={filteredUsers}
           positions={positions}
           planLimits={planLimits}
           currentOrg={currentOrg}
@@ -770,11 +890,12 @@ const EmployerView: React.FC<EmployerViewProps> = ({
           setNewUser={setNewUser}
           handleAddUser={handleAddUser}
           dashboardStats={dashboardStats}
-          machines={machines}
+          machines={filteredMachines}
           userPerms={userPerms}
           handleForceFinish={handleForceFinish}
           setEditingEmployee={setEditingEmployee}
           onDeleteUser={onDeleteUser}
+          branches={branches}
         />
       )}
 
@@ -795,14 +916,18 @@ const EmployerView: React.FC<EmployerViewProps> = ({
 
       {viewMode === 'payroll' && canUsePayroll && (
         <PayrollView
-          users={users}
+          users={filteredUsers}
+          onUpdateUser={onUpdateUser}
           logs={logs}
           logsLookup={logsLookup}
           positions={positions}
           filterMonth={filterMonth}
+          setFilterMonth={setFilterMonth}
           handleExportAll={handleExportAll}
-          machines={machines}
+          machines={filteredMachines}
           onAddGeneralBonus={handleAddGeneralBonus}
+          branches={branches}
+          currentOrg={currentOrg}
         />
       )}
 
@@ -820,6 +945,8 @@ const EmployerView: React.FC<EmployerViewProps> = ({
           handleUpdateMachinesList={handleUpdateMachinesList}
           editingMachineId={editingMachineId}
           setEditingMachineId={setEditingMachineId}
+          editingMachineBranchId={editingMachineBranchId}
+          setEditingMachineBranchId={setEditingMachineBranchId}
           editValue={editValue}
           setEditValue={setEditValue}
           saveMachineEdit={saveMachineEdit}
@@ -833,6 +960,11 @@ const EmployerView: React.FC<EmployerViewProps> = ({
           setConfiguringPosition={setConfiguringPosition}
           handleExportAll={handleExportAll}
           handleFileImport={handleFileImport}
+          branches={branches}
+          onUpdateBranches={onUpdateBranches}
+          onDeleteBranch={onDeleteBranch}
+          newMachineBranchId={newMachineBranchId}
+          setNewMachineBranchId={setNewMachineBranchId}
         />
       )}
       {/* Debug Info (Only for admins) */}

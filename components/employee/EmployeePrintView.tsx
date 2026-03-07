@@ -2,18 +2,20 @@ import React, { memo } from 'react';
 import { format } from 'date-fns';
 import { ru } from 'date-fns/locale/ru';
 import { User, EntryType, WorkLog } from '../../types';
-import { formatDurationShort } from '../../utils';
+import { formatDurationShort, applyRounding } from '../../utils';
 
 interface EmployeePrintViewProps {
   calendarData: any;
   user: User;
   filteredLogs: WorkLog[];
+  roundShiftMinutes?: boolean;
 }
 
 export const EmployeePrintView = memo<EmployeePrintViewProps>(({
   calendarData,
   user,
-  filteredLogs
+  filteredLogs,
+  roundShiftMinutes
 }) => {
   return (
     <div id="employee-calendar-print" className="hidden print:block bg-white text-black p-4" style={{ width: '280mm', height: '190mm', fontFamily: 'serif' }}>
@@ -58,7 +60,15 @@ export const EmployeePrintView = memo<EmployeePrintViewProps>(({
               const dateStr = format(date, 'yyyy-MM-dd');
               const dayLogs = filteredLogs.filter(l => l.date === dateStr);
               const workEntries = dayLogs.filter(l => l.entryType === EntryType.WORK);
-              const workMins = workEntries.reduce((s, l) => s + l.durationMinutes, 0);
+              
+              const machineTotals: Record<string, number> = {};
+              workEntries.forEach(l => {
+                const mid = l.machineId || 'unknown';
+                machineTotals[mid] = (machineTotals[mid] || 0) + l.durationMinutes;
+              });
+              const maxMins = Object.values(machineTotals).reduce((max, val) => Math.max(max, val), 0);
+              const workMins = applyRounding(maxMins, roundShiftMinutes);
+              
               const hasWork = workEntries.length > 0;
               const absence = dayLogs.find(l => l.entryType !== EntryType.WORK);
 

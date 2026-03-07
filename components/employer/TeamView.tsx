@@ -1,5 +1,5 @@
 import React from 'react';
-import { User, PositionConfig, PlanLimits, Organization, Machine, WorkLog } from '../../types';
+import { User, PositionConfig, PlanLimits, Organization, Machine, WorkLog, Branch } from '../../types';
 
 interface TeamViewProps {
   users: User[];
@@ -7,8 +7,8 @@ interface TeamViewProps {
   planLimits: PlanLimits;
   currentOrg: Organization | null;
   isUserLimitReached: boolean;
-  newUser: { name: string; pin: string; position: string; department: string; requirePhoto: boolean };
-  setNewUser: (user: { name: string; pin: string; position: string; department: string; requirePhoto: boolean }) => void;
+  newUser: { name: string; pin: string; position: string; department: string; requirePhoto: boolean; branchId?: string };
+  setNewUser: (user: { name: string; pin: string; position: string; department: string; requirePhoto: boolean; branchId?: string }) => void;
   handleAddUser: (e: React.FormEvent) => void;
   dashboardStats: any;
   machines: Machine[];
@@ -16,6 +16,7 @@ interface TeamViewProps {
   handleForceFinish: (log: WorkLog) => void;
   setEditingEmployee: (user: User) => void;
   onDeleteUser: (id: string) => void;
+  branches: Branch[];
 }
 
 export const TeamView: React.FC<TeamViewProps> = ({
@@ -32,7 +33,8 @@ export const TeamView: React.FC<TeamViewProps> = ({
   userPerms,
   handleForceFinish,
   setEditingEmployee,
-  onDeleteUser
+  onDeleteUser,
+  branches
 }) => {
   return (
     <section className="grid grid-cols-1 lg:grid-cols-3 gap-8">
@@ -56,6 +58,17 @@ export const TeamView: React.FC<TeamViewProps> = ({
               <select value={newUser.position} onChange={e => setNewUser({...newUser, position: e.target.value})} className="w-full border-2 border-slate-100 rounded-2xl px-4 py-3 text-sm font-bold bg-white">
                 {positions.map(p => <option key={p.name} value={p.name}>{p.name}</option>)}
               </select>
+              
+              {branches.length > 0 && (
+                <select 
+                  value={newUser.branchId || ''} 
+                  onChange={e => setNewUser({...newUser, branchId: e.target.value})} 
+                  className="w-full border-2 border-slate-100 rounded-2xl px-4 py-3 text-sm font-bold bg-white"
+                >
+                  <option value="">Без филиала (Все)</option>
+                  {branches.map(b => <option key={b.id} value={b.id}>{b.name}</option>)}
+                </select>
+              )}
               <input type="text" maxLength={4} value={newUser.pin} onChange={e => setNewUser({...newUser, pin: e.target.value.replace(/[^0-9]/g, '')})} placeholder="PIN (0000)" className="w-full border-2 border-slate-100 rounded-2xl px-4 py-3 text-sm font-mono" />
               <div className={`flex items-center gap-3 p-4 bg-slate-50 rounded-2xl border-2 border-slate-100 ${!planLimits.features.photoCapture ? 'opacity-50' : ''}`}>
                 <input 
@@ -93,7 +106,14 @@ export const TeamView: React.FC<TeamViewProps> = ({
                         <span className="px-2 py-0.5 bg-amber-100 text-amber-700 text-[8px] font-black uppercase rounded-full border border-amber-200">PIN Reset</span>
                       )}
                     </div>
-                    <p className="text-[10px] text-slate-400 font-black uppercase tracking-[0.1em]">{u.position}</p>
+                    <div className="flex items-center gap-2">
+                       <p className="text-[10px] text-slate-400 font-black uppercase tracking-[0.1em]">{u.position}</p>
+                       {branches.find(b => b.id === u.branchId) && (
+                         <span className="px-2 py-0.5 bg-slate-100 text-slate-500 text-[9px] font-bold rounded-full border border-slate-200 truncate max-w-[100px]">
+                           {branches.find(b => b.id === u.branchId)?.name}
+                         </span>
+                       )}
+                    </div>
                   </div>
                 </div>
                 <div className="flex items-center gap-2 flex-shrink-0">

@@ -26,6 +26,7 @@ export interface PlanLimits {
     nightShift: boolean;
     advancedAnalytics: boolean;
     payroll: boolean;
+    shiftMonitoring: boolean;
   };
 }
 
@@ -50,6 +51,27 @@ export interface PromoCode {
   lastUsedAt?: string; // ISO timestamp of last usage
 }
 
+export interface LocationSettings {
+  enabled: boolean;
+  latitude: number;
+  longitude: number;
+  radius: number; // in meters
+}
+
+export interface Branch {
+  id: string;
+  organizationId: string;
+  name: string;
+  address?: string;
+  locationSettings?: LocationSettings;
+}
+
+export interface TelegramSettings {
+  botToken: string;
+  chatId: string;
+  enabled: boolean;
+}
+
 export interface Organization {
   id: string;
   name: string;
@@ -63,20 +85,25 @@ export interface Organization {
     onShiftEnd: boolean;
     onOvertime: boolean;
   };
+  locationSettings?: LocationSettings;
+  telegramSettings?: TelegramSettings;
+  maxShiftDuration?: number; // Global max shift duration in minutes (default 720 = 12h)
+  roundShiftMinutes?: boolean; // 15-minute rounding rule
 }
 
 export const FIXED_POSITION_TURNER = 'Токарь';
 
 export interface PositionPermissions {
   useMachines: boolean;
-  multiSlot: boolean;
+  multiSlot: number; // 0 - disabled, 2 - 2 slots, 3 - 3 slots
+  calculateOvertime: boolean;
   viewSelfMatrix: boolean;
   markAbsences: boolean;
   defaultRequirePhoto: boolean;
   isFullAdmin: boolean;
   isLimitedAdmin: boolean;
   canUseNightShift: boolean;
-  maxShiftDurationMinutes?: number;
+  maxShiftDurationMinutes?: number; // Override global setting
 }
 
 export interface PayrollConfig {
@@ -86,6 +113,14 @@ export interface PayrollConfig {
   nightShiftBonus: number;
   sickLeaveRate?: number;
   machineRates?: Record<string, number>;
+  overrides?: {
+    type?: boolean;
+    rate?: boolean;
+    overtimeMultiplier?: boolean;
+    nightShiftBonus?: boolean;
+    sickLeaveRate?: boolean;
+    machineRates?: boolean;
+  };
 }
 
 export interface PositionConfig {
@@ -99,6 +134,7 @@ export interface Machine {
   id: string;
   name: string;
   organizationId?: string;
+  branchId?: string;
 }
 
 export interface User {
@@ -112,15 +148,18 @@ export interface User {
   isAdmin?: boolean; // Admin privileges
   forcePinChange?: boolean; // Mandatory PIN change on next login
   organizationId?: string;
+  branchId?: string;
   pushToken?: string;
   plannedShifts?: Record<string, string>; // YYYY-MM-DD -> 'Р' | 'В' | 'Д' | 'О' | 'Н'
   payroll?: PayrollConfig;
+  telegramChatId?: string; // Personal Telegram Chat ID for notifications
 }
 
 export interface WorkLog {
   id: string;
   userId: string;
   organizationId?: string;
+  branchId?: string;
   date: string; // ISO Date YYYY-MM-DD
   entryType: EntryType;
   machineId?: string; // Reference to machine id
@@ -135,4 +174,9 @@ export interface WorkLog {
   isNightShift?: boolean; // Флаг ночной смены
   fine?: number; // Штраф за смену
   bonus?: number; // Премия за смену
+  location?: {
+    latitude: number;
+    longitude: number;
+    accuracy: number;
+  };
 }

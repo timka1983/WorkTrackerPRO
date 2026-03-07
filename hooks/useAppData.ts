@@ -4,7 +4,7 @@ import { format } from 'date-fns';
 import { db } from '../lib/supabase';
 import { 
   User, UserRole, WorkLog, Machine, PositionConfig, Organization, 
-  PlanType, Plan, EntryType 
+  PlanType, Plan, EntryType, Branch 
 } from '../types';
 import { 
   STORAGE_KEYS, INITIAL_USERS, INITIAL_MACHINES, INITIAL_POSITIONS, 
@@ -20,14 +20,14 @@ import {
 
 const DEFAULT_ORG_ID = 'default_org';
 
-// Helper to strip '$' prefix or any other leading non-alphanumeric characters
+// Optimized helper: only clean if it's a string and actually needs cleaning
 const cleanValue = (val: any) => {
-  if (val === null || val === undefined) return val;
-  if (typeof val === 'string') {
-    const cleaned = val.trim().replace(/^[^a-zA-Z0-9]+/, '');
-    return cleaned;
+  if (typeof val !== 'string') return val;
+  const trimmed = val.trim();
+  if (trimmed.length > 0 && !/[a-zA-Z0-9]/.test(trimmed[0])) {
+    return trimmed.replace(/^[^a-zA-Z0-9]+/, '');
   }
-  return val;
+  return trimmed;
 };
 
 export const useAppData = (currentUser: User | null) => {
@@ -52,7 +52,7 @@ export const useAppData = (currentUser: User | null) => {
   
   const [nightShiftBonus, setNightShiftBonus] = useState<number>(() => {
     const saved = localStorage.getItem('timesheet_night_bonus');
-    return saved ? parseInt(saved) : 120;
+    return saved ? parseInt(saved) : 20;
   });
 
   const [superAdminPin, setSuperAdminPin] = useState('7777');
@@ -312,7 +312,24 @@ export const useAppData = (currentUser: User | null) => {
     localStorage.setItem(STORAGE_KEYS.POSITIONS_LIST, JSON.stringify(positions));
   }, [positions]);
 
-  // 5. Plans
+  // 5. Branches [SAAS-007]
+  const { data: branches = [], isFetching: isBranchesFetching } = useQuery({
+    queryKey: ['branches', orgId],
+    queryFn: async () => {
+      const fetched = await db.getBranches(orgId);
+      return fetched || [];
+    },
+    initialData: () => {
+      const cached = localStorage.getItem(STORAGE_KEYS.BRANCHES_LIST);
+      return cached ? JSON.parse(cached) : [];
+    }
+  });
+
+  useEffect(() => {
+    localStorage.setItem(STORAGE_KEYS.BRANCHES_LIST, JSON.stringify(branches));
+  }, [branches]);
+
+  // 6. Plans
   const { data: plans = [] } = useQuery({
     queryKey: ['plans'],
     queryFn: async () => {
@@ -360,6 +377,18 @@ export const useAppData = (currentUser: User | null) => {
     }
   });
 
+  useEffect(() => {
+    if (logs.length > 0) {
+      localStorage.setItem(STORAGE_KEYS.WORK_LOGS, JSON.stringify(logs));
+    }
+  }, [logs]);
+
+  useEffect(() => {
+    if (Object.keys(activeShiftsMap).length > 0) {
+      localStorage.setItem(STORAGE_KEYS.ACTIVE_SHIFTS, JSON.stringify(activeShiftsMap));
+    }
+  }, [activeShiftsMap]);
+
   // 8. Initial Logs Load (Current + Prev Month)
   const { isFetching: isLogsFetching, error: logsError } = useQuery({
     queryKey: ['initialLogs', orgId],
@@ -387,24 +416,12 @@ export const useAppData = (currentUser: User | null) => {
         }));
         
         if (combined.length > 0 || (current !== null && prev !== null)) {
-          // Merge with offline queue to prevent losing unsynced logs
+          // Use a single state update for both logs and active shifts
           setLogs(prevLogs => {
             const offlineLogs = offlineQueue.flat();
             const offlineIds = new Set(offlineLogs.map(l => l.id));
             
-            // Keep offline logs, and add server logs that are not in offline queue
-            const mergedRaw = [...offlineLogs, ...combined.filter(l => !offlineIds.has(l.id))];
-            
-            const merged = mergedRaw.map(l => ({
-              ...l,
-              id: cleanValue(l.id),
-              userId: cleanValue(l.userId),
-              organizationId: cleanValue(l.organizationId),
-              date: cleanValue(l.date),
-              machineId: cleanValue(l.machineId),
-              checkIn: cleanValue(l.checkIn),
-              checkOut: cleanValue(l.checkOut)
-            }));
+            const merged = [...offlineLogs, ...combined.filter(l => !offlineIds.has(l.id))];
             
             const sorted = merged.sort((a, b) => {
               const dateCompare = b.date.localeCompare(a.date);
@@ -412,7 +429,6 @@ export const useAppData = (currentUser: User | null) => {
               return (b.checkIn || '').localeCompare(a.checkIn || '');
             });
             
-            localStorage.setItem(STORAGE_KEYS.WORK_LOGS, JSON.stringify(sorted));
             return sorted;
           });
 
@@ -454,7 +470,6 @@ export const useAppData = (currentUser: User | null) => {
               }
             });
             
-            localStorage.setItem(STORAGE_KEYS.ACTIVE_SHIFTS, JSON.stringify(newMap));
             return newMap;
           });
         }
@@ -584,12 +599,17 @@ export const useAppData = (currentUser: User | null) => {
       queryClient.invalidateQueries({ queryKey: ['positions', id] });
     });
 
+    const unsubBranches = db.subscribeToChanges(id, 'branches', () => {
+      queryClient.invalidateQueries({ queryKey: ['branches', id] });
+    });
+
     return () => {
       unsubLogs();
       unsubUsers();
       unsubActiveShifts();
       unsubOrg();
       unsubPositions();
+      unsubBranches();
     };
   }, [currentOrg?.id, queryClient]);
 
@@ -946,6 +966,36 @@ export const useAppData = (currentUser: User | null) => {
     }
   });
 
+  const saveBranchesMutation = useMutation({
+    mutationFn: async (branch: Branch) => {
+      if (!currentOrg) throw new Error('Организация не выбрана');
+      const { error } = await db.upsertBranch(branch, currentOrg.id);
+      if (error) throw error;
+      return branch;
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['branches', currentOrg?.id] });
+    },
+    onError: (error: any) => {
+      alert('Ошибка при сохранении филиала: ' + (error.message || 'Неизвестная ошибка'));
+    }
+  });
+
+  const deleteBranchMutation = useMutation({
+    mutationFn: async (branchId: string) => {
+      if (!currentOrg) throw new Error('Организация не выбрана');
+      const { error } = await db.deleteBranch(branchId, currentOrg.id);
+      if (error) throw error;
+      return branchId;
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['branches', currentOrg?.id] });
+    },
+    onError: (error: any) => {
+      alert('Ошибка при удалении филиала: ' + (error.message || 'Неизвестная ошибка'));
+    }
+  });
+
   const handleAddUser = async (user: User) => {
     if (!checkLimit('users')) return;
     addUserMutation.mutate(user);
@@ -966,6 +1016,16 @@ export const useAppData = (currentUser: User | null) => {
 
   const persistPositions = async (newPositions: PositionConfig[]) => {
     savePositionsMutation.mutate(newPositions);
+  };
+
+  const persistBranches = async (branch: Branch) => {
+    saveBranchesMutation.mutate(branch);
+  };
+
+  const handleDeleteBranch = async (branchId: string) => {
+    if (confirm('Вы уверены? Удаление филиала не удалит сотрудников и логи, но отвяжет их.')) {
+      deleteBranchMutation.mutate(branchId);
+    }
   };
 
   const handleImportData = async (jsonStr: string) => {
@@ -994,7 +1054,7 @@ export const useAppData = (currentUser: User | null) => {
     await initData(true);
   };
 
-  const isSyncing = isOrgFetching || isUsersFetching || isMachinesFetching || isPositionsFetching || isLogsFetching;
+  const isSyncing = isOrgFetching || isUsersFetching || isMachinesFetching || isPositionsFetching || isLogsFetching || isBranchesFetching;
 
   // --- Memoized Lookup Maps [OPT-001] ---
   const logsLookup = useMemo(() => {
@@ -1187,6 +1247,7 @@ export const useAppData = (currentUser: User | null) => {
     syncError,
     machines,
     positions,
+    branches,
     plans,
     superAdminPin,
     globalAdminPin,
@@ -1210,6 +1271,8 @@ export const useAppData = (currentUser: User | null) => {
     handleDeleteUser,
     persistMachines,
     persistPositions,
+    persistBranches,
+    handleDeleteBranch,
     handleImportData,
     checkLimit,
     forceCleanAll,

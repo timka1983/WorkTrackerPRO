@@ -132,8 +132,8 @@ export const ShiftControl = memo<ShiftControlProps>(({
   return (
     <section className="bg-white p-8 rounded-3xl border shadow-sm border-slate-200 no-print">
       <h3 className="text-[10px] font-black text-slate-400 uppercase tracking-[0.2em] mb-8 text-center">Контроль рабочего времени</h3>
-      <div className={`grid grid-cols-1 ${perms.multiSlot ? 'md:grid-cols-3' : 'max-w-md mx-auto'} gap-8`}>
-         {perms.multiSlot ? [1, 2, 3].map(renderSlot) : [1].map(renderSlot)}
+      <div className={`grid grid-cols-1 ${perms.multiSlot > 0 ? 'md:grid-cols-' + perms.multiSlot : 'max-w-md mx-auto'} gap-8`}>
+         {perms.multiSlot > 0 ? Array.from({ length: perms.multiSlot }, (_, i) => i + 1).map(renderSlot) : [1].map(renderSlot)}
       </div>
     </section>
   );

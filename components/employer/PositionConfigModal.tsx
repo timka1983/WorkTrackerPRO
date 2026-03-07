@@ -1,6 +1,7 @@
 import React from 'react';
 import { PositionConfig, PlanLimits, PayrollConfig, Machine } from '../../types';
 import { DEFAULT_PAYROLL_CONFIG } from '../../constants';
+import { Trash2 } from 'lucide-react';
 
 interface PositionConfigModalProps {
   configuringPosition: PositionConfig;
@@ -25,6 +26,9 @@ export const PositionConfigModal: React.FC<PositionConfigModalProps> = ({
   onUpdatePositions,
   machines
 }) => {
+  const configuredMachineIds = Object.keys(configuringPosition.payroll?.machineRates || {});
+  const availableMachines = machines.filter(m => !configuredMachineIds.includes(m.id));
+
   return (
     <div className="fixed inset-0 z-[130] bg-slate-900/60 backdrop-blur-sm flex items-center justify-center p-4">
       <div className="bg-white rounded-[2.5rem] w-full max-w-md shadow-2xl border border-slate-200 overflow-hidden">
@@ -40,7 +44,7 @@ export const PositionConfigModal: React.FC<PositionConfigModalProps> = ({
               { key: 'isFullAdmin', label: 'Администратор', desc: 'Должность обладает всеми правами Администратора' },
               { key: 'isLimitedAdmin', label: 'Менеджер', desc: 'Доступ только к вкладкам Дашборд и Табель' },
               { key: 'useMachines', label: 'Работа на станках', desc: 'Возможность выбирать оборудование при начале смены' },
-              { key: 'multiSlot', label: 'Мульти-слот (3 карточки)', desc: 'Одновременная работа на 3 станках (для токарей)' },
+              { key: 'calculateOvertime', label: 'Считать сверхурочные', desc: 'Разделять время на часы и сверхурочные в расчете' },
               { key: 'canUseNightShift', label: 'Ночная смена', desc: 'Возможность включать ночной режим работы с бонусом времени', isPro: true },
               { key: 'viewSelfMatrix', label: 'Вкладка «Мой Табель»', desc: 'Доступ сотрудника к своей статистике' },
               { key: 'markAbsences', label: 'Регистрация пропусков', desc: 'Возможность отмечать Б, О, В самостоятельно' },
@@ -63,7 +67,18 @@ export const PositionConfigModal: React.FC<PositionConfigModalProps> = ({
                       type="checkbox" 
                       className="sr-only peer" 
                       checked={(configuringPosition.permissions as any)[item.key]} 
-                      onChange={() => handlePermissionToggle(item.key as any)}
+                      onChange={() => {
+                        handlePermissionToggle(item.key as any);
+                        // Если выключаем работу на станках, сбрасываем мульти-слот
+                        if (item.key === 'useMachines' && (configuringPosition.permissions as any)[item.key]) {
+                          const next = {
+                            ...configuringPosition,
+                            permissions: { ...configuringPosition.permissions, multiSlot: 0 }
+                          };
+                          setConfiguringPosition(next);
+                          onUpdatePositions(positions.map(p => p.name === next.name ? next : p));
+                        }
+                      }}
                       disabled={isBlocked}
                     />
                     <div className={`w-11 h-6 bg-slate-200 peer-focus:outline-none rounded-full peer peer-checked:after:translate-x-full after:content-[''] after:absolute after:top-[2px] after:start-[2px] after:bg-white after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-blue-600 shadow-sm ${isBlocked ? 'bg-slate-300' : ''}`}></div>
@@ -71,6 +86,30 @@ export const PositionConfigModal: React.FC<PositionConfigModalProps> = ({
                 </label>
               );
             })}
+
+            {configuringPosition.permissions.useMachines && (
+              <div className="p-4 bg-slate-50 rounded-2xl border border-slate-100 space-y-3">
+                <label className="text-xs font-black text-slate-800 uppercase tracking-tight">Мульти-слот (количество станков)</label>
+                <div className="flex bg-white rounded-xl p-1 border border-slate-200">
+                  {[0, 2, 3].map(count => (
+                    <button
+                      key={count}
+                      onClick={() => {
+                        const next = {
+                          ...configuringPosition,
+                          permissions: { ...configuringPosition.permissions, multiSlot: count }
+                        };
+                        setConfiguringPosition(next);
+                        onUpdatePositions(positions.map(p => p.name === next.name ? next : p));
+                      }}
+                      className={`flex-1 py-2 rounded-lg text-[10px] font-black uppercase transition-all ${configuringPosition.permissions.multiSlot === count ? 'bg-slate-900 text-white shadow-md' : 'text-slate-400 hover:text-slate-600'}`}
+                    >
+                      {count === 0 ? '1 станок' : `${count} станка`}
+                    </button>
+                  ))}
+                </div>
+              </div>
+            )}
 
             {canUsePayroll && (
               <div className="p-4 bg-slate-50 rounded-2xl border border-slate-100 space-y-4 mt-4">
@@ -136,29 +175,63 @@ export const PositionConfigModal: React.FC<PositionConfigModalProps> = ({
 
                 {configuringPosition.permissions.useMachines && machines.length > 0 && (
                   <div className="space-y-2 pt-2 border-t border-slate-200">
-                    <label className="text-[9px] font-black text-slate-400 uppercase ml-1">Ставки по оборудованию (₽/час)</label>
+                    <div className="flex items-center justify-between">
+                      <label className="text-[9px] font-black text-slate-400 uppercase ml-1">Ставки по оборудованию (₽/час)</label>
+                      {availableMachines.length > 0 && (
+                        <select 
+                          className="text-[10px] bg-white border border-slate-200 rounded-lg px-2 py-1 outline-none focus:border-blue-500 font-bold text-slate-600"
+                          value=""
+                          onChange={e => {
+                            if (!e.target.value) return;
+                            const currentRates = { ...(configuringPosition.payroll?.machineRates || {}) };
+                            currentRates[e.target.value] = 0;
+                            handleUpdatePayrollConfig('machineRates', currentRates);
+                          }}
+                        >
+                          <option value="">+ Добавить станок</option>
+                          {availableMachines.map(m => (
+                            <option key={m.id} value={m.id}>{m.name}</option>
+                          ))}
+                        </select>
+                      )}
+                    </div>
                     <div className="space-y-2">
-                      {machines.map(m => (
-                        <div key={m.id} className="flex items-center gap-2">
-                          <span className="text-xs font-bold text-slate-700 flex-1 truncate">{m.name}</span>
-                          <input 
-                            type="number" 
-                            placeholder="По умолчанию"
-                            value={configuringPosition.payroll?.machineRates?.[m.id] ?? ''}
-                            onChange={e => {
-                              const val = e.target.value;
-                              const currentRates = { ...(configuringPosition.payroll?.machineRates || {}) };
-                              if (val === '') {
-                                delete currentRates[m.id];
-                              } else {
-                                currentRates[m.id] = Number(val);
-                              }
-                              handleUpdatePayrollConfig('machineRates', currentRates);
-                            }}
-                            className="w-24 bg-white border-2 border-slate-200 rounded-xl px-2 py-1 text-xs font-bold outline-none focus:border-blue-500"
-                          />
-                        </div>
-                      ))}
+                      {configuredMachineIds.length === 0 ? (
+                        <p className="text-xs text-slate-400 italic ml-1">Нет добавленных станков. Выберите из списка выше.</p>
+                      ) : (
+                        configuredMachineIds.map(mId => {
+                          const m = machines.find(x => x.id === mId);
+                          if (!m) return null;
+                          return (
+                            <div key={m.id} className="flex items-center gap-2">
+                              <span className="text-xs font-bold text-slate-700 flex-1 truncate">{m.name}</span>
+                              <input 
+                                type="number" 
+                                placeholder="Ставка"
+                                value={configuringPosition.payroll?.machineRates?.[m.id] ?? ''}
+                                onChange={e => {
+                                  const val = e.target.value;
+                                  const currentRates = { ...(configuringPosition.payroll?.machineRates || {}) };
+                                  currentRates[m.id] = Number(val);
+                                  handleUpdatePayrollConfig('machineRates', currentRates);
+                                }}
+                                className="w-24 bg-white border-2 border-slate-200 rounded-xl px-2 py-1 text-xs font-bold outline-none focus:border-blue-500"
+                              />
+                              <button
+                                onClick={() => {
+                                  const currentRates = { ...(configuringPosition.payroll?.machineRates || {}) };
+                                  delete currentRates[m.id];
+                                  handleUpdatePayrollConfig('machineRates', currentRates);
+                                }}
+                                className="p-1 text-slate-400 hover:text-rose-500 transition-colors"
+                                title="Удалить станок"
+                              >
+                                <Trash2 className="w-4 h-4" />
+                              </button>
+                            </div>
+                          );
+                        })
+                      )}
                     </div>
                   </div>
                 )}

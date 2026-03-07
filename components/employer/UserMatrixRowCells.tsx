@@ -1,7 +1,7 @@
-import React, { memo } from 'react';
+import React, { memo, useMemo } from 'react';
 import { WorkLog, User, EntryType } from '../../types';
 import { format, isAfter } from 'date-fns';
-import { formatDurationShort, formatDuration } from '../../utils';
+import { formatDurationShort, formatDuration, applyRounding } from '../../utils';
 
 interface UserMatrixRowCellsProps {
   emp: User;
@@ -11,6 +11,7 @@ interface UserMatrixRowCellsProps {
   today: Date;
   filterMonth: string;
   setEditingLog: (data: {userId: string, date: string}) => void;
+  roundShiftMinutes?: boolean;
 }
 
 export const UserMatrixRowCells = memo(({ 
@@ -20,9 +21,33 @@ export const UserMatrixRowCells = memo(({
   days, 
   today, 
   filterMonth, 
-  setEditingLog 
+  setEditingLog,
+  roundShiftMinutes
 }: UserMatrixRowCellsProps) => {
-  const totalMinutes = empLogs.filter(l => l.checkOut || l.entryType !== EntryType.WORK).reduce((s, l) => s + l.durationMinutes, 0);
+  const dailyMaxMins = useMemo(() => {
+    const logsByDate: Record<string, WorkLog[]> = {};
+    empLogs.forEach(l => {
+      if (!logsByDate[l.date]) logsByDate[l.date] = [];
+      logsByDate[l.date].push(l);
+    });
+
+    const result: Record<string, number> = {};
+    Object.entries(logsByDate).forEach(([date, dayLogs]) => {
+      const workEntries = dayLogs.filter(l => l.entryType === EntryType.WORK);
+      const machineTotals: Record<string, number> = {};
+      workEntries.forEach(l => {
+        const mid = l.machineId || 'unknown';
+        machineTotals[mid] = (machineTotals[mid] || 0) + l.durationMinutes;
+      });
+      const maxMins = Object.values(machineTotals).reduce((max, val) => Math.max(max, val), 0);
+      result[date] = applyRounding(maxMins, roundShiftMinutes);
+    });
+    return result;
+  }, [empLogs]);
+
+  const totalMinutes = useMemo(() => {
+    return Object.values(dailyMaxMins).reduce((sum, val) => sum + val, 0);
+  }, [dailyMaxMins]);
 
   return (
     <React.Fragment>
@@ -49,7 +74,7 @@ export const UserMatrixRowCells = memo(({
 
         const dayLogs = userLogsLookup ? (userLogsLookup[dateStr] || []) : empLogs.filter(l => l.date === dateStr);
         const workEntries = dayLogs.filter(l => l.entryType === EntryType.WORK);
-        const workMins = workEntries.reduce((s, l) => s + l.durationMinutes, 0);
+        const workMins = dailyMaxMins[dateStr] || 0;
         const hasWork = workEntries.length > 0;
         const absence = dayLogs.find(l => l.entryType !== EntryType.WORK);
         const anyCorrected = dayLogs.some(l => l.isCorrected);

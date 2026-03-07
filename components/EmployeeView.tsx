@@ -1,7 +1,7 @@
 
 import React, { useState, useEffect, useMemo, useRef, memo } from 'react';
 import { WorkLog, User, EntryType, Machine, PositionConfig, PlanLimits, Organization } from '../types';
-import { formatTime, formatDate, formatDuration, calculateMinutes, getDaysInMonthArray, formatDurationShort, sendNotification } from '../utils';
+import { formatTime, formatDate, formatDuration, calculateMinutes, getDaysInMonthArray, formatDurationShort, sendNotification, calculateDistance, sendTelegramNotification, applyRounding } from '../utils';
 import { STORAGE_KEYS, DEFAULT_PERMISSIONS } from '../constants';
 import { format, isAfter, endOfMonth, eachDayOfInterval, getDay, addMonths } from 'date-fns';
 import { startOfDay } from 'date-fns/startOfDay';
@@ -9,7 +9,6 @@ import { startOfMonth } from 'date-fns/startOfMonth';
 import { subMonths } from 'date-fns/subMonths';
 import { ru } from 'date-fns/locale/ru';
 import { db } from '../lib/supabase';
-import { EmployeeMatrixRow } from './employee/EmployeeMatrixRow';
 import { EmployeeHeader } from './employee/EmployeeHeader';
 import { ShiftControl } from './employee/ShiftControl';
 import { EmployeeStats } from './employee/EmployeeStats';
@@ -19,6 +18,7 @@ import { EmployeePrintView } from './employee/EmployeePrintView';
 import { TodaySessions } from './employee/TodaySessions';
 import { AbsenceControls } from './employee/AbsenceControls';
 import { CameraModal } from './employee/CameraModal';
+import { ShiftMonitor } from './ShiftMonitor';
 
 interface EmployeeViewProps {
   user: User;
@@ -138,7 +138,7 @@ const EmployeeView: React.FC<EmployeeViewProps> = ({
     return counts;
   }, [user.plannedShifts, filterMonth]);
 
-  const [showCamera, setShowCamera] = useState<{ slot: number; type: 'start' | 'stop' } | null>(null);
+  const [showCamera, setShowCamera] = useState<{ slot: number; type: 'start' | 'stop'; location?: any } | null>(null);
   const [isUploadingPhoto, setIsUploadingPhoto] = useState(false);
   
   const [showPinChange, setShowPinChange] = useState(user.forcePinChange || false);
@@ -187,7 +187,7 @@ const EmployeeView: React.FC<EmployeeViewProps> = ({
 
   const isAnyShiftActiveInLogs = useMemo(() => {
     // Если разрешено несколько слотов, то наличие активной смены не блокирует начало новой в другом слоте
-    if (perms.multiSlot) return false;
+    if (perms.multiSlot > 0) return false;
     return logs.some(l => l.userId === user.id && l.entryType === EntryType.WORK && !l.checkOut);
   }, [logs, user.id, perms.multiSlot]);
 
@@ -231,37 +231,74 @@ const EmployeeView: React.FC<EmployeeViewProps> = ({
       if ('Notification' in window && Notification.permission === 'default') {
         await Notification.requestPermission();
       }
-    }
 
-    if (type === 'start' && perms.useMachines) {
-      const selectedMachineId = slotMachineIds[slot];
-      if (!selectedMachineId) {
-        alert("Пожалуйста, выберите оборудование перед началом смены!");
-        return;
+      // Location Check
+      let locationData = undefined;
+      if (currentOrg?.locationSettings?.enabled) {
+         try {
+             const position = await new Promise<GeolocationPosition>((resolve, reject) => {
+                 navigator.geolocation.getCurrentPosition(resolve, reject, { enableHighAccuracy: true, timeout: 10000 });
+             });
+             
+             const dist = calculateDistance(
+                 currentOrg.locationSettings.latitude, 
+                 currentOrg.locationSettings.longitude, 
+                 position.coords.latitude, 
+                 position.coords.longitude
+             );
+             
+             if (dist > currentOrg.locationSettings.radius) {
+                 alert(`Вы находитесь вне рабочей зоны! Расстояние: ${Math.round(dist)}м. (Макс: ${currentOrg.locationSettings.radius}м)`);
+                 return;
+             }
+             
+             locationData = {
+                 latitude: position.coords.latitude,
+                 longitude: position.coords.longitude,
+                 accuracy: position.coords.accuracy
+             };
+         } catch (e) {
+             alert('Ошибка геолокации. Разрешите доступ к геопозиции для начала смены.');
+             return;
+         }
       }
-      if (busyMachineIds.includes(selectedMachineId)) {
-        alert("Это оборудование уже занято другим сотрудником!");
-        return;
-      }
-    }
 
-    const activeCount = Object.values(activeShifts).filter(s => s !== null).length;
-    const requirePhoto = user.requirePhoto || perms.defaultRequirePhoto;
-    
-    if (requirePhoto) {
-      if (type === 'start') {
-        if (activeCount === 0) setShowCamera({ slot, type });
-        else handleStartWork(slot);
+      if (perms.useMachines) {
+        const selectedMachineId = slotMachineIds[slot];
+        if (!selectedMachineId) {
+          alert("Пожалуйста, выберите оборудование перед началом смены!");
+          return;
+        }
+        if (busyMachineIds.includes(selectedMachineId)) {
+          alert("Это оборудование уже занято другим сотрудником!");
+          return;
+        }
+      }
+
+      const activeCount = Object.values(activeShifts).filter(s => s !== null).length;
+      const requirePhoto = user.requirePhoto || perms.defaultRequirePhoto;
+      
+      if (requirePhoto) {
+          if (activeCount === 0) setShowCamera({ slot, type, location: locationData });
+          else handleStartWork(slot, undefined, locationData);
       } else {
-        if (activeCount === 1) setShowCamera({ slot, type });
-        else handleStopWork(slot);
+          handleStartWork(slot, undefined, locationData);
       }
     } else {
-      type === 'start' ? handleStartWork(slot) : handleStopWork(slot);
+      // Stop work logic
+      const activeCount = Object.values(activeShifts).filter(s => s !== null).length;
+      const requirePhoto = user.requirePhoto || perms.defaultRequirePhoto;
+
+      if (requirePhoto) {
+        if (activeCount === 1) setShowCamera({ slot, type });
+        else handleStopWork(slot);
+      } else {
+        handleStopWork(slot);
+      }
     }
   };
 
-  const handleStartWork = (slot: number, photo?: string) => {
+  const handleStartWork = (slot: number, photo?: string, location?: any) => {
     const selectedMachineId = perms.useMachines ? slotMachineIds[slot] : undefined;
     if (selectedMachineId && busyMachineIds.includes(selectedMachineId)) {
        alert("Ошибка: Оборудование уже было занято кем-то другим!");
@@ -281,13 +318,21 @@ const EmployeeView: React.FC<EmployeeViewProps> = ({
       checkOut: null as any, // Явно указываем отсутствие завершения
       durationMinutes: 0,
       photoIn: photo,
-      isNightShift: isNightModeGlobal
+      isNightShift: isNightModeGlobal,
+      location: location
     };
     
     const nextShifts = { ...activeShifts, [slot]: newShift };
     onActiveShiftsUpdate(nextShifts);
     onLogsUpsert([newShift]);
     setShowCamera(null);
+
+    // Telegram Notification
+    if (currentOrg?.telegramSettings?.enabled && currentOrg.telegramSettings.botToken && currentOrg.telegramSettings.chatId) {
+      const machineName = selectedMachineId ? getMachineName(selectedMachineId) : 'Работа';
+      const msg = `🟢 <b>Начало смены</b>\n👤 Сотрудник: ${user.name}\n📍 Позиция: ${user.position}\n🔧 Слот: ${slot} (${machineName})\n⏰ Время: ${formatTime(now.toISOString())}`;
+      sendTelegramNotification(currentOrg.telegramSettings.botToken, currentOrg.telegramSettings.chatId, msg);
+    }
   };
 
   const handleStopWork = (slot: number, photo?: string) => {
@@ -298,7 +343,8 @@ const EmployeeView: React.FC<EmployeeViewProps> = ({
     let duration = calculateMinutes(currentShift.checkIn!, now.toISOString());
     
     if (currentShift.isNightShift) {
-      duration += nightShiftBonusMinutes;
+      const bonus = Math.floor((duration / 60) * nightShiftBonusMinutes);
+      duration += bonus;
     }
 
     const completed: WorkLog = { 
@@ -316,6 +362,14 @@ const EmployeeView: React.FC<EmployeeViewProps> = ({
     // завершенную смену из карты активных смен.
     onLogsUpsert([completed]);
     setShowCamera(null);
+
+    // Telegram Notification
+    if (currentOrg?.telegramSettings?.enabled && currentOrg.telegramSettings.botToken && currentOrg.telegramSettings.chatId) {
+      const machineName = currentShift.machineId ? getMachineName(currentShift.machineId) : 'Работа';
+      const durationFormatted = formatDuration(Math.max(0, duration));
+      const msg = `🔴 <b>Конец смены</b>\n👤 Сотрудник: ${user.name}\n📍 Позиция: ${user.position}\n🔧 Слот: ${slot} (${machineName})\n⏰ Время: ${formatTime(now.toISOString())}\n⏱ Длительность: ${durationFormatted}`;
+      sendTelegramNotification(currentOrg.telegramSettings.botToken, currentOrg.telegramSettings.chatId, msg);
+    }
   };
 
   const handleMarkAbsence = (type: EntryType) => {
@@ -417,7 +471,8 @@ const EmployeeView: React.FC<EmployeeViewProps> = ({
         const mid = l.machineId || 'unknown';
         machineTotals[mid] = (machineTotals[mid] || 0) + l.durationMinutes;
       });
-      totalWorkMinutes += Object.values(machineTotals).reduce((max, val) => Math.max(max, val), 0);
+      const maxMins = Object.values(machineTotals).reduce((max, val) => Math.max(max, val), 0);
+      totalWorkMinutes += applyRounding(maxMins, currentOrg?.roundShiftMinutes);
     });
 
     const sickDays = filteredLogs.filter(l => l.entryType === EntryType.SICK).length;
@@ -532,8 +587,58 @@ const EmployeeView: React.FC<EmployeeViewProps> = ({
     };
   }, [filterMonth]);
 
+  const handleForceClose = (logId: string, endTime: string) => {
+    const slot = Object.keys(activeShifts).find(key => activeShifts[Number(key)]?.id === logId);
+    if (!slot) return;
+    
+    const currentShift = activeShifts[Number(slot)];
+    if (!currentShift) return;
+
+    const now = getNow();
+    let duration = calculateMinutes(currentShift.checkIn!, endTime);
+    if (currentShift.isNightShift) {
+      const bonus = Math.floor((duration / 60) * nightShiftBonusMinutes);
+      duration += bonus;
+    }
+
+    const completed: WorkLog = { 
+      ...currentShift, 
+      checkOut: endTime, 
+      durationMinutes: Math.max(0, duration),
+      isCorrected: true,
+      correctionNote: 'Автоматическое завершение (превышен лимит)'
+    };
+
+    const nextShifts = { ...activeShifts, [slot]: null };
+    onActiveShiftsUpdate(nextShifts);
+    onLogsUpsert([completed]);
+
+    // Telegram Notification for Force Close
+    if (currentOrg?.telegramSettings?.enabled && currentOrg.telegramSettings.botToken && currentOrg.telegramSettings.chatId) {
+      const machineName = currentShift.machineId ? getMachineName(currentShift.machineId) : 'Работа';
+      const msg = `⛔️ <b>Авто-закрытие смены</b>\n👤 Сотрудник: ${user.name}\n📍 Позиция: ${user.position}\n🔧 Слот: ${slot} (${machineName})\n⚠️ Причина: Превышен лимит времени или выход из гео-зоны`;
+      
+      // Notify Admin
+      sendTelegramNotification(currentOrg.telegramSettings.botToken, currentOrg.telegramSettings.chatId, msg);
+      
+      // Notify Employee
+      if (user.telegramChatId) {
+         sendTelegramNotification(currentOrg.telegramSettings.botToken, user.telegramChatId, msg);
+      }
+    }
+  };
+
   return (
     <div className="space-y-6 animate-fadeIn">
+      {Object.values(activeShifts).map(shift => shift && (
+        <ShiftMonitor 
+          key={shift.id}
+          activeShift={shift}
+          organization={currentOrg}
+          userPosition={positions.find(p => p.name === user.position) || null}
+          onForceClose={handleForceClose}
+        />
+      ))}
       {showPinChange && (
         <PinChangeModal
           user={user}
@@ -549,6 +654,7 @@ const EmployeeView: React.FC<EmployeeViewProps> = ({
         calendarData={calendarData}
         user={user}
         filteredLogs={filteredLogs}
+        roundShiftMinutes={currentOrg?.roundShiftMinutes}
       />
 
       <CameraModal
@@ -642,6 +748,7 @@ const EmployeeView: React.FC<EmployeeViewProps> = ({
             filteredLogs={filteredLogs}
             logsLookup={logsLookup}
             downloadCalendarPDF={downloadCalendarPDF}
+            roundShiftMinutes={currentOrg?.roundShiftMinutes}
           />
         </div>
       )}

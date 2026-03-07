@@ -81,7 +81,11 @@ export const db = {
       ...data,
       ownerId: data.owner_id,
       expiryDate: data.expiry_date,
-      notificationSettings: data.notification_settings
+      notificationSettings: data.notification_settings,
+      locationSettings: data.location_settings,
+      telegramSettings: data.telegram_settings,
+      maxShiftDuration: data.max_shift_duration,
+      roundShiftMinutes: data.round_shift_minutes
     };
   },
   getLogs: async (orgId: string, monthPrefix?: string) => {
@@ -152,6 +156,7 @@ export const db = {
         id: cleanValue(l.id),
         userId: cleanValue(l.user_id),
         organizationId: cleanValue(l.organization_id),
+        branchId: cleanValue(l.branch_id),
         date: cleanValue(l.date),
         entryType: l.entry_type,
         machineId: cleanValue(l.machine_id),
@@ -181,6 +186,7 @@ export const db = {
       id: log.id,
       user_id: log.userId,
       organization_id: orgId,
+      branch_id: log.branchId,
       date: log.date,
       entry_type: log.entryType,
       machine_id: log.machineId,
@@ -193,7 +199,8 @@ export const db = {
       correction_note: log.correctionNote,
       correction_timestamp: log.correctionTimestamp,
       is_night_shift: log.isNightShift,
-      fine: log.fine
+      fine: log.fine,
+      location: log.location
     };
     
     const { error } = await supabase.from('work_logs').upsert(payload);
@@ -296,6 +303,8 @@ export const db = {
       if (log.isNightShift) item.is_night_shift = true;
       if (log.fine) item.fine = log.fine;
       if (log.bonus) item.bonus = log.bonus;
+      if (log.location) item.location = log.location;
+      if (log.branchId) item.branch_id = log.branchId;
       if (orgId) item.organization_id = orgId;
       
       return item;
@@ -308,7 +317,7 @@ export const db = {
       // Если ошибка в колонках (42703) или неопределенная ошибка, пробуем минимальный набор
       if (error.code === '42703' || error.message?.includes('column')) {
         const minimalPayload = payload.map(p => {
-          const { is_night_shift, photo_in, photo_out, machine_id, fine, bonus, ...rest } = p;
+          const { is_night_shift, photo_in, photo_out, machine_id, fine, bonus, branch_id, ...rest } = p;
           return rest;
         });
         console.warn('Retrying with minimal payload...');
@@ -374,7 +383,8 @@ export const db = {
             organizationId: cleanValue(u.organization_id),
             pushToken: u.push_token,
             plannedShifts: u.planned_shifts,
-            payroll: u.payroll
+            payroll: u.payroll,
+            telegramChatId: u.telegram_chat_id
           }));
         }
         throw error;
@@ -391,9 +401,11 @@ export const db = {
         isAdmin: u.is_admin,
         forcePinChange: u.force_pin_change,
         organizationId: cleanValue(u.organization_id),
+        branchId: cleanValue(u.branch_id),
         pushToken: u.push_token,
         plannedShifts: u.planned_shifts,
-        payroll: u.payroll
+        payroll: u.payroll,
+        telegramChatId: u.telegram_chat_id
       }));
     } catch (e) {
       console.error('Error in getUsers:', e);
@@ -451,6 +463,12 @@ export const db = {
     if (user.payroll !== undefined) {
       payload.payroll = user.payroll;
     }
+    if (user.telegramChatId !== undefined) {
+      payload.telegram_chat_id = user.telegramChatId;
+    }
+    if (user.branchId !== undefined) {
+      payload.branch_id = user.branchId;
+    }
 
     const { error } = await supabase.from('users').upsert(payload);
     
@@ -458,7 +476,7 @@ export const db = {
       console.error('Error saving user:', error);
       // Try without new columns if it fails due to missing column
       if (error.code === '42703' || error.code === 'PGRST204' || error.message?.includes('column')) {
-        const { push_token, planned_shifts, payroll, ...minimalPayload } = payload;
+        const { push_token, planned_shifts, payroll, telegram_chat_id, branch_id, ...minimalPayload } = payload;
         const { error: retryError } = await supabase.from('users').upsert(minimalPayload);
         return { error: retryError };
       }
@@ -491,6 +509,12 @@ export const db = {
       if (user.payroll !== undefined) {
         p.payroll = user.payroll;
       }
+      if (user.telegramChatId !== undefined) {
+        p.telegram_chat_id = user.telegramChatId;
+      }
+      if (user.branchId !== undefined) {
+        p.branch_id = user.branchId;
+      }
       return p;
     });
 
@@ -500,7 +524,7 @@ export const db = {
       console.error('Error batch upserting users:', error);
       if (error.code === '42703' || error.code === 'PGRST204' || error.message?.includes('column')) {
         const minimalPayload = payload.map(p => {
-          const { push_token, planned_shifts, payroll, ...rest } = p;
+          const { push_token, planned_shifts, payroll, telegram_chat_id, branch_id, ...rest } = p;
           return rest;
         });
         const { error: retryError } = await supabase.from('users').upsert(minimalPayload);
@@ -535,17 +559,37 @@ export const db = {
     return (data || []).map(m => ({
       ...m,
       id: cleanValue(m.id),
-      organization_id: cleanValue(m.organization_id)
+      organization_id: cleanValue(m.organization_id),
+      branchId: cleanValue(m.branch_id)
     })) || null;
   },
   saveMachines: async (machines: any[], orgId: string) => {
     if (!checkConfig()) return { error: 'Not configured' };
     
     // Используем upsert для сохранения ID и производительности
+    const payload = machines.map(m => {
+      const item: any = { ...m, organization_id: orgId };
+      if (m.branchId) item.branch_id = m.branchId;
+      return item;
+    });
+
     const { error } = await supabase.from('machines').upsert(
-      machines.map(m => ({ ...m, organization_id: orgId })),
+      payload,
       { onConflict: 'id' }
     );
+    
+    if (error && (error.code === '42703' || error.message?.includes('column'))) {
+       // Fallback without branch_id
+       const minimalPayload = payload.map((p: any) => {
+         const { branch_id, ...rest } = p;
+         return rest;
+       });
+       const { error: retryError } = await supabase.from('machines').upsert(
+         minimalPayload,
+         { onConflict: 'id' }
+       );
+       return { error: retryError };
+    }
     
     return { error };
   },
@@ -658,6 +702,62 @@ export const db = {
       console.error('Unexpected error in savePositions:', err);
       return { error: err };
     }
+  },
+  getBranches: async (orgId: string) => {
+    if (!checkConfig()) return null;
+    try {
+      let query = supabase.from('branches').select('*');
+      
+      if (orgId === 'demo_org') {
+        query = query.or('organization_id.eq.demo_org,organization_id.is.null');
+      } else {
+        query = query.eq('organization_id', orgId);
+      }
+      
+      const { data, error } = await query.order('name');
+      
+      if (error) {
+        // If table doesn't exist or other error, return empty array gracefully
+        console.warn('Error fetching branches (might not exist yet):', error.message);
+        return [];
+      }
+      
+      return (data || []).map(b => ({
+        id: cleanValue(b.id),
+        organizationId: cleanValue(b.organization_id),
+        name: b.name,
+        address: b.address,
+        locationSettings: b.location_settings
+      }));
+    } catch (e) {
+      console.error('Exception in getBranches:', e);
+      return [];
+    }
+  },
+  upsertBranch: async (branch: any, orgId: string) => {
+    if (!checkConfig()) return { error: 'Not configured' };
+    
+    const payload = {
+      id: branch.id,
+      organization_id: orgId,
+      name: branch.name,
+      address: branch.address,
+      location_settings: branch.locationSettings
+    };
+    
+    const { error } = await supabase.from('branches').upsert(payload);
+    return { error };
+  },
+  deleteBranch: async (branchId: string, orgId: string) => {
+    if (!checkConfig()) return { error: 'Not configured' };
+    
+    const { error } = await supabase
+      .from('branches')
+      .delete()
+      .eq('id', branchId)
+      .eq('organization_id', orgId);
+      
+    return { error };
   },
   getSystemConfig: async () => {
     if (!checkConfig()) return null;
@@ -901,6 +1001,14 @@ export const db = {
       dbUpdates.notification_settings = updates.notificationSettings;
       delete dbUpdates.notificationSettings;
     }
+    if (updates.maxShiftDuration !== undefined) {
+      dbUpdates.max_shift_duration = updates.maxShiftDuration;
+      delete dbUpdates.maxShiftDuration;
+    }
+    if (updates.roundShiftMinutes !== undefined) {
+      dbUpdates.round_shift_minutes = updates.roundShiftMinutes;
+      delete dbUpdates.roundShiftMinutes;
+    }
 
     const { error } = await supabase.from('organizations').update(dbUpdates).eq('id', orgId);
     
@@ -928,7 +1036,9 @@ export const db = {
       plan: org.plan,
       status: org.status,
       expiry_date: org.expiryDate,
-      notification_settings: org.notificationSettings
+      notification_settings: org.notificationSettings,
+      max_shift_duration: org.maxShiftDuration,
+      round_shift_minutes: org.roundShiftMinutes
     }, { onConflict: 'id' });
     
     if (error && error.code !== '23505') {

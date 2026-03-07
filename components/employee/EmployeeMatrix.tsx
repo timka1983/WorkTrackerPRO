@@ -4,7 +4,7 @@ import { ru } from 'date-fns/locale/ru';
 import { WorkLog, User, EntryType, Machine, PositionPermissions } from '../../types';
 import { ScheduleModal } from './ScheduleModal';
 import { CalendarDays, ChevronLeft, ChevronRight } from 'lucide-react';
-import { formatDurationShort } from '../../utils';
+import { formatDurationShort, applyRounding } from '../../utils';
 
 interface EmployeeMatrixProps {
   filterMonth: string;
@@ -20,6 +20,7 @@ interface EmployeeMatrixProps {
   filteredLogs: WorkLog[];
   logsLookup?: Record<string, Record<string, WorkLog[]>>;
   downloadCalendarPDF: () => void;
+  roundShiftMinutes?: boolean;
 }
 
 const SHIFT_COLORS = {
@@ -43,7 +44,8 @@ export const EmployeeMatrix = memo<EmployeeMatrixProps>(({
   usedMachines,
   filteredLogs,
   logsLookup = {},
-  downloadCalendarPDF
+  downloadCalendarPDF,
+  roundShiftMinutes
 }) => {
   const userLogsLookup = logsLookup[user.id] || {};
   const [isScheduleModalOpen, setIsScheduleModalOpen] = useState(false);
@@ -185,7 +187,8 @@ export const EmployeeMatrix = memo<EmployeeMatrixProps>(({
               const mid = l.machineId || 'unknown';
               machineTotals[mid] = (machineTotals[mid] || 0) + l.durationMinutes;
             });
-            mins = Object.values(machineTotals).reduce((max, val) => Math.max(max, val), 0);
+            const maxMins = Object.values(machineTotals).reduce((max, val) => Math.max(max, val), 0);
+            mins = applyRounding(maxMins, roundShiftMinutes);
 
             const hasWork = workEntries.length > 0;
             const absence = dayLogs.find(l => l.entryType !== EntryType.WORK);

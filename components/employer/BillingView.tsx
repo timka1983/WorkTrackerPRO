@@ -120,6 +120,10 @@ export const BillingView: React.FC<BillingViewProps> = ({
                   <div className={`w-1.5 h-1.5 rounded-full ${planLimits.features.payroll ? 'bg-green-500' : 'bg-slate-300'}`}></div>
                   <span className={`text-[10px] font-bold uppercase ${planLimits.features.payroll ? 'text-slate-700' : 'text-slate-400'}`}>Зарплата</span>
                 </div>
+                <div className="flex items-center gap-2">
+                  <div className={`w-1.5 h-1.5 rounded-full ${planLimits.features.shiftMonitoring ? 'bg-green-500' : 'bg-slate-300'}`}></div>
+                  <span className={`text-[10px] font-bold uppercase ${planLimits.features.shiftMonitoring ? 'text-slate-700' : 'text-slate-400'}`}>Мониторинг</span>
+                </div>
               </div>
             </div>
           </div>
@@ -171,21 +175,19 @@ export const BillingView: React.FC<BillingViewProps> = ({
                     { label: 'Ночные смены', enabled: limits.features.nightShift },
                     { label: 'Аналитика', enabled: limits.features.advancedAnalytics },
                     { label: 'Зарплата', enabled: limits.features.payroll },
+                    { label: 'Мониторинг смен', enabled: limits.features.shiftMonitoring },
                     { label: 'Облачная синхронизация', enabled: true },
                     { label: 'Техподдержка 24/7', enabled: planType !== PlanType.FREE },
                   ].map((feat, idx) => (
                     <div key={idx} className="flex items-center gap-2">
-                      <svg className={`w-3 h-3 ${feat.enabled ? 'text-green-500' : 'text-slate-200'}`} fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={3} d="M5 13l4 4L19 7"/></svg>
+                      {feat.enabled ? (
+                        <svg className="w-3 h-3 text-green-500" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={3} d="M5 13l4 4L19 7"/></svg>
+                      ) : (
+                        <svg className="w-3 h-3 text-slate-300" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={3} d="M6 18L18 6M6 6l12 12"/></svg>
+                      )}
                       <span className={`text-[10px] font-bold uppercase ${feat.enabled ? 'text-slate-600' : 'text-slate-300 line-through'}`}>{feat.label}</span>
                     </div>
                   ))}
-                  
-                  <div className="flex items-center gap-2 pt-2 border-t border-slate-50 mt-2">
-                    <div className={`w-4 h-4 rounded border-2 flex items-center justify-center ${limits.features.payroll ? 'bg-blue-600 border-blue-600' : 'border-slate-300'}`}>
-                       {limits.features.payroll && <svg className="w-3 h-3 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={3} d="M5 13l4 4L19 7"/></svg>}
-                    </div>
-                    <span className={`text-[10px] font-bold uppercase ${limits.features.payroll ? 'text-blue-600' : 'text-slate-400'}`}>Модуль "Зарплата"</span>
-                  </div>
                 </div>
               </div>
               

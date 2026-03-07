@@ -5,7 +5,7 @@ import { parseISO } from 'date-fns/parseISO';
 import { startOfMonth } from 'date-fns/startOfMonth';
 // Using sub-path for locale to ensure correct resolution of Russian locale
 import { ru } from 'date-fns/locale/ru';
-import { WorkLog, User, EntryType, PositionConfig, PayrollConfig } from './types';
+import { WorkLog, User, EntryType, PositionConfig, PayrollConfig, Organization } from './types';
 
 export const formatTime = (dateStr?: string) => {
   if (!dateStr) return '--:--';
@@ -31,6 +31,15 @@ export const formatDurationShort = (minutes: number) => {
 
 export const calculateMinutes = (start: string, end: string) => {
   return differenceInMinutes(parseISO(end), parseISO(start));
+};
+
+export const applyRounding = (minutes: number, enabled?: boolean) => {
+  if (!enabled) return minutes;
+  const remainder = minutes % 60;
+  if (remainder <= 15) {
+    return minutes - remainder;
+  }
+  return minutes;
 };
 
 export const getDaysInMonthArray = (monthStr: string) => {
@@ -62,6 +71,22 @@ export const exportToCSV = (logs: WorkLog[], users: User[]) => {
   link.click();
 };
 
+export const calculateDistance = (lat1: number, lon1: number, lat2: number, lon2: number) => {
+  const R = 6371e3; // metres
+  const φ1 = lat1 * Math.PI/180; // φ, λ in radians
+  const φ2 = lat2 * Math.PI/180;
+  const Δφ = (lat2-lat1) * Math.PI/180;
+  const Δλ = (lon2-lon1) * Math.PI/180;
+
+  const a = Math.sin(Δφ/2) * Math.sin(Δφ/2) +
+            Math.cos(φ1) * Math.cos(φ2) *
+            Math.sin(Δλ/2) * Math.sin(Δλ/2);
+  const c = 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1-a));
+
+  const d = R * c; // in metres
+  return d;
+};
+
 export const sendNotification = (title: string, body: string) => {
   if (!('Notification' in window)) return;
   
@@ -80,10 +105,33 @@ export const sendNotification = (title: string, body: string) => {
   }
 };
 
+export const sendTelegramNotification = async (
+  botToken: string,
+  chatId: string,
+  message: string
+) => {
+  if (!botToken || !chatId) return;
+  
+  try {
+    await fetch(`https://api.telegram.org/bot${botToken}/sendMessage`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        chat_id: chatId,
+        text: message,
+        parse_mode: 'HTML'
+      })
+    });
+  } catch (e) {
+    console.error('Failed to send Telegram notification:', e);
+  }
+};
+
 export const calculateMonthlyPayroll = (
   user: User,
   logs: WorkLog[],
-  positions: PositionConfig[]
+  positions: PositionConfig[],
+  org?: Organization
 ): {
   totalSalary: number;
   regularPay: number;
@@ -100,7 +148,7 @@ export const calculateMonthlyPayroll = (
   };
 } => {
   const positionConfig = positions.find(p => p.name === user.position);
-  const config = user.payroll || positionConfig?.payroll || {
+  const baseConfig = positionConfig?.payroll || {
     type: 'hourly',
     rate: 0,
     overtimeMultiplier: 1.5,
@@ -109,6 +157,21 @@ export const calculateMonthlyPayroll = (
     machineRates: {}
   };
 
+  // Merge user's personal payroll config with position's default config
+  // User's specific settings take precedence over position defaults ONLY IF overrides flag is true
+  const config = user.payroll ? {
+    ...baseConfig,
+    type: user.payroll.overrides?.type ? (user.payroll.type ?? baseConfig.type) : baseConfig.type,
+    rate: user.payroll.overrides?.rate ? (user.payroll.rate ?? baseConfig.rate) : baseConfig.rate,
+    overtimeMultiplier: user.payroll.overrides?.overtimeMultiplier ? (user.payroll.overtimeMultiplier ?? baseConfig.overtimeMultiplier) : baseConfig.overtimeMultiplier,
+    nightShiftBonus: user.payroll.overrides?.nightShiftBonus ? (user.payroll.nightShiftBonus ?? baseConfig.nightShiftBonus) : baseConfig.nightShiftBonus,
+    sickLeaveRate: user.payroll.overrides?.sickLeaveRate ? (user.payroll.sickLeaveRate ?? baseConfig.sickLeaveRate) : baseConfig.sickLeaveRate,
+    // Ensure machineRates are also merged if both exist
+    machineRates: user.payroll.overrides?.machineRates 
+      ? (user.payroll.machineRates ?? baseConfig.machineRates)
+      : baseConfig.machineRates
+  } : baseConfig;
+
   let regularPay = 0;
   let overtimePay = 0;
   let nightShiftPay = 0;
@@ -116,68 +179,104 @@ export const calculateMonthlyPayroll = (
   let bonuses = 0;
   let fines = 0;
 
-  let regularHours = 0;
-  let overtimeHours = 0;
+  let regularMins = 0;
+  let overtimeMins = 0;
   let nightShiftCount = 0;
   let sickDays = 0;
 
   const standardShiftMinutes = positionConfig?.permissions.maxShiftDurationMinutes || 480;
 
-  logs.forEach(log => {
-    if (log.entryType === EntryType.WORK) {
-      const duration = log.durationMinutes;
-      let regularMinutes = duration;
-      let overtimeMinutes = 0;
+  const logsByDate: Record<string, WorkLog[]> = {};
+  logs.forEach(l => {
+    if (!logsByDate[l.date]) logsByDate[l.date] = [];
+    logsByDate[l.date].push(l);
+  });
 
-      if (duration > standardShiftMinutes) {
-        regularMinutes = standardShiftMinutes;
-        overtimeMinutes = duration - standardShiftMinutes;
-      }
+  Object.entries(logsByDate).forEach(([date, dayLogs]) => {
+    const workLogs = dayLogs.filter(l => l.entryType === EntryType.WORK);
+    const absences = dayLogs.filter(l => l.entryType !== EntryType.WORK);
 
-      // Determine the rate to use
-      let currentRate = config.rate;
-      if (log.machineId && config.machineRates && config.machineRates[log.machineId] !== undefined) {
-        currentRate = config.machineRates[log.machineId];
-      }
+    if (workLogs.length > 0) {
+      let anyNight = false;
+      const machineTotals: Record<string, { mins: number, rate: number, isNight: boolean }> = {};
 
-      if (config.type === 'hourly') {
-        regularPay += (regularMinutes / 60) * currentRate;
-        overtimePay += (overtimeMinutes / 60) * currentRate * config.overtimeMultiplier;
-      } else if (config.type === 'shift') {
-        regularPay += currentRate;
-        const impliedHourlyRate = currentRate / (standardShiftMinutes / 60);
-        overtimePay += (overtimeMinutes / 60) * impliedHourlyRate * config.overtimeMultiplier;
-      }
+      workLogs.forEach(log => {
+        let currentRate = config.rate;
+        if (log.machineId && config.machineRates && config.machineRates[log.machineId] !== undefined) {
+          currentRate = config.machineRates[log.machineId];
+        }
+        
+        // Оплачиваем каждый лог отдельно
+        if (config.type === 'hourly') {
+          regularPay += (log.durationMinutes / 60) * currentRate;
+        } else if (config.type === 'shift') {
+          regularPay += currentRate;
+        }
 
-      regularHours += regularMinutes / 60;
-      overtimeHours += overtimeMinutes / 60;
+        // Расчет часов для каждого станка отдельно
+        const effectiveDuration = applyRounding(log.durationMinutes, org?.roundShiftMinutes);
+        
+        if (effectiveDuration > 0) {
+          let regularMinutes = Math.min(effectiveDuration, standardShiftMinutes);
+          let overtimeMinutes = Math.max(0, effectiveDuration - standardShiftMinutes);
 
-      if (log.isNightShift) {
+          // Бонус за сверхурочные
+          if (overtimeMinutes > 0 && positionConfig?.permissions.calculateOvertime) {
+            if (config.type === 'hourly') {
+              overtimePay += (overtimeMinutes / 60) * currentRate * (config.overtimeMultiplier - 1);
+            } else if (config.type === 'shift') {
+              const impliedHourlyRate = currentRate / (standardShiftMinutes / 60);
+              overtimePay += (overtimeMinutes / 60) * impliedHourlyRate * (config.overtimeMultiplier - 1);
+            }
+          }
+
+          regularMins += regularMinutes;
+          if (positionConfig?.permissions.calculateOvertime) {
+            overtimeMins += overtimeMinutes;
+          } else {
+            regularMins += overtimeMinutes;
+          }
+
+          if (log.isNightShift) {
+            anyNight = true;
+          }
+        }
+      });
+
+      if (anyNight) {
         nightShiftCount++;
         nightShiftPay += config.nightShiftBonus;
       }
-    } else if (log.entryType === EntryType.SICK) {
-      sickDays++;
-      if (config.sickLeaveRate) {
-        sickLeavePay += config.sickLeaveRate;
-      }
     }
 
-    if (log.fine) {
-      fines += log.fine;
-    }
-    if (log.bonus) {
-      bonuses += log.bonus;
-    }
+    absences.forEach(log => {
+      if (log.entryType === EntryType.SICK) {
+        sickDays++;
+        if (config.sickLeaveRate) {
+          sickLeavePay += config.sickLeaveRate;
+        }
+      }
+    });
+
+    dayLogs.forEach(log => {
+      if (log.fine) fines += log.fine;
+      if (log.bonus) bonuses += log.bonus;
+    });
   });
 
   if (config.type === 'fixed') {
     regularPay = config.rate;
     const impliedHourlyRate = config.rate / 160;
-    overtimePay = overtimeHours * impliedHourlyRate * config.overtimeMultiplier;
+    overtimePay = (overtimeMins / 60) * impliedHourlyRate * config.overtimeMultiplier;
   }
 
   const totalSalary = regularPay + overtimePay + nightShiftPay + sickLeavePay + bonuses - fines;
+
+  const toDecimalHours = (mins: number) => {
+    const h = Math.floor(mins / 60);
+    const m = Math.round(mins % 60);
+    return h + (m / 100);
+  };
 
   return {
     totalSalary: Math.max(0, Math.round(totalSalary)),
@@ -188,8 +287,8 @@ export const calculateMonthlyPayroll = (
     bonuses: Math.round(bonuses),
     fines: Math.round(fines),
     details: {
-      regularHours: parseFloat(regularHours.toFixed(1)),
-      overtimeHours: parseFloat(overtimeHours.toFixed(1)),
+      regularHours: toDecimalHours(regularMins),
+      overtimeHours: toDecimalHours(overtimeMins),
       nightShiftCount,
       sickDays
     }

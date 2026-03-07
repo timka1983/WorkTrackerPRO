@@ -3,7 +3,7 @@ import React, { useState, useEffect } from 'react';
 import { Organization, PlanType, Plan, PromoCode, User, UserRole } from '../types';
 import { db, supabase } from '../lib/supabase';
 import { STORAGE_KEYS } from '../constants';
-import { Users, Building2, CreditCard, Activity, ShieldCheck, Search, RefreshCw, ExternalLink, Settings2, X, Check, Plus, LayoutGrid, Zap, Briefcase, Save, Camera, Moon, BarChart3, Megaphone, Ticket, Trash2, Database, AlertCircle, PlayCircle } from 'lucide-react';
+import { Users, Building2, CreditCard, Activity, ShieldCheck, Search, RefreshCw, ExternalLink, Settings2, X, Check, Plus, LayoutGrid, Zap, Briefcase, Save, Camera, Moon, BarChart3, Megaphone, Ticket, Trash2, Database, AlertCircle, PlayCircle, Bell } from 'lucide-react';
 
 interface SuperAdminViewProps {
   onLogout: () => void;
@@ -257,19 +257,19 @@ const SuperAdminView: React.FC<SuperAdminViewProps> = ({ onLogout, onUpdateSyste
             type: PlanType.FREE,
             name: 'Бесплатный',
             price: 0,
-            limits: { maxUsers: 3, maxMachines: 2, features: { photoCapture: false, nightShift: false, advancedAnalytics: false, payroll: false } }
+            limits: { maxUsers: 3, maxMachines: 2, features: { photoCapture: false, nightShift: false, advancedAnalytics: false, payroll: false, shiftMonitoring: false } }
           },
           {
             type: PlanType.PRO,
             name: 'Профессиональный',
             price: 2900,
-            limits: { maxUsers: 20, maxMachines: 10, features: { photoCapture: true, nightShift: true, advancedAnalytics: true, payroll: true } }
+            limits: { maxUsers: 20, maxMachines: 10, features: { photoCapture: true, nightShift: true, advancedAnalytics: true, payroll: false, shiftMonitoring: true } }
           },
           {
             type: PlanType.BUSINESS,
             name: 'Бизнес',
             price: 9900,
-            limits: { maxUsers: 1000, maxMachines: 1000, features: { photoCapture: true, nightShift: true, advancedAnalytics: true, payroll: true } }
+            limits: { maxUsers: 1000, maxMachines: 1000, features: { photoCapture: true, nightShift: true, advancedAnalytics: true, payroll: true, shiftMonitoring: true } }
           }
         ];
         setPlans(defaultPlans);
@@ -948,6 +948,12 @@ const SuperAdminView: React.FC<SuperAdminViewProps> = ({ onLogout, onUpdateSyste
                         </div>
                         <span className={plan.limits.features.payroll ? 'text-slate-700 font-medium' : 'text-slate-400'}>Зарплата</span>
                       </div>
+                      <div className="flex items-center gap-3 text-sm">
+                        <div className={`p-1 rounded-md ${plan.limits.features.shiftMonitoring ? 'bg-emerald-100 text-emerald-600' : 'bg-slate-100 text-slate-400'}`}>
+                          <Bell className="w-4 h-4" />
+                        </div>
+                        <span className={plan.limits.features.shiftMonitoring ? 'text-slate-700 font-medium' : 'text-slate-400'}>Мониторинг смен</span>
+                      </div>
                     </div>
 
                     <button 
@@ -1567,6 +1573,28 @@ const SuperAdminView: React.FC<SuperAdminViewProps> = ({ onLogout, onUpdateSyste
                         limits: {
                           ...editingPlan.limits,
                           features: { ...editingPlan.limits.features, payroll: e.target.checked }
+                        }
+                      })}
+                      className="w-5 h-5 rounded border-slate-300 text-indigo-600 focus:ring-indigo-500"
+                    />
+                  </label>
+
+                  <label className="flex items-center justify-between p-4 bg-slate-50 rounded-2xl border border-slate-200 cursor-pointer hover:bg-slate-100 transition-all">
+                    <div className="flex items-center gap-3">
+                      <Bell className="w-5 h-5 text-indigo-600" />
+                      <div>
+                        <p className="text-sm font-bold text-slate-900">Мониторинг смен</p>
+                        <p className="text-xs text-slate-500">Уведомления о просроченных сменах в Telegram</p>
+                      </div>
+                    </div>
+                    <input 
+                      type="checkbox"
+                      checked={editingPlan.limits.features.shiftMonitoring}
+                      onChange={(e) => setEditingPlan({
+                        ...editingPlan,
+                        limits: {
+                          ...editingPlan.limits,
+                          features: { ...editingPlan.limits.features, shiftMonitoring: e.target.checked }
                         }
                       })}
                       className="w-5 h-5 rounded border-slate-300 text-indigo-600 focus:ring-indigo-500"

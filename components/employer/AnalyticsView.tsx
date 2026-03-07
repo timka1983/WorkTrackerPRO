@@ -1,5 +1,5 @@
 import React from 'react';
-import { User, WorkLog, Machine, Organization } from '../../types';
+import { User, WorkLog, Machine, Organization, Branch } from '../../types';
 import { format } from 'date-fns';
 import { formatTime, formatDurationShort } from '../../utils';
 
@@ -9,6 +9,7 @@ interface AnalyticsViewProps {
   machines: Machine[];
   userPerms: any;
   handleForceFinish: (log: WorkLog) => void;
+  branches: Branch[];
 }
 
 export const AnalyticsView: React.FC<AnalyticsViewProps> = ({
@@ -16,7 +17,8 @@ export const AnalyticsView: React.FC<AnalyticsViewProps> = ({
   users,
   machines,
   userPerms,
-  handleForceFinish
+  handleForceFinish,
+  branches
 }) => {
   return (
     <div className="space-y-8 no-print">
@@ -36,7 +38,14 @@ export const AnalyticsView: React.FC<AnalyticsViewProps> = ({
                   return (
                     <div key={s.id} className={`group/item flex justify-between items-center p-3 rounded-xl border transition-all ${isOld ? 'bg-red-50 border-red-200 hover:bg-white shadow-sm' : 'bg-blue-50 border-blue-100 hover:bg-white'}`}>
                        <div className="flex-1 pr-2">
-                          <span className={`text-xs font-bold block truncate ${isOld ? 'text-red-900' : 'text-slate-700'}`}>{emp?.name}</span>
+                          <span className={`text-xs font-bold block truncate ${isOld ? 'text-red-900' : 'text-slate-700'}`}>
+                            {emp?.name}
+                            {emp?.branchId && branches.find(b => b.id === emp.branchId) && (
+                              <span className="ml-1 text-[8px] text-slate-400 font-bold uppercase">
+                                ({branches.find(b => b.id === emp.branchId)?.name})
+                              </span>
+                            )}
+                          </span>
                           <span className={`text-[9px] font-black uppercase tracking-tighter mt-1 flex items-center gap-1 ${isOld ? 'text-red-500' : 'text-blue-500'}`}>
                             {s.isNightShift && <svg className="w-2.5 h-2.5" fill="currentColor" viewBox="0 0 20 20"><path d="M17.293 13.293A8 8 0 016.707 2.707a8.001 8.001 0 1010.586 10.586z"/></svg>}
                             {machineName}

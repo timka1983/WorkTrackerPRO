@@ -9,7 +9,8 @@ export const PLAN_LIMITS: Record<PlanType, PlanLimits> = {
       photoCapture: false,
       nightShift: false,
       advancedAnalytics: false,
-      payroll: false
+      payroll: false,
+      shiftMonitoring: false
     }
   },
   [PlanType.PRO]: {
@@ -19,7 +20,8 @@ export const PLAN_LIMITS: Record<PlanType, PlanLimits> = {
       photoCapture: true,
       nightShift: true,
       advancedAnalytics: true,
-      payroll: false
+      payroll: false,
+      shiftMonitoring: true
     }
   },
   [PlanType.BUSINESS]: {
@@ -29,14 +31,16 @@ export const PLAN_LIMITS: Record<PlanType, PlanLimits> = {
       photoCapture: true,
       nightShift: true,
       advancedAnalytics: true,
-      payroll: true
+      payroll: true,
+      shiftMonitoring: true
     }
   }
 };
 
 export const DEFAULT_PERMISSIONS: PositionPermissions = {
   useMachines: false,
-  multiSlot: false,
+  multiSlot: 0,
+  calculateOvertime: false,
   viewSelfMatrix: true,
   markAbsences: true,
   defaultRequirePhoto: false,
@@ -68,7 +72,7 @@ export const INITIAL_MACHINES: Machine[] = [
 export const INITIAL_POSITIONS: PositionConfig[] = [
   { 
     name: 'Токарь', 
-    permissions: { ...DEFAULT_PERMISSIONS, useMachines: true, multiSlot: true, canUseNightShift: true },
+    permissions: { ...DEFAULT_PERMISSIONS, useMachines: true, multiSlot: 3, canUseNightShift: true },
     payroll: { ...DEFAULT_PAYROLL_CONFIG, rate: 300 }
   },
   { 
@@ -104,6 +108,7 @@ export const STORAGE_KEYS = {
   USERS_LIST: 'timesheet_users_list',
   MACHINES_LIST: 'timesheet_machines_list',
   POSITIONS_LIST: 'timesheet_positions_list',
+  BRANCHES_LIST: 'timesheet_branches_list',
   ACTIVE_SHIFTS: 'timesheet_active_shifts',
   LAST_USER_ID: 'timesheet_last_user_id',
   ORG_ID: 'timesheet_org_id',

@@ -1,7 +1,7 @@
 import React, { useEffect, useMemo, useState, Suspense } from 'react';
-import { UserRole, PlanType, PositionConfig } from './types';
+import { UserRole, PlanType, PositionConfig, User, WorkLog } from './types';
 import { STORAGE_KEYS, DEFAULT_PERMISSIONS, PLAN_LIMITS } from './constants';
-import { sendNotification } from './utils';
+import { sendNotification, calculateMinutes, sendTelegramNotification } from './utils';
 import Layout from './components/Layout';
 import LoadingScreen from './components/LoadingScreen';
 import ResetPinModal from './components/ResetPinModal';
@@ -32,6 +32,69 @@ const App: React.FC = () => {
   const [employerViewMode, setEmployerViewMode] = useState<'matrix' | 'team' | 'analytics' | 'settings' | 'billing' | 'payroll'>('analytics');
   const [employeeViewMode, setEmployeeViewMode] = useState<'control' | 'matrix'>('control');
 
+  // Telegram Notification Monitor
+  useEffect(() => {
+    // Check if feature is enabled in plan
+    const currentPlanType = appData.currentOrg?.plan || PlanType.FREE;
+    const planLimits = appData.plans.find(p => p.type === currentPlanType)?.limits || PLAN_LIMITS[currentPlanType];
+    
+    if (!planLimits.features.shiftMonitoring) return;
+    if (!appData.currentOrg?.telegramSettings?.enabled || !appData.currentOrg.telegramSettings.botToken) return;
+
+    const checkShifts = () => {
+      const now = getNow();
+      const botToken = appData.currentOrg!.telegramSettings!.botToken;
+      
+      Object.entries(appData.activeShiftsMap).forEach(([userId, shifts]) => {
+        const user = appData.users.find((u: User) => u.id === userId);
+        if (!user) return;
+
+        const positionConfig = appData.positions.find((p: PositionConfig) => p.name === user.position);
+        
+        // Only monitor if maxShiftDurationMinutes is explicitly set and > 0
+        const maxDuration = positionConfig?.permissions.maxShiftDurationMinutes;
+        if (!maxDuration || maxDuration <= 0) return;
+
+        const alertThreshold = maxDuration + 15;
+
+        const shiftsRecord = shifts as Record<string, any>;
+        if (!shiftsRecord) return;
+
+        Object.entries(shiftsRecord).forEach(([slot, shift]: [string, any]) => {
+          if (!shift || !shift.checkIn) return;
+
+          const duration = calculateMinutes(shift.checkIn, now.toISOString());
+          
+          if (duration > alertThreshold) {
+            const notificationKey = `tg_alert_${shift.id}`;
+            const lastSent = localStorage.getItem(notificationKey);
+            
+            // Send alert if never sent or sent more than 5 mins ago
+            if (!lastSent || (Date.now() - parseInt(lastSent)) > 5 * 60 * 1000) {
+              
+              // 1. Notify Employee
+              if (user.telegramChatId) {
+                 const msg = `⚠️ <b>Внимание!</b>\nВы забыли закрыть смену!\n⏱ Длительность: ${Math.floor(duration / 60)}ч ${duration % 60}м\nПожалуйста, закройте смену в приложении.`;
+                 sendTelegramNotification(botToken, user.telegramChatId, msg);
+              }
+
+              // 2. Notify Admin (Organization Chat)
+              if (appData.currentOrg?.telegramSettings?.chatId) {
+                 const msg = `⚠️ <b>Просроченная смена</b>\n👤 Сотрудник: ${user.name}\n⏱ Длительность: ${Math.floor(duration / 60)}ч ${duration % 60}м\nЛимит: ${Math.floor(maxDuration / 60)}ч`;
+                 sendTelegramNotification(botToken, appData.currentOrg.telegramSettings.chatId, msg);
+              }
+
+              localStorage.setItem(notificationKey, Date.now().toString());
+            }
+          }
+        });
+      });
+    };
+
+    const interval = setInterval(checkShifts, 60000); // Check every minute
+    return () => clearInterval(interval);
+  }, [appData.activeShiftsMap, appData.currentOrg, appData.users, appData.positions, getNow]);
+
   useEffect(() => {
     const lastUserId = localStorage.getItem(STORAGE_KEYS.LAST_USER_ID);
     if (lastUserId && !auth.currentUser && appData.users.length > 0) {
@@ -61,6 +124,90 @@ const App: React.FC = () => {
   const isEmployerAuthorized = useMemo(() => {
     return userPermissions.isFullAdmin || userPermissions.isLimitedAdmin;
   }, [userPermissions]);
+
+  // Lazy Cleanup for Zombie Shifts (Server-side emulation)
+  useEffect(() => {
+    if (!isEmployerAuthorized || !appData.currentOrg) return;
+
+    const cleanupZombieShifts = () => {
+      const now = getNow();
+      const updates: WorkLog[] = [];
+      const shiftUpdates: Record<string, any> = {};
+
+      Object.entries(appData.activeShiftsMap).forEach(([userId, shifts]) => {
+        const user = appData.users.find(u => u.id === userId);
+        if (!user) return;
+        
+        const pos = appData.positions.find((p: PositionConfig) => p.name === user.position);
+        const maxDuration = pos?.permissions.maxShiftDurationMinutes || appData.currentOrg!.maxShiftDuration || 720;
+        
+        // Threshold: Max + 30 mins (give client time to handle it first)
+        const threshold = maxDuration + 30;
+
+        const userShifts = shifts as Record<string, any>;
+        if (!userShifts) return;
+
+        let userChanged = false;
+        const nextUserShifts = { ...userShifts };
+
+        Object.entries(userShifts).forEach(([slot, shift]) => {
+          if (!shift || !shift.checkIn) return;
+
+          const duration = calculateMinutes(shift.checkIn, now.toISOString());
+          
+          if (duration > threshold) {
+            // Force close
+            const endTime = new Date(new Date(shift.checkIn).getTime() + maxDuration * 60000).toISOString();
+            
+            let finalDuration = maxDuration;
+            if (shift.isNightShift) {
+               finalDuration += appData.nightShiftBonus;
+            }
+
+            const completed: WorkLog = {
+              ...shift,
+              checkOut: endTime,
+              durationMinutes: finalDuration,
+              isCorrected: true,
+              correctionNote: 'Автоматическое завершение (превышен лимит)'
+            };
+            
+            updates.push(completed);
+            nextUserShifts[slot] = null;
+            userChanged = true;
+
+            // Telegram Notification
+            if (appData.currentOrg?.telegramSettings?.enabled && appData.currentOrg.telegramSettings.botToken && appData.currentOrg.telegramSettings.chatId) {
+              const machineName = shift.machineId ? appData.machines.find((m: any) => m.id === shift.machineId)?.name || 'Работа' : 'Работа';
+              const msg = `⛔️ <b>Авто-закрытие (Lazy)</b>\n👤 Сотрудник: ${user.name}\n📍 Позиция: ${user.position}\n🔧 Слот: ${slot} (${machineName})\n⚠️ Причина: Превышен лимит времени (серверная очистка)`;
+              
+              sendTelegramNotification(appData.currentOrg.telegramSettings.botToken, appData.currentOrg.telegramSettings.chatId, msg);
+              if (user.telegramChatId) {
+                 sendTelegramNotification(appData.currentOrg.telegramSettings.botToken, user.telegramChatId, msg);
+              }
+            }
+          }
+        });
+
+        if (userChanged) {
+          shiftUpdates[userId] = nextUserShifts;
+        }
+      });
+
+      if (updates.length > 0) {
+        appData.handleLogsUpsert(updates);
+        Object.entries(shiftUpdates).forEach(([uid, s]) => {
+          appData.handleActiveShiftsUpdate(uid, s);
+        });
+        console.log(`Lazy Cleanup: Closed ${updates.length} zombie shifts.`);
+      }
+    };
+
+    const interval = setInterval(cleanupZombieShifts, 5 * 60 * 1000); // Check every 5 mins
+    cleanupZombieShifts(); // Initial check
+    return () => clearInterval(interval);
+
+  }, [isEmployerAuthorized, appData.currentOrg, appData.activeShiftsMap, appData.users, appData.positions, getNow]);
 
   const isSuperAdmin = useMemo(() => {
     return auth.currentUser?.role === UserRole.SUPER_ADMIN;
@@ -201,6 +348,9 @@ const App: React.FC = () => {
                 onUpdateMachines={appData.persistMachines}
                 positions={appData.positions}
                 onUpdatePositions={appData.persistPositions}
+                branches={appData.branches}
+                onUpdateBranches={appData.persistBranches}
+                onDeleteBranch={appData.handleDeleteBranch}
                 onImportData={appData.handleImportData}
                 onLogsUpsert={appData.handleLogsUpsert}
                 activeShiftsMap={appData.activeShiftsMap}

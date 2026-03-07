@@ -1,28 +1,38 @@
 import React, { useState } from 'react';
-import { User, WorkLog, PositionConfig, UserRole, Machine, EntryType } from '../../types';
+import { User, WorkLog, PositionConfig, UserRole, Machine, EntryType, Branch, Organization } from '../../types';
 import { calculateMonthlyPayroll, formatDurationShort } from '../../utils';
 import { format } from 'date-fns';
+import { ScheduleModal } from '../employee/ScheduleModal';
+import { ChevronDown, ChevronUp } from 'lucide-react';
 
 interface PayrollViewProps {
   users: User[];
+  onUpdateUser: (user: User) => void;
   logs: WorkLog[];
   logsLookup?: Record<string, Record<string, WorkLog[]>>;
   positions: PositionConfig[];
   filterMonth: string;
+  setFilterMonth: (month: string) => void;
   handleExportAll: () => void;
   machines: Machine[];
   onAddGeneralBonus: (userIds: string[], amount: number, date: string, note: string) => void;
+  branches: Branch[];
+  currentOrg?: Organization | null;
 }
 
 export const PayrollView: React.FC<PayrollViewProps> = ({
   users,
+  onUpdateUser,
   logs,
   logsLookup = {},
   positions,
   filterMonth,
+  setFilterMonth,
   handleExportAll,
   machines,
-  onAddGeneralBonus
+  onAddGeneralBonus,
+  branches,
+  currentOrg
 }) => {
   const [expandedRows, setExpandedRows] = useState<Set<string>>(new Set());
   const [showBonusModal, setShowBonusModal] = useState(false);
@@ -31,11 +41,29 @@ export const PayrollView: React.FC<PayrollViewProps> = ({
   const [bonusNote, setBonusNote] = useState('');
   const [selectedUsers, setSelectedUsers] = useState<Set<string>>(new Set());
 
+  const [selectedUserForSchedule, setSelectedUserForSchedule] = useState<User | null>(null);
+
+  const employees = users.filter(u => u.role === UserRole.EMPLOYEE);
+
   const toggleRow = (id: string) => {
     const newSet = new Set(expandedRows);
     if (newSet.has(id)) newSet.delete(id);
     else newSet.add(id);
     setExpandedRows(newSet);
+  };
+
+  const toggleAllRows = () => {
+    if (expandedRows.size > 0) {
+      setExpandedRows(new Set());
+    } else {
+      setExpandedRows(new Set(employees.map(e => e.id)));
+    }
+  };
+
+  const formatMinsToHHMM = (mins: number) => {
+    const h = Math.floor(mins / 60);
+    const m = Math.round(mins % 60);
+    return `${h}.${m.toString().padStart(2, '0')}`;
   };
 
   const handleBonusSubmit = (e: React.FormEvent) => {
@@ -55,8 +83,6 @@ export const PayrollView: React.FC<PayrollViewProps> = ({
     setSelectedUsers(newSet);
   };
 
-  const employees = users.filter(u => u.role === UserRole.EMPLOYEE);
-
   return (
     <div className="bg-white rounded-[2.5rem] shadow-xl border border-slate-200 overflow-hidden relative">
       <div className="p-8 border-b border-slate-100 flex justify-between items-center bg-slate-50/50">
@@ -66,19 +92,45 @@ export const PayrollView: React.FC<PayrollViewProps> = ({
            <button onClick={handleExportAll} className="px-6 py-3 bg-slate-900 text-white rounded-2xl font-black text-xs uppercase tracking-widest hover:bg-blue-600 transition-all shadow-lg shadow-slate-200 hover:shadow-blue-200 active:scale-95">Экспорт</button>
          </div>
       </div>
+      
+      {selectedUserForSchedule && (
+        <ScheduleModal
+          isOpen={!!selectedUserForSchedule}
+          onClose={() => setSelectedUserForSchedule(null)}
+          user={selectedUserForSchedule}
+          onUpdateUser={onUpdateUser}
+          currentMonth={filterMonth}
+          setFilterMonth={setFilterMonth}
+          readOnly={true}
+          logsLookup={logsLookup}
+        />
+      )}
+
       <div className="overflow-x-auto">
         <table className="w-full text-left border-collapse">
           <thead>
             <tr className="bg-slate-50 border-b border-slate-200 text-[10px] font-black text-slate-400 uppercase tracking-wider">
-              <th className="p-4">Сотрудник</th>
+              <th className="p-4">
+                <div className="flex items-center gap-2">
+                  <span>Сотрудник</span>
+                  <button 
+                    onClick={toggleAllRows}
+                    className="p-1 hover:bg-slate-200 rounded transition-colors text-slate-500"
+                    title={expandedRows.size > 0 ? "Свернуть все" : "Раскрыть все"}
+                  >
+                    {expandedRows.size > 0 ? <ChevronUp size={14} /> : <ChevronDown size={14} />}
+                  </button>
+                </div>
+              </th>
               <th className="p-4">Должность</th>
               <th className="p-4 text-center">Ставка</th>
-              <th className="p-4 text-center">Часы (Обыч.)</th>
+              <th className="p-4 text-center">Часы</th>
               <th className="p-4 text-center">Часы (Сверхуроч.)</th>
               <th className="p-4 text-center">Ночные смены</th>
               <th className="p-4 text-center">Больничные</th>
               <th className="p-4 text-center">Премии</th>
               <th className="p-4 text-center">Штрафы</th>
+              <th className="p-4 text-center">Итого часов</th>
               <th className="p-4 text-right">Итого к выплате</th>
             </tr>
           </thead>
@@ -92,7 +144,7 @@ export const PayrollView: React.FC<PayrollViewProps> = ({
                  }
                });
                
-               const payroll = calculateMonthlyPayroll(emp, empLogs, positions);
+               const payroll = calculateMonthlyPayroll(emp, empLogs, positions, currentOrg || undefined);
                const rate = emp.payroll?.rate ?? (positions.find(p => p.name === emp.position)?.payroll?.rate || 0);
                const type = emp.payroll?.type ?? (positions.find(p => p.name === emp.position)?.payroll?.type || 'hourly');
                
@@ -104,7 +156,14 @@ export const PayrollView: React.FC<PayrollViewProps> = ({
                    <tr className="border-b border-slate-100 hover:bg-slate-50/50 transition-colors">
                      <td className="p-4 text-sm font-bold text-slate-900">
                         <div className="flex items-center gap-2">
-                          {emp.name}
+                          <div className="flex flex-col cursor-pointer hover:text-blue-600" onClick={() => setSelectedUserForSchedule(emp)}>
+                            <span>{emp.name}</span>
+                            {emp.branchId && branches.find(b => b.id === emp.branchId) && (
+                              <span className="text-[8px] text-slate-400 font-black uppercase tracking-tighter">
+                                {branches.find(b => b.id === emp.branchId)?.name}
+                              </span>
+                            )}
+                          </div>
                           {usedMachineIds.length > 0 && (
                             <button 
                               onClick={() => toggleRow(emp.id)}
@@ -122,19 +181,24 @@ export const PayrollView: React.FC<PayrollViewProps> = ({
                           {type === 'hourly' ? '/час' : type === 'fixed' ? '/мес' : '/смена'}
                         </span>
                      </td>
-                     <td className="p-4 text-center text-xs font-mono text-slate-600">{payroll.details.regularHours}</td>
-                     <td className="p-4 text-center text-xs font-mono text-amber-600">{payroll.details.overtimeHours > 0 ? payroll.details.overtimeHours : '-'}</td>
-                     <td className="p-4 text-center text-xs font-mono text-indigo-600">{payroll.details.nightShiftCount > 0 ? payroll.details.nightShiftCount : '-'}</td>
-                     <td className="p-4 text-center text-xs font-mono text-teal-600">{payroll.details.sickDays > 0 ? payroll.details.sickDays : '-'}</td>
-                     <td className="p-4 text-center text-xs font-mono text-green-600">{payroll.bonuses > 0 ? payroll.bonuses : '-'}</td>
-                     <td className="p-4 text-center text-xs font-mono text-red-600">{payroll.fines > 0 ? payroll.fines : '-'}</td>
-                     <td className="p-4 text-right font-black text-slate-900 text-sm">{payroll.totalSalary.toLocaleString('ru-RU')} ₽</td>
+                      <td className="p-4 text-center text-xs font-mono text-slate-600">
+                        {formatMinsToHHMM(empLogs.filter(l => !l.machineId && l.entryType === EntryType.WORK).reduce((sum, l) => sum + l.durationMinutes, 0))}
+                      </td>
+                      <td className="p-4 text-center text-xs font-mono text-amber-600">{payroll.details.overtimeHours > 0 ? payroll.details.overtimeHours.toFixed(2) : '-'}</td>
+                      <td className="p-4 text-center text-xs font-mono text-indigo-600">{payroll.details.nightShiftCount > 0 ? payroll.details.nightShiftCount : '-'}</td>
+                      <td className="p-4 text-center text-xs font-mono text-teal-600">{payroll.details.sickDays > 0 ? payroll.details.sickDays : '-'}</td>
+                      <td className="p-4 text-center text-xs font-mono text-green-600">{payroll.bonuses > 0 ? payroll.bonuses : '-'}</td>
+                      <td className="p-4 text-center text-xs font-mono text-red-600">{payroll.fines > 0 ? payroll.fines : '-'}</td>
+                      <td className="p-4 text-center text-xs font-mono text-slate-900 font-bold">
+                        {formatMinsToHHMM(empLogs.filter(l => l.entryType === EntryType.WORK).reduce((sum, l) => sum + l.durationMinutes, 0))}
+                      </td>
+                      <td className="p-4 text-right font-black text-slate-900 text-sm">{payroll.totalSalary.toLocaleString('ru-RU')} ₽</td>
                    </tr>
                    {isExpanded && usedMachineIds.map(mId => {
                      const machineName = machines.find(m => m.id === mId)?.name || 'Работа';
                      const mLogs = empLogs.filter(l => l.machineId === mId && l.entryType === EntryType.WORK);
                      const mMins = mLogs.reduce((s, l) => s + l.durationMinutes, 0);
-                     const mHours = (mMins / 60).toFixed(1);
+                     const mHours = formatMinsToHHMM(mMins);
                      
                      const posConfig = positions.find(p => p.name === emp.position);
                      const config = emp.payroll || posConfig?.payroll;
@@ -142,13 +206,14 @@ export const PayrollView: React.FC<PayrollViewProps> = ({
                      const mPay = Math.round((mMins / 60) * mRate);
 
                      return (
-                       <tr key={`${emp.id}-${mId}`} className="bg-slate-50/80 border-b border-slate-100">
-                         <td className="p-3 pl-12 text-xs font-bold text-slate-500 italic" colSpan={2}>↳ {machineName}</td>
-                         <td className="p-3 text-center text-xs font-mono text-slate-500">{mRate} ₽/час</td>
-                         <td className="p-3 text-center text-xs font-mono text-slate-500">{mHours}</td>
-                         <td colSpan={5}></td>
-                         <td className="p-3 text-right text-xs font-bold text-slate-600">{mPay.toLocaleString('ru-RU')} ₽</td>
-                       </tr>
+                        <tr key={`${emp.id}-${mId}`} className="bg-slate-50/80 border-b border-slate-100">
+                          <td className="p-3 pl-12 text-xs font-bold text-slate-500 italic" colSpan={2}>↳ {machineName}</td>
+                          <td className="p-3 text-center text-xs font-mono text-slate-500">{mRate} ₽/час</td>
+                          <td className="p-3 text-center text-xs font-mono text-slate-500 font-bold">{mHours}</td>
+                          <td colSpan={5}></td>
+                          <td className="p-3 text-center text-xs font-mono text-slate-300">-</td>
+                          <td className="p-3 text-right text-xs font-bold text-slate-600">{mPay.toLocaleString('ru-RU')} ₽</td>
+                        </tr>
                      );
                    })}
                  </React.Fragment>
