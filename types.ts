@@ -27,6 +27,7 @@ export interface PlanLimits {
     advancedAnalytics: boolean;
     payroll: boolean;
     shiftMonitoring: boolean;
+    payments: boolean;
   };
 }
 
@@ -89,6 +90,7 @@ export interface Organization {
   telegramSettings?: TelegramSettings;
   maxShiftDuration?: number; // Global max shift duration in minutes (default 720 = 12h)
   roundShiftMinutes?: boolean; // 15-minute rounding rule
+  nightShiftBonus?: number; // Global night shift bonus in minutes
 }
 
 export const FIXED_POSITION_TURNER = 'Токарь';
@@ -107,7 +109,7 @@ export interface PositionPermissions {
 }
 
 export interface PayrollConfig {
-  type: 'hourly' | 'fixed' | 'shift';
+  type: 'hourly' | 'fixed' | 'shift' | 'piecework';
   rate: number; 
   overtimeMultiplier: number;
   nightShiftBonus: number;
@@ -174,9 +176,43 @@ export interface WorkLog {
   isNightShift?: boolean; // Флаг ночной смены
   fine?: number; // Штраф за смену
   bonus?: number; // Премия за смену
+  itemsProduced?: number; // Количество произведенных единиц для сдельной оплаты
   location?: {
     latitude: number;
     longitude: number;
     accuracy: number;
   };
+}
+
+export interface PayrollSnapshot {
+  id: string;
+  userId: string;
+  organizationId: string;
+  month: string; // YYYY-MM
+  totalMinutes: number;
+  totalSalary: number;
+  bonuses: number;
+  fines: number;
+  rateUsed: number;
+  rateType: 'hourly' | 'fixed' | 'shift' | 'piecework';
+  calculatedAt: string; // ISO timestamp
+  details: any; // Store the full calculation details as JSON
+}
+
+export enum PaymentType {
+  ADVANCE = 'advance',
+  SALARY = 'salary',
+  BONUS = 'bonus',
+  OTHER = 'other'
+}
+
+export interface PayrollPayment {
+  id: string;
+  userId: string;
+  organizationId: string;
+  amount: number;
+  date: string; // YYYY-MM-DD
+  type: PaymentType;
+  comment?: string;
+  createdAt: string; // ISO timestamp
 }

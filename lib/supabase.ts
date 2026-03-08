@@ -85,7 +85,8 @@ export const db = {
       locationSettings: data.location_settings,
       telegramSettings: data.telegram_settings,
       maxShiftDuration: data.max_shift_duration,
-      roundShiftMinutes: data.round_shift_minutes
+      roundShiftMinutes: data.round_shift_minutes,
+      nightShiftBonus: data.night_shift_bonus
     };
   },
   getLogs: async (orgId: string, monthPrefix?: string) => {
@@ -146,7 +147,8 @@ export const db = {
             correctionTimestamp: l.correction_timestamp,
             isNightShift: l.is_night_shift,
             fine: l.fine,
-            bonus: l.bonus
+            bonus: l.bonus,
+            itemsProduced: l.items_produced
           }));
         }
         throw error;
@@ -170,7 +172,8 @@ export const db = {
         correctionTimestamp: l.correction_timestamp,
         isNightShift: l.is_night_shift,
         fine: l.fine,
-        bonus: l.bonus
+        bonus: l.bonus,
+        itemsProduced: l.items_produced
       }));
     } catch (e) {
       console.error('Error in getLogs:', e);
@@ -200,6 +203,8 @@ export const db = {
       correction_timestamp: log.correctionTimestamp,
       is_night_shift: log.isNightShift,
       fine: log.fine,
+      bonus: log.bonus,
+      items_produced: log.itemsProduced,
       location: log.location
     };
     
@@ -303,6 +308,7 @@ export const db = {
       if (log.isNightShift) item.is_night_shift = true;
       if (log.fine) item.fine = log.fine;
       if (log.bonus) item.bonus = log.bonus;
+      if (log.itemsProduced !== undefined) item.items_produced = log.itemsProduced;
       if (log.location) item.location = log.location;
       if (log.branchId) item.branch_id = log.branchId;
       if (orgId) item.organization_id = orgId;
@@ -317,7 +323,7 @@ export const db = {
       // Если ошибка в колонках (42703) или неопределенная ошибка, пробуем минимальный набор
       if (error.code === '42703' || error.message?.includes('column')) {
         const minimalPayload = payload.map(p => {
-          const { is_night_shift, photo_in, photo_out, machine_id, fine, bonus, branch_id, ...rest } = p;
+          const { is_night_shift, photo_in, photo_out, machine_id, fine, bonus, items_produced, branch_id, ...rest } = p;
           return rest;
         });
         console.warn('Retrying with minimal payload...');
@@ -1009,6 +1015,10 @@ export const db = {
       dbUpdates.round_shift_minutes = updates.roundShiftMinutes;
       delete dbUpdates.roundShiftMinutes;
     }
+    if (updates.nightShiftBonus !== undefined) {
+      dbUpdates.night_shift_bonus = updates.nightShiftBonus;
+      delete dbUpdates.nightShiftBonus;
+    }
 
     const { error } = await supabase.from('organizations').update(dbUpdates).eq('id', orgId);
     
@@ -1038,7 +1048,8 @@ export const db = {
       expiry_date: org.expiryDate,
       notification_settings: org.notificationSettings,
       max_shift_duration: org.maxShiftDuration,
-      round_shift_minutes: org.roundShiftMinutes
+      round_shift_minutes: org.roundShiftMinutes,
+      night_shift_bonus: org.nightShiftBonus
     }, { onConflict: 'id' });
     
     if (error && error.code !== '23505') {
@@ -1101,6 +1112,273 @@ export const db = {
       return { error: e.message };
     }
   },
+  getFullSqlSchema: () => {
+    return `
+-- === FULL DATABASE SCHEMA FOR WORK TRACKER PRO ===
+
+-- 1. Organizations
+CREATE TABLE IF NOT EXISTS organizations (
+  id TEXT PRIMARY KEY,
+  name TEXT NOT NULL,
+  email TEXT,
+  owner_id TEXT NOT NULL,
+  plan TEXT DEFAULT 'FREE',
+  status TEXT DEFAULT 'active',
+  expiry_date TIMESTAMPTZ,
+  notification_settings JSONB DEFAULT '{}',
+  max_shift_duration INTEGER DEFAULT 720,
+  round_shift_minutes BOOLEAN DEFAULT false
+);
+ALTER TABLE organizations ENABLE ROW LEVEL SECURITY;
+DROP POLICY IF EXISTS "Allow public read" ON organizations;
+CREATE POLICY "Allow public read" ON organizations FOR SELECT USING (true);
+DROP POLICY IF EXISTS "Allow public insert" ON organizations;
+CREATE POLICY "Allow public insert" ON organizations FOR INSERT WITH CHECK (true);
+DROP POLICY IF EXISTS "Allow public update" ON organizations;
+CREATE POLICY "Allow public update" ON organizations FOR UPDATE USING (true);
+
+-- 2. Users
+CREATE TABLE IF NOT EXISTS users (
+  id TEXT PRIMARY KEY,
+  organization_id TEXT NOT NULL,
+  name TEXT NOT NULL,
+  role TEXT DEFAULT 'EMPLOYEE',
+  department TEXT,
+  position TEXT,
+  pin TEXT NOT NULL,
+  require_photo BOOLEAN DEFAULT false,
+  is_admin BOOLEAN DEFAULT false,
+  force_pin_change BOOLEAN DEFAULT false,
+  push_token TEXT,
+  planned_shifts JSONB DEFAULT '{}',
+  payroll JSONB DEFAULT '{}'
+);
+ALTER TABLE users ENABLE ROW LEVEL SECURITY;
+DROP POLICY IF EXISTS "Allow public read" ON users;
+CREATE POLICY "Allow public read" ON users FOR SELECT USING (true);
+DROP POLICY IF EXISTS "Allow public insert" ON users;
+CREATE POLICY "Allow public insert" ON users FOR INSERT WITH CHECK (true);
+DROP POLICY IF EXISTS "Allow public update" ON users;
+CREATE POLICY "Allow public update" ON users FOR UPDATE USING (true);
+DROP POLICY IF EXISTS "Allow public delete" ON users;
+CREATE POLICY "Allow public delete" ON users FOR DELETE USING (true);
+
+-- 3. Work Logs
+CREATE TABLE IF NOT EXISTS work_logs (
+  id TEXT PRIMARY KEY,
+  user_id TEXT NOT NULL,
+  organization_id TEXT NOT NULL,
+  date TEXT NOT NULL,
+  entry_type TEXT NOT NULL,
+  machine_id TEXT,
+  check_in TIMESTAMPTZ,
+  check_out TIMESTAMPTZ,
+  duration_minutes INTEGER DEFAULT 0,
+  photo_in TEXT,
+  photo_out TEXT,
+  is_corrected BOOLEAN DEFAULT false,
+  correction_note TEXT,
+  correction_timestamp TIMESTAMPTZ,
+  is_night_shift BOOLEAN DEFAULT false,
+  fine INTEGER DEFAULT 0,
+  bonus INTEGER DEFAULT 0
+);
+ALTER TABLE work_logs ENABLE ROW LEVEL SECURITY;
+DROP POLICY IF EXISTS "Allow public read" ON work_logs;
+CREATE POLICY "Allow public read" ON work_logs FOR SELECT USING (true);
+DROP POLICY IF EXISTS "Allow public insert" ON work_logs;
+CREATE POLICY "Allow public insert" ON work_logs FOR INSERT WITH CHECK (true);
+DROP POLICY IF EXISTS "Allow public update" ON work_logs;
+CREATE POLICY "Allow public update" ON work_logs FOR UPDATE USING (true);
+DROP POLICY IF EXISTS "Allow public delete" ON work_logs;
+CREATE POLICY "Allow public delete" ON work_logs FOR DELETE USING (true);
+
+-- 4. Machines
+CREATE TABLE IF NOT EXISTS machines (
+  id TEXT PRIMARY KEY,
+  organization_id TEXT NOT NULL,
+  name TEXT NOT NULL
+);
+ALTER TABLE machines ENABLE ROW LEVEL SECURITY;
+DROP POLICY IF EXISTS "Allow public read" ON machines;
+CREATE POLICY "Allow public read" ON machines FOR SELECT USING (true);
+DROP POLICY IF EXISTS "Allow public insert" ON machines;
+CREATE POLICY "Allow public insert" ON machines FOR INSERT WITH CHECK (true);
+DROP POLICY IF EXISTS "Allow public update" ON machines;
+CREATE POLICY "Allow public update" ON machines FOR UPDATE USING (true);
+DROP POLICY IF EXISTS "Allow public delete" ON machines;
+CREATE POLICY "Allow public delete" ON machines FOR DELETE USING (true);
+
+-- 5. Positions
+CREATE TABLE IF NOT EXISTS positions (
+  name TEXT NOT NULL,
+  organization_id TEXT NOT NULL,
+  permissions JSONB DEFAULT '{}',
+  payroll JSONB DEFAULT '{}',
+  PRIMARY KEY (organization_id, name)
+);
+ALTER TABLE positions ENABLE ROW LEVEL SECURITY;
+DROP POLICY IF EXISTS "Allow public read" ON positions;
+CREATE POLICY "Allow public read" ON positions FOR SELECT USING (true);
+DROP POLICY IF EXISTS "Allow public insert" ON positions;
+CREATE POLICY "Allow public insert" ON positions FOR INSERT WITH CHECK (true);
+DROP POLICY IF EXISTS "Allow public update" ON positions;
+CREATE POLICY "Allow public update" ON positions FOR UPDATE USING (true);
+DROP POLICY IF EXISTS "Allow public delete" ON positions;
+CREATE POLICY "Allow public delete" ON positions FOR DELETE USING (true);
+
+-- 6. Plans
+CREATE TABLE IF NOT EXISTS plans (
+  type TEXT PRIMARY KEY,
+  name TEXT NOT NULL,
+  limits JSONB DEFAULT '{}',
+  price INTEGER DEFAULT 0
+);
+ALTER TABLE plans ENABLE ROW LEVEL SECURITY;
+DROP POLICY IF EXISTS "Allow public read" ON plans;
+CREATE POLICY "Allow public read" ON plans FOR SELECT USING (true);
+DROP POLICY IF EXISTS "Allow public insert" ON plans;
+CREATE POLICY "Allow public insert" ON plans FOR INSERT WITH CHECK (true);
+DROP POLICY IF EXISTS "Allow public update" ON plans;
+CREATE POLICY "Allow public update" ON plans FOR UPDATE USING (true);
+
+-- 7. Promo Codes
+CREATE TABLE IF NOT EXISTS promo_codes (
+  id TEXT PRIMARY KEY,
+  code TEXT UNIQUE NOT NULL,
+  plan_type TEXT NOT NULL,
+  duration_days INTEGER NOT NULL,
+  max_uses INTEGER DEFAULT 1,
+  used_count INTEGER DEFAULT 0,
+  created_at TIMESTAMPTZ DEFAULT now(),
+  expires_at TIMESTAMPTZ,
+  is_active BOOLEAN DEFAULT true,
+  last_used_by TEXT,
+  last_used_at TIMESTAMPTZ
+);
+ALTER TABLE promo_codes ENABLE ROW LEVEL SECURITY;
+DROP POLICY IF EXISTS "Allow public read" ON promo_codes;
+CREATE POLICY "Allow public read" ON promo_codes FOR SELECT USING (true);
+DROP POLICY IF EXISTS "Allow public insert" ON promo_codes;
+CREATE POLICY "Allow public insert" ON promo_codes FOR INSERT WITH CHECK (true);
+DROP POLICY IF EXISTS "Allow public update" ON promo_codes;
+CREATE POLICY "Allow public update" ON promo_codes FOR UPDATE USING (true);
+
+-- 8. Active Shifts
+CREATE TABLE IF NOT EXISTS active_shifts (
+  user_id TEXT PRIMARY KEY,
+  organization_id TEXT NOT NULL,
+  shifts JSONB DEFAULT '{}',
+  shifts_json JSONB DEFAULT '{}'
+);
+ALTER TABLE active_shifts ENABLE ROW LEVEL SECURITY;
+DROP POLICY IF EXISTS "Allow public read" ON active_shifts;
+CREATE POLICY "Allow public read" ON active_shifts FOR SELECT USING (true);
+DROP POLICY IF EXISTS "Allow public insert" ON active_shifts;
+CREATE POLICY "Allow public insert" ON active_shifts FOR INSERT WITH CHECK (true);
+DROP POLICY IF EXISTS "Allow public update" ON active_shifts;
+CREATE POLICY "Allow public update" ON active_shifts FOR UPDATE USING (true);
+DROP POLICY IF EXISTS "Allow public delete" ON active_shifts;
+CREATE POLICY "Allow public delete" ON active_shifts FOR DELETE USING (true);
+
+-- 9. System Config
+CREATE TABLE IF NOT EXISTS system_config (
+  id TEXT PRIMARY KEY,
+  super_admin_pin TEXT,
+  global_admin_pin TEXT
+);
+ALTER TABLE system_config ENABLE ROW LEVEL SECURITY;
+DROP POLICY IF EXISTS "Allow public read" ON system_config;
+CREATE POLICY "Allow public read" ON system_config FOR SELECT USING (true);
+DROP POLICY IF EXISTS "Allow public update" ON system_config;
+CREATE POLICY "Allow public update" ON system_config FOR UPDATE USING (true);
+DROP POLICY IF EXISTS "Allow public insert" ON system_config;
+CREATE POLICY "Allow public insert" ON system_config FOR INSERT WITH CHECK (true);
+
+-- Insert default system config
+INSERT INTO system_config (id, super_admin_pin, global_admin_pin) 
+VALUES ('global', '7777', '0000') 
+ON CONFLICT (id) DO NOTHING;
+
+-- 10. Dashboard Stats Function
+CREATE OR REPLACE FUNCTION get_dashboard_stats(p_org_id text, p_month text, p_last_7_days text[])
+RETURNS json AS $$
+DECLARE
+    v_total_weekly_minutes bigint;
+    v_absences json;
+BEGIN
+    SELECT COALESCE(SUM(duration_minutes), 0)
+    INTO v_total_weekly_minutes
+    FROM work_logs
+    WHERE organization_id = p_org_id 
+      AND date::text = ANY(p_last_7_days)
+      AND entry_type = 'WORK';
+
+    SELECT json_agg(t)
+    INTO v_absences
+    FROM (
+        SELECT entry_type as type, COUNT(*) as count
+        FROM work_logs
+        WHERE organization_id = p_org_id 
+          AND date::text LIKE p_month || '%'
+          AND entry_type != 'WORK'
+        GROUP BY entry_type
+    ) t;
+
+    RETURN json_build_object(
+        'total_weekly_minutes', v_total_weekly_minutes,
+        'top_absences', COALESCE(v_absences, '[]'::json)
+    );
+END;
+$$ LANGUAGE plpgsql SECURITY DEFINER;
+
+-- 11. Payroll Snapshots
+CREATE TABLE IF NOT EXISTS payroll_snapshots (
+  id TEXT PRIMARY KEY,
+  user_id TEXT NOT NULL,
+  organization_id TEXT NOT NULL,
+  month TEXT NOT NULL,
+  total_minutes INTEGER DEFAULT 0,
+  total_salary INTEGER DEFAULT 0,
+  bonuses INTEGER DEFAULT 0,
+  fines INTEGER DEFAULT 0,
+  rate_used INTEGER DEFAULT 0,
+  rate_type TEXT NOT NULL,
+  calculated_at TIMESTAMPTZ DEFAULT now(),
+  details JSONB DEFAULT '{}'
+);
+ALTER TABLE payroll_snapshots ENABLE ROW LEVEL SECURITY;
+DROP POLICY IF EXISTS "Allow public read" ON payroll_snapshots;
+CREATE POLICY "Allow public read" ON payroll_snapshots FOR SELECT USING (true);
+DROP POLICY IF EXISTS "Allow public insert" ON payroll_snapshots;
+CREATE POLICY "Allow public insert" ON payroll_snapshots FOR INSERT WITH CHECK (true);
+DROP POLICY IF EXISTS "Allow public update" ON payroll_snapshots;
+CREATE POLICY "Allow public update" ON payroll_snapshots FOR UPDATE USING (true);
+DROP POLICY IF EXISTS "Allow public delete" ON payroll_snapshots;
+CREATE POLICY "Allow public delete" ON payroll_snapshots FOR DELETE USING (true);
+
+-- 12. Payroll Payments
+CREATE TABLE IF NOT EXISTS payroll_payments (
+  id TEXT PRIMARY KEY,
+  user_id TEXT NOT NULL,
+  organization_id TEXT NOT NULL,
+  amount INTEGER NOT NULL,
+  date TEXT NOT NULL,
+  type TEXT NOT NULL,
+  comment TEXT,
+  created_at TIMESTAMPTZ DEFAULT now()
+);
+ALTER TABLE payroll_payments ENABLE ROW LEVEL SECURITY;
+DROP POLICY IF EXISTS "Allow public read" ON payroll_payments;
+CREATE POLICY "Allow public read" ON payroll_payments FOR SELECT USING (true);
+DROP POLICY IF EXISTS "Allow public insert" ON payroll_payments;
+CREATE POLICY "Allow public insert" ON payroll_payments FOR INSERT WITH CHECK (true);
+DROP POLICY IF EXISTS "Allow public update" ON payroll_payments;
+CREATE POLICY "Allow public update" ON payroll_payments FOR UPDATE USING (true);
+DROP POLICY IF EXISTS "Allow public delete" ON payroll_payments;
+CREATE POLICY "Allow public delete" ON payroll_payments FOR DELETE USING (true);
+    `;
+  },
   getDiagnostics: async () => {
     const results: Record<string, any> = {
       config: {
@@ -1117,7 +1395,7 @@ export const db = {
     }
 
     try {
-      const tablesToCheck = ['organizations', 'users', 'work_logs', 'machines', 'positions', 'plans', 'promo_codes', 'active_shifts', 'system_config'];
+      const tablesToCheck = ['organizations', 'users', 'work_logs', 'machines', 'positions', 'plans', 'promo_codes', 'active_shifts', 'system_config', 'payroll_snapshots', 'payroll_payments'];
       results.storage = {};
       
       try {
@@ -1263,7 +1541,211 @@ INSERT INTO system_config (id, super_admin_pin, global_admin_pin) VALUES ('globa
             `);
           } else {
              // Generic fallback for other tables
-             results.sqlFixes.push(`-- Table ${table} is missing. Please check Supabase schema.`);
+             if (table === 'organizations') {
+               results.sqlFixes.push(`
+CREATE TABLE IF NOT EXISTS organizations (
+  id TEXT PRIMARY KEY,
+  name TEXT NOT NULL,
+  email TEXT,
+  owner_id TEXT NOT NULL,
+  plan TEXT DEFAULT 'FREE',
+  status TEXT DEFAULT 'active',
+  expiry_date TIMESTAMPTZ,
+  notification_settings JSONB DEFAULT '{}',
+  max_shift_duration INTEGER DEFAULT 720,
+  round_shift_minutes BOOLEAN DEFAULT false
+);
+ALTER TABLE organizations ENABLE ROW LEVEL SECURITY;
+DROP POLICY IF EXISTS "Allow public read" ON organizations;
+CREATE POLICY "Allow public read" ON organizations FOR SELECT USING (true);
+DROP POLICY IF EXISTS "Allow public insert" ON organizations;
+CREATE POLICY "Allow public insert" ON organizations FOR INSERT WITH CHECK (true);
+DROP POLICY IF EXISTS "Allow public update" ON organizations;
+CREATE POLICY "Allow public update" ON organizations FOR UPDATE USING (true);
+              `);
+             } else if (table === 'users') {
+               results.sqlFixes.push(`
+CREATE TABLE IF NOT EXISTS users (
+  id TEXT PRIMARY KEY,
+  organization_id TEXT NOT NULL,
+  name TEXT NOT NULL,
+  role TEXT DEFAULT 'EMPLOYEE',
+  department TEXT,
+  position TEXT,
+  pin TEXT NOT NULL,
+  require_photo BOOLEAN DEFAULT false,
+  is_admin BOOLEAN DEFAULT false,
+  force_pin_change BOOLEAN DEFAULT false,
+  push_token TEXT,
+  planned_shifts JSONB DEFAULT '{}',
+  payroll JSONB DEFAULT '{}',
+  branch_id TEXT
+);
+ALTER TABLE users ENABLE ROW LEVEL SECURITY;
+DROP POLICY IF EXISTS "Allow public read" ON users;
+CREATE POLICY "Allow public read" ON users FOR SELECT USING (true);
+DROP POLICY IF EXISTS "Allow public insert" ON users;
+CREATE POLICY "Allow public insert" ON users FOR INSERT WITH CHECK (true);
+DROP POLICY IF EXISTS "Allow public update" ON users;
+CREATE POLICY "Allow public update" ON users FOR UPDATE USING (true);
+DROP POLICY IF EXISTS "Allow public delete" ON users;
+CREATE POLICY "Allow public delete" ON users FOR DELETE USING (true);
+              `);
+             } else if (table === 'work_logs') {
+               results.sqlFixes.push(`
+CREATE TABLE IF NOT EXISTS work_logs (
+  id TEXT PRIMARY KEY,
+  user_id TEXT NOT NULL,
+  organization_id TEXT NOT NULL,
+  date TEXT NOT NULL,
+  entry_type TEXT NOT NULL,
+  machine_id TEXT,
+  check_in TIMESTAMPTZ,
+  check_out TIMESTAMPTZ,
+  duration_minutes INTEGER DEFAULT 0,
+  photo_in TEXT,
+  photo_out TEXT,
+  is_corrected BOOLEAN DEFAULT false,
+  correction_note TEXT,
+  correction_timestamp TIMESTAMPTZ,
+  is_night_shift BOOLEAN DEFAULT false,
+  fine INTEGER DEFAULT 0,
+  bonus INTEGER DEFAULT 0,
+  branch_id TEXT
+);
+ALTER TABLE work_logs ENABLE ROW LEVEL SECURITY;
+DROP POLICY IF EXISTS "Allow public read" ON work_logs;
+CREATE POLICY "Allow public read" ON work_logs FOR SELECT USING (true);
+DROP POLICY IF EXISTS "Allow public insert" ON work_logs;
+CREATE POLICY "Allow public insert" ON work_logs FOR INSERT WITH CHECK (true);
+DROP POLICY IF EXISTS "Allow public update" ON work_logs;
+CREATE POLICY "Allow public update" ON work_logs FOR UPDATE USING (true);
+DROP POLICY IF EXISTS "Allow public delete" ON work_logs;
+CREATE POLICY "Allow public delete" ON work_logs FOR DELETE USING (true);
+              `);
+             } else if (table === 'machines') {
+               results.sqlFixes.push(`
+CREATE TABLE IF NOT EXISTS machines (
+  id TEXT PRIMARY KEY,
+  organization_id TEXT NOT NULL,
+  name TEXT NOT NULL,
+  branch_id TEXT
+);
+ALTER TABLE machines ENABLE ROW LEVEL SECURITY;
+DROP POLICY IF EXISTS "Allow public read" ON machines;
+CREATE POLICY "Allow public read" ON machines FOR SELECT USING (true);
+DROP POLICY IF EXISTS "Allow public insert" ON machines;
+CREATE POLICY "Allow public insert" ON machines FOR INSERT WITH CHECK (true);
+DROP POLICY IF EXISTS "Allow public update" ON machines;
+CREATE POLICY "Allow public update" ON machines FOR UPDATE USING (true);
+DROP POLICY IF EXISTS "Allow public delete" ON machines;
+CREATE POLICY "Allow public delete" ON machines FOR DELETE USING (true);
+              `);
+             } else if (table === 'plans') {
+               results.sqlFixes.push(`
+CREATE TABLE IF NOT EXISTS plans (
+  type TEXT PRIMARY KEY,
+  name TEXT NOT NULL,
+  limits JSONB DEFAULT '{}',
+  price INTEGER DEFAULT 0
+);
+ALTER TABLE plans ENABLE ROW LEVEL SECURITY;
+DROP POLICY IF EXISTS "Allow public read" ON plans;
+CREATE POLICY "Allow public read" ON plans FOR SELECT USING (true);
+DROP POLICY IF EXISTS "Allow public insert" ON plans;
+CREATE POLICY "Allow public insert" ON plans FOR INSERT WITH CHECK (true);
+DROP POLICY IF EXISTS "Allow public update" ON plans;
+CREATE POLICY "Allow public update" ON plans FOR UPDATE USING (true);
+              `);
+             } else if (table === 'active_shifts') {
+               results.sqlFixes.push(`
+CREATE TABLE IF NOT EXISTS active_shifts (
+  user_id TEXT PRIMARY KEY,
+  organization_id TEXT NOT NULL,
+  shifts JSONB DEFAULT '{}',
+  shifts_json JSONB DEFAULT '{}'
+);
+ALTER TABLE active_shifts ENABLE ROW LEVEL SECURITY;
+DROP POLICY IF EXISTS "Allow public read" ON active_shifts;
+CREATE POLICY "Allow public read" ON active_shifts FOR SELECT USING (true);
+DROP POLICY IF EXISTS "Allow public insert" ON active_shifts;
+CREATE POLICY "Allow public insert" ON active_shifts FOR INSERT WITH CHECK (true);
+DROP POLICY IF EXISTS "Allow public update" ON active_shifts;
+CREATE POLICY "Allow public update" ON active_shifts FOR UPDATE USING (true);
+DROP POLICY IF EXISTS "Allow public delete" ON active_shifts;
+CREATE POLICY "Allow public delete" ON active_shifts FOR DELETE USING (true);
+              `);
+             } else if (table === 'payroll_snapshots') {
+               results.sqlFixes.push(`
+CREATE TABLE IF NOT EXISTS payroll_snapshots (
+  id TEXT PRIMARY KEY,
+  user_id TEXT NOT NULL,
+  organization_id TEXT NOT NULL,
+  month TEXT NOT NULL,
+  total_minutes INTEGER DEFAULT 0,
+  total_salary INTEGER DEFAULT 0,
+  bonuses INTEGER DEFAULT 0,
+  fines INTEGER DEFAULT 0,
+  rate_used INTEGER DEFAULT 0,
+  rate_type TEXT NOT NULL,
+  calculated_at TIMESTAMPTZ DEFAULT now(),
+  details JSONB DEFAULT '{}'
+);
+ALTER TABLE payroll_snapshots ENABLE ROW LEVEL SECURITY;
+DROP POLICY IF EXISTS "Allow public read" ON payroll_snapshots;
+CREATE POLICY "Allow public read" ON payroll_snapshots FOR SELECT USING (true);
+DROP POLICY IF EXISTS "Allow public insert" ON payroll_snapshots;
+CREATE POLICY "Allow public insert" ON payroll_snapshots FOR INSERT WITH CHECK (true);
+DROP POLICY IF EXISTS "Allow public update" ON payroll_snapshots;
+CREATE POLICY "Allow public update" ON payroll_snapshots FOR UPDATE USING (true);
+DROP POLICY IF EXISTS "Allow public delete" ON payroll_snapshots;
+CREATE POLICY "Allow public delete" ON payroll_snapshots FOR DELETE USING (true);
+              `);
+             } else if (table === 'payroll_payments') {
+               results.sqlFixes.push(`
+CREATE TABLE IF NOT EXISTS payroll_payments (
+  id TEXT PRIMARY KEY,
+  user_id TEXT NOT NULL,
+  organization_id TEXT NOT NULL,
+  amount INTEGER NOT NULL,
+  date TEXT NOT NULL,
+  type TEXT NOT NULL,
+  comment TEXT,
+  created_at TIMESTAMPTZ DEFAULT now()
+);
+ALTER TABLE payroll_payments ENABLE ROW LEVEL SECURITY;
+DROP POLICY IF EXISTS "Allow public read" ON payroll_payments;
+CREATE POLICY "Allow public read" ON payroll_payments FOR SELECT USING (true);
+DROP POLICY IF EXISTS "Allow public insert" ON payroll_payments;
+CREATE POLICY "Allow public insert" ON payroll_payments FOR INSERT WITH CHECK (true);
+DROP POLICY IF EXISTS "Allow public update" ON payroll_payments;
+CREATE POLICY "Allow public update" ON payroll_payments FOR UPDATE USING (true);
+DROP POLICY IF EXISTS "Allow public delete" ON payroll_payments;
+CREATE POLICY "Allow public delete" ON payroll_payments FOR DELETE USING (true);
+              `);
+             } else if (table === 'branches') {
+               results.sqlFixes.push(`
+CREATE TABLE IF NOT EXISTS branches (
+  id TEXT PRIMARY KEY,
+  organization_id TEXT,
+  name TEXT NOT NULL,
+  address TEXT,
+  location_settings JSONB,
+  created_at TIMESTAMPTZ DEFAULT NOW()
+);
+ALTER TABLE branches ENABLE ROW LEVEL SECURITY;
+DROP POLICY IF EXISTS "Allow public read" ON branches;
+CREATE POLICY "Allow public read" ON branches FOR SELECT USING (true);
+DROP POLICY IF EXISTS "Allow public insert" ON branches;
+CREATE POLICY "Allow public insert" ON branches FOR INSERT WITH CHECK (true);
+DROP POLICY IF EXISTS "Allow public update" ON branches;
+CREATE POLICY "Allow public update" ON branches FOR UPDATE USING (true);
+DROP POLICY IF EXISTS "Allow public delete" ON branches;
+CREATE POLICY "Allow public delete" ON branches FOR DELETE USING (true);
+              `);
+             } else {
+               results.sqlFixes.push(`-- Table ${table} is missing. Please check Supabase schema.`);
+             }
           }
         }
       }
@@ -1271,14 +1753,17 @@ INSERT INTO system_config (id, super_admin_pin, global_admin_pin) VALUES ('globa
       // Check specific columns
       const expectedSchema: Record<string, string[]> = {
         organizations: ['id', 'name', 'email', 'owner_id', 'plan', 'status', 'expiry_date', 'notification_settings', 'max_shift_duration', 'round_shift_minutes'],
-        users: ['id', 'organization_id', 'name', 'role', 'department', 'position', 'pin', 'require_photo', 'is_admin', 'force_pin_change', 'push_token', 'planned_shifts', 'payroll'],
-        work_logs: ['id', 'user_id', 'organization_id', 'date', 'entry_type', 'machine_id', 'check_in', 'check_out', 'duration_minutes', 'photo_in', 'photo_out', 'is_corrected', 'correction_note', 'correction_timestamp', 'is_night_shift', 'fine', 'bonus'],
-        machines: ['id', 'organization_id', 'name'],
+        users: ['id', 'organization_id', 'name', 'role', 'department', 'position', 'pin', 'require_photo', 'is_admin', 'force_pin_change', 'push_token', 'planned_shifts', 'payroll', 'branch_id'],
+        work_logs: ['id', 'user_id', 'organization_id', 'date', 'entry_type', 'machine_id', 'check_in', 'check_out', 'duration_minutes', 'photo_in', 'photo_out', 'is_corrected', 'correction_note', 'correction_timestamp', 'is_night_shift', 'fine', 'bonus', 'branch_id'],
+        machines: ['id', 'organization_id', 'name', 'branch_id'],
         positions: ['name', 'organization_id', 'permissions', 'payroll'],
         plans: ['type', 'name', 'limits', 'price'],
         promo_codes: ['id', 'code', 'plan_type', 'duration_days', 'max_uses', 'used_count', 'created_at', 'expires_at', 'is_active', 'last_used_by', 'last_used_at'],
         active_shifts: ['user_id', 'organization_id', 'shifts', 'shifts_json'],
-        system_config: ['id', 'super_admin_pin', 'global_admin_pin']
+        system_config: ['id', 'super_admin_pin', 'global_admin_pin'],
+        payroll_snapshots: ['id', 'user_id', 'organization_id', 'month', 'total_minutes', 'total_salary', 'bonuses', 'fines', 'rate_used', 'rate_type', 'calculated_at', 'details'],
+        payroll_payments: ['id', 'user_id', 'organization_id', 'amount', 'date', 'type', 'comment', 'created_at'],
+        branches: ['id', 'organization_id', 'name', 'address', 'location_settings', 'created_at']
       };
 
       for (const [table, columns] of Object.entries(expectedSchema)) {
@@ -1290,15 +1775,16 @@ INSERT INTO system_config (id, super_admin_pin, global_admin_pin) VALUES ('globa
             
             if (error) {
               // Double check if the error is actually because the table doesn't exist
-              // This can happen if the initial HEAD request returned 'ok' due to a bug or cache
               if (error.code === '42P01' || error.message.includes('does not exist')) {
                 results.tables[table] = { status: 'error', message: error.message };
-                // We should stop checking columns for this table if it doesn't exist
                 break;
               }
               
-              // If error is about column not found (Postgres code 42703)
-              if (error.code === '42703' || error.message.includes('column') || error.message.includes('does not exist')) {
+              // If error is about column not found
+              if (error.code === '42703' || 
+                  error.message.toLowerCase().includes('column') || 
+                  error.message.toLowerCase().includes('does not exist') ||
+                  error.message.toLowerCase().includes('not found')) {
                  results.columns[`${table}.${col}`] = 'missing';
                  
                  // Generate basic SQL fix
@@ -1308,6 +1794,9 @@ INSERT INTO system_config (id, super_admin_pin, global_admin_pin) VALUES ('globa
                  else if (col.startsWith('is_') || col.startsWith('require_') || col.startsWith('force_')) colType = 'BOOLEAN';
                  else if (col === 'notification_settings' || col === 'permissions' || col === 'limits' || col === 'shifts_json' || col === 'shifts' || col === 'planned_shifts' || col === 'payroll') colType = 'JSONB';
                  
+                 // Explicitly handle round_shift_minutes as boolean
+                 if (col === 'round_shift_minutes') colType = 'BOOLEAN';
+
                  // Explicitly handle global_admin_pin to ensure it gets generated
                  if (col === 'global_admin_pin') {
                     results.sqlFixes.push(`ALTER TABLE system_config ADD COLUMN IF NOT EXISTS global_admin_pin TEXT DEFAULT '0000';`);
@@ -1369,6 +1858,78 @@ BEGIN
     );
 END;
 $$ LANGUAGE plpgsql SECURITY DEFINER;
+        `);
+      }
+
+      // Check RPC for monthly report
+      const { error: rpcMonthlyError } = await supabase.rpc('get_monthly_report', { 
+        p_org_id: 'test', 
+        p_month: '2023-01'
+      });
+
+      if (rpcMonthlyError && (rpcMonthlyError.code === '42883' || rpcMonthlyError.message.includes('Could not find') || rpcMonthlyError.message.includes('operator does not exist'))) {
+        results.sqlFixes.push(`
+-- Create RPC for monthly report
+CREATE OR REPLACE FUNCTION get_monthly_report(p_org_id TEXT, p_month TEXT)
+RETURNS TABLE (
+    user_id TEXT,
+    user_name TEXT,
+    work_days BIGINT,
+    total_minutes BIGINT,
+    sick_days BIGINT,
+    vacation_days BIGINT
+)
+LANGUAGE plpgsql SECURITY DEFINER
+AS $$
+BEGIN
+    RETURN QUERY
+    SELECT
+        u.id AS user_id,
+        u.name AS user_name,
+        COUNT(wl.id) FILTER (WHERE wl.entry_type = 'WORK') AS work_days,
+        COALESCE(SUM(wl.duration_minutes) FILTER (WHERE wl.entry_type = 'WORK'), 0) AS total_minutes,
+        COUNT(wl.id) FILTER (WHERE wl.entry_type = 'SICK') AS sick_days,
+        COUNT(wl.id) FILTER (WHERE wl.entry_type = 'VACATION') AS vacation_days
+    FROM users u
+    LEFT JOIN work_logs wl ON u.id = wl.user_id 
+        AND wl.organization_id = p_org_id 
+        AND wl.date::text LIKE p_month || '%'
+    WHERE u.organization_id = p_org_id
+    GROUP BY u.id, u.name;
+END;
+$$;
+        `);
+      }
+
+      // Check RPC for user stats
+      const { error: rpcUserStatsError } = await supabase.rpc('get_user_stats', { 
+        p_user_id: 'test', 
+        p_month: '2023-01'
+      });
+
+      if (rpcUserStatsError && (rpcUserStatsError.code === '42883' || rpcUserStatsError.message.includes('Could not find') || rpcUserStatsError.message.includes('operator does not exist'))) {
+        results.sqlFixes.push(`
+-- Create RPC for user stats
+CREATE OR REPLACE FUNCTION get_user_stats(p_user_id TEXT, p_month TEXT)
+RETURNS TABLE (
+    total_work_minutes BIGINT,
+    shifts_count BIGINT,
+    avg_shift_minutes NUMERIC
+)
+LANGUAGE plpgsql SECURITY DEFINER
+AS $$
+BEGIN
+    RETURN QUERY
+    SELECT
+        COALESCE(SUM(duration_minutes), 0) as total_work_minutes,
+        COUNT(id) as shifts_count,
+        COALESCE(AVG(duration_minutes), 0) as avg_shift_minutes
+    FROM work_logs
+    WHERE user_id = p_user_id 
+      AND date::text LIKE p_month || '%'
+      AND entry_type = 'WORK';
+END;
+$$;
         `);
       }
       
@@ -1565,5 +2126,105 @@ $$ LANGUAGE plpgsql SECURITY DEFINER;
       console.error('Error in deleteOrganization:', e);
       return { error: e.message };
     }
-  }
+  },
+  getPayrollSnapshots: async (orgId: string, month: string) => {
+    if (!checkConfig()) return [];
+    const { data, error } = await supabase
+      .from('payroll_snapshots')
+      .select('*')
+      .eq('organization_id', orgId)
+      .eq('month', month);
+    
+    if (error) return [];
+    return data.map(s => ({
+      id: s.id,
+      userId: s.user_id,
+      organizationId: s.organization_id,
+      month: s.month,
+      totalMinutes: s.total_minutes,
+      totalSalary: s.total_salary,
+      bonuses: s.bonuses,
+      fines: s.fines,
+      rateUsed: s.rate_used,
+      rateType: s.rate_type,
+      calculatedAt: s.calculated_at,
+      details: s.details
+    }));
+  },
+  savePayrollSnapshot: async (snapshot: any) => {
+    if (!checkConfig()) return { error: 'Not configured' };
+    const payload = {
+      id: snapshot.id,
+      user_id: snapshot.userId,
+      organization_id: snapshot.organizationId,
+      month: snapshot.month,
+      total_minutes: snapshot.totalMinutes,
+      total_salary: snapshot.totalSalary,
+      bonuses: snapshot.bonuses,
+      fines: snapshot.fines,
+      rate_used: snapshot.rateUsed,
+      rate_type: snapshot.rateType,
+      calculated_at: snapshot.calculatedAt,
+      details: snapshot.details
+    };
+    const { error } = await supabase.from('payroll_snapshots').upsert(payload);
+    return { error };
+  },
+  getPayments: async (orgId: string, monthPrefix?: string) => {
+    if (!checkConfig()) return [];
+    let query = supabase
+      .from('payroll_payments')
+      .select('*')
+      .eq('organization_id', orgId);
+    
+    if (monthPrefix) {
+      query = query.like('date', `${monthPrefix}%`);
+    }
+
+    const { data, error } = await query.order('date', { ascending: false });
+    
+    if (error) {
+      if (error.code !== 'PGRST205') {
+        console.error('Error fetching payroll payments:', error);
+      }
+      return [];
+    }
+    
+    return (data || []).map(p => ({
+      id: p.id,
+      userId: p.user_id,
+      organizationId: p.organization_id,
+      amount: p.amount,
+      date: p.date,
+      type: p.type,
+      comment: p.comment,
+      createdAt: p.created_at
+    }));
+  },
+  savePayment: async (payment: any) => {
+    if (!checkConfig()) return { error: 'Not configured' };
+    const payload = {
+      id: payment.id,
+      user_id: payment.userId,
+      organization_id: payment.organizationId,
+      amount: payment.amount,
+      date: payment.date,
+      type: payment.type,
+      comment: payment.comment,
+      created_at: payment.createdAt
+    };
+    const { error } = await supabase.from('payroll_payments').upsert(payload);
+    if (error && error.code === 'PGRST205') {
+      return { error: 'Таблица payroll_payments не найдена в базе данных. Пожалуйста, зайдите в панель Супер-Админа -> Диагностика и выполните SQL-скрипт для ее создания.' };
+    }
+    return { error };
+  },
+  deletePayment: async (id: string) => {
+    if (!checkConfig()) return { error: 'Not configured' };
+    const { error } = await supabase.from('payroll_payments').delete().eq('id', id);
+    if (error && error.code === 'PGRST205') {
+      return { error: 'Таблица payroll_payments не найдена в базе данных.' };
+    }
+    return { error };
+  },
 };

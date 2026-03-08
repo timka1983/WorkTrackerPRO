@@ -11,7 +11,7 @@ interface LogEditModalProps {
   deleteLogItem: (id: string) => void;
   setPreviewPhoto: (photo: string | null) => void;
   formatTime: (dateStr: string) => string;
-  saveCorrection: (id: string, durationMinutes: number, fine?: number, bonus?: number) => void;
+  saveCorrection: (id: string, durationMinutes: number, fine?: number, bonus?: number, itemsProduced?: number) => void;
   tempNotes: Record<string, string>;
   setTempNotes: (notes: Record<string, string>) => void;
 }
@@ -112,16 +112,30 @@ export const LogEditModal: React.FC<LogEditModalProps> = ({
                    </div>
 
                    <div className="space-y-3">
-                      <div className="space-y-1">
-                         <label className="text-[9px] font-black text-slate-400 uppercase ml-1">Минуты работы</label>
-                         <div className="relative">
-                            <input 
-                              type="number" 
-                              defaultValue={log.durationMinutes} 
-                              onBlur={(e) => saveCorrection(log.id, parseInt(e.target.value) || 0)}
-                              className="w-full bg-slate-50 border-2 border-slate-100 rounded-xl px-4 py-2 text-sm font-black text-slate-900 outline-none focus:border-blue-500 focus:bg-white transition-all"
-                            />
-                            <span className="absolute right-4 top-1/2 -translate-y-1/2 text-[10px] text-slate-400 font-bold uppercase">мин</span>
+                      <div className="grid grid-cols-2 gap-2">
+                         <div className="space-y-1">
+                            <label className="text-[9px] font-black text-slate-400 uppercase ml-1">Минуты работы</label>
+                            <div className="relative">
+                               <input 
+                                 type="number" 
+                                 defaultValue={log.durationMinutes} 
+                                 onBlur={(e) => saveCorrection(log.id, parseInt(e.target.value) || 0, log.fine, log.bonus, log.itemsProduced)}
+                                 className="w-full bg-slate-50 border-2 border-slate-100 rounded-xl px-4 py-2 text-sm font-black text-slate-900 outline-none focus:border-blue-500 focus:bg-white transition-all"
+                               />
+                               <span className="absolute right-4 top-1/2 -translate-y-1/2 text-[10px] text-slate-400 font-bold uppercase">мин</span>
+                            </div>
+                         </div>
+                         <div className="space-y-1">
+                            <label className="text-[9px] font-black text-slate-400 uppercase ml-1">Произведено (шт)</label>
+                            <div className="relative">
+                               <input 
+                                 type="number" 
+                                 defaultValue={log.itemsProduced || ''} 
+                                 onBlur={(e) => saveCorrection(log.id, log.durationMinutes, log.fine, log.bonus, parseInt(e.target.value) || undefined)}
+                                 className="w-full bg-slate-50 border-2 border-slate-100 rounded-xl px-4 py-2 text-sm font-black text-slate-900 outline-none focus:border-blue-500 focus:bg-white transition-all"
+                               />
+                               <span className="absolute right-4 top-1/2 -translate-y-1/2 text-[10px] text-slate-400 font-bold uppercase">шт</span>
+                            </div>
                          </div>
                       </div>
                       
@@ -132,7 +146,7 @@ export const LogEditModal: React.FC<LogEditModalProps> = ({
                                type="number" 
                                placeholder="0"
                                defaultValue={log.fine || ''} 
-                               onBlur={(e) => saveCorrection(log.id, log.durationMinutes, parseInt(e.target.value) || 0, log.bonus)}
+                               onBlur={(e) => saveCorrection(log.id, log.durationMinutes, parseInt(e.target.value) || 0, log.bonus, log.itemsProduced)}
                                className="w-full bg-slate-50 border-2 border-slate-100 rounded-xl px-4 py-2 text-sm font-black text-red-600 outline-none focus:border-red-500 focus:bg-white transition-all"
                             />
                          </div>
@@ -142,7 +156,7 @@ export const LogEditModal: React.FC<LogEditModalProps> = ({
                                type="number" 
                                placeholder="0"
                                defaultValue={log.bonus || ''} 
-                               onBlur={(e) => saveCorrection(log.id, log.durationMinutes, log.fine, parseInt(e.target.value) || 0)}
+                               onBlur={(e) => saveCorrection(log.id, log.durationMinutes, log.fine, parseInt(e.target.value) || 0, log.itemsProduced)}
                                className="w-full bg-slate-50 border-2 border-slate-100 rounded-xl px-4 py-2 text-sm font-black text-green-600 outline-none focus:border-green-500 focus:bg-white transition-all"
                             />
                          </div>
@@ -155,7 +169,7 @@ export const LogEditModal: React.FC<LogEditModalProps> = ({
                             className="w-full bg-slate-50 border-2 border-slate-100 rounded-xl px-4 py-2 text-xs font-medium text-slate-700 outline-none focus:border-blue-500 focus:bg-white transition-all min-h-[64px]"
                             defaultValue={log.correctionNote || ''}
                             onChange={(e) => setTempNotes({ ...tempNotes, [log.id]: e.target.value })}
-                            onBlur={() => saveCorrection(log.id, log.durationMinutes)}
+                            onBlur={() => saveCorrection(log.id, log.durationMinutes, log.fine, log.bonus, log.itemsProduced)}
                          />
                       </div>
                    </div>

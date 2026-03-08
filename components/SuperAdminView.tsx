@@ -132,9 +132,7 @@ const SuperAdminView: React.FC<SuperAdminViewProps> = ({ onLogout, onUpdateSyste
   };
 
   useEffect(() => {
-    if (activeTab === 'diagnostics') {
-      runDiagnostics();
-    }
+    // Removed automatic runDiagnostics on tab switch as per user request
   }, [activeTab]);
 
   const handleSwitchToOrg = (orgId: string) => {
@@ -257,19 +255,19 @@ const SuperAdminView: React.FC<SuperAdminViewProps> = ({ onLogout, onUpdateSyste
             type: PlanType.FREE,
             name: 'Бесплатный',
             price: 0,
-            limits: { maxUsers: 3, maxMachines: 2, features: { photoCapture: false, nightShift: false, advancedAnalytics: false, payroll: false, shiftMonitoring: false } }
+            limits: { maxUsers: 3, maxMachines: 2, features: { photoCapture: false, nightShift: false, advancedAnalytics: false, payroll: false, shiftMonitoring: false, payments: false } }
           },
           {
             type: PlanType.PRO,
             name: 'Профессиональный',
             price: 2900,
-            limits: { maxUsers: 20, maxMachines: 10, features: { photoCapture: true, nightShift: true, advancedAnalytics: true, payroll: false, shiftMonitoring: true } }
+            limits: { maxUsers: 20, maxMachines: 10, features: { photoCapture: true, nightShift: true, advancedAnalytics: true, payroll: false, shiftMonitoring: true, payments: false } }
           },
           {
             type: PlanType.BUSINESS,
             name: 'Бизнес',
             price: 9900,
-            limits: { maxUsers: 1000, maxMachines: 1000, features: { photoCapture: true, nightShift: true, advancedAnalytics: true, payroll: true, shiftMonitoring: true } }
+            limits: { maxUsers: 1000, maxMachines: 1000, features: { photoCapture: true, nightShift: true, advancedAnalytics: true, payroll: true, shiftMonitoring: true, payments: true } }
           }
         ];
         setPlans(defaultPlans);
@@ -1070,14 +1068,45 @@ const SuperAdminView: React.FC<SuperAdminViewProps> = ({ onLogout, onUpdateSyste
                   <h3 className="text-xl font-bold text-slate-900">Диагностика Supabase</h3>
                   <p className="text-sm text-slate-500">Проверка подключения и целостности таблиц</p>
                 </div>
-                <button 
-                  onClick={runDiagnostics}
-                  disabled={checkingDiagnostics}
-                  className="flex items-center gap-2 px-6 py-2.5 bg-indigo-600 text-white rounded-xl hover:bg-indigo-700 transition-all shadow-lg shadow-indigo-100 font-bold disabled:opacity-50"
-                >
-                  <RefreshCw className={`w-4 h-4 ${checkingDiagnostics ? 'animate-spin' : ''}`} />
-                  Запустить проверку
-                </button>
+                <div className="flex items-center gap-3">
+                  <button 
+                    onClick={() => {
+                      const errors: string[] = [];
+                      if (diagnostics.status === 'error') errors.push(`Критическая ошибка: ${diagnostics.message}`);
+                      
+                      Object.entries(diagnostics.tables || {}).forEach(([table, status]: [string, any]) => {
+                        if (status.status !== 'ok') errors.push(`Таблица ${table}: ${status.message}`);
+                      });
+                      
+                      Object.entries(diagnostics.storage || {}).forEach(([bucket, status]: [string, any]) => {
+                        if (status.status !== 'ok') errors.push(`Хранилище ${bucket}: ${status.message}`);
+                      });
+                      
+                      Object.entries(diagnostics.columns || {}).forEach(([col, status]: [string, any]) => {
+                        if (status === 'missing') errors.push(`Поле ${col}: Отсутствует`);
+                      });
+                      
+                      if (errors.length === 0) {
+                        alert('Ошибок не обнаружено');
+                      } else {
+                        navigator.clipboard.writeText(errors.join('\n'));
+                        alert('Все ошибки скопированы в буфер обмена');
+                      }
+                    }}
+                    className="flex items-center gap-2 px-4 py-2.5 bg-slate-100 text-slate-600 rounded-xl hover:bg-slate-200 transition-all font-bold text-sm"
+                  >
+                    <Save className="w-4 h-4" />
+                    Скопировать ошибки
+                  </button>
+                  <button 
+                    onClick={runDiagnostics}
+                    disabled={checkingDiagnostics}
+                    className="flex items-center gap-2 px-6 py-2.5 bg-indigo-600 text-white rounded-xl hover:bg-indigo-700 transition-all shadow-lg shadow-indigo-100 font-bold disabled:opacity-50"
+                  >
+                    <RefreshCw className={`w-4 h-4 ${checkingDiagnostics ? 'animate-spin' : ''}`} />
+                    Запустить проверку
+                  </button>
+                </div>
               </div>
 
               {diagnostics ? (
@@ -1175,33 +1204,57 @@ const SuperAdminView: React.FC<SuperAdminViewProps> = ({ onLogout, onUpdateSyste
                   {diagnostics.columns && Object.keys(diagnostics.columns).length > 0 && (
                     <div>
                       <h4 className="text-sm font-bold text-slate-900 mb-4 uppercase tracking-wider">Статус полей (колонок)</h4>
-                      {Object.values(diagnostics.columns).every(status => status === 'ok') ? (
+                      {Object.values(diagnostics.columns).every(status => status === 'ok') && 
+                       Object.values(diagnostics.tables).every((status: any) => status.status === 'ok') ? (
                         <div className="p-4 rounded-xl border bg-emerald-50 border-emerald-200 flex items-center gap-3">
                           <Check className="w-5 h-5 text-emerald-600" />
                           <span className="text-sm font-bold text-emerald-900">Диагностика проведена - все поля и колонки в порядке</span>
                         </div>
                       ) : (
-                        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
-                          {Object.entries(diagnostics.columns)
-                            .filter(([_, status]) => status === 'missing')
-                            .map(([col, status]: [string, any]) => (
-                            <div key={col} className="p-4 rounded-xl border bg-amber-50 border-amber-200">
-                              <div className="flex items-center justify-between">
-                                <span className="text-[10px] font-mono font-bold text-slate-700">{col}</span>
-                                <X className="w-3 h-3 text-amber-500" />
+                        <div className="space-y-4">
+                          {Object.values(diagnostics.columns).every(status => status === 'ok') && (
+                             <div className="p-4 rounded-xl border bg-amber-50 border-amber-200 flex items-center gap-3">
+                               <AlertCircle className="w-5 h-5 text-amber-600" />
+                               <span className="text-sm font-bold text-amber-900">Колонки в существующих таблицах в порядке, но обнаружены ошибки в таблицах выше.</span>
+                             </div>
+                          )}
+                          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
+                            {Object.entries(diagnostics.columns)
+                              .filter(([_, status]) => status === 'missing')
+                              .map(([col, status]: [string, any]) => (
+                              <div key={col} className="p-4 rounded-xl border bg-amber-50 border-amber-200">
+                                <div className="flex items-center justify-between">
+                                  <span className="text-[10px] font-mono font-bold text-slate-700">{col}</span>
+                                  <X className="w-3 h-3 text-amber-500" />
+                                </div>
+                                <p className="text-[9px] text-amber-600 mt-1">Поле отсутствует</p>
                               </div>
-                              <p className="text-[9px] text-amber-600 mt-1">Поле отсутствует</p>
-                            </div>
-                          ))}
+                            ))}
+                          </div>
                         </div>
                       )}
                     </div>
                   )}
 
                   {/* SQL Fixes Section */}
-                  {diagnostics.sqlFixes && diagnostics.sqlFixes.length > 0 && (
-                    <div className="space-y-4">
+                  <div className="space-y-4">
+                    <div className="flex items-center justify-between">
                       <h4 className="text-sm font-bold text-slate-900 uppercase tracking-wider">SQL для исправления</h4>
+                      <button 
+                        onClick={() => {
+                          const fullSchema = db.getFullSqlSchema();
+                          setDiagnostics((prev: any) => ({
+                            ...prev,
+                            sqlFixes: [fullSchema]
+                          }));
+                        }}
+                        className="text-[10px] bg-slate-100 hover:bg-slate-200 text-slate-600 px-3 py-1 rounded-lg font-bold transition-all"
+                      >
+                        Сформировать полный SQL запрос
+                      </button>
+                    </div>
+                    
+                    {diagnostics.sqlFixes && diagnostics.sqlFixes.length > 0 ? (
                       <div className="p-4 bg-slate-900 rounded-2xl overflow-hidden">
                         <div className="flex justify-between items-center mb-2">
                           <span className="text-[10px] text-slate-400 font-mono">Скопируйте и выполните в SQL Editor в Supabase</span>
@@ -1219,8 +1272,12 @@ const SuperAdminView: React.FC<SuperAdminViewProps> = ({ onLogout, onUpdateSyste
                           {diagnostics.sqlFixes.join('\n\n')}
                         </pre>
                       </div>
-                    </div>
-                  )}
+                    ) : (
+                      <div className="p-8 border-2 border-dashed border-slate-200 rounded-2xl text-center">
+                        <p className="text-sm text-slate-400">Автоматических исправлений не требуется. Нажмите кнопку выше, чтобы получить полный SQL-запрос для развертывания.</p>
+                      </div>
+                    )}
+                  </div>
 
                   {diagnostics.status === 'partial' && (
                     <div className="p-6 bg-amber-50 border border-amber-200 rounded-2xl flex items-start gap-4">
@@ -1240,18 +1297,34 @@ const SuperAdminView: React.FC<SuperAdminViewProps> = ({ onLogout, onUpdateSyste
               )}
             </div>
 
-            <div className="bg-indigo-50 p-6 rounded-3xl border border-indigo-100 flex items-start gap-4">
-              <div className="p-3 bg-white rounded-2xl shadow-sm">
-                <ShieldCheck className="w-6 h-6 text-indigo-600" />
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
+              <div className="bg-indigo-50 p-6 rounded-3xl border border-indigo-100 flex items-start gap-4">
+                <div className="p-3 bg-white rounded-2xl shadow-sm">
+                  <ShieldCheck className="w-6 h-6 text-indigo-600" />
+                </div>
+                <div>
+                  <h4 className="font-bold text-indigo-900 mb-1">Как исправить ошибки?</h4>
+                  <ul className="text-sm text-indigo-700 space-y-2 list-disc ml-4 mt-2">
+                    <li>Проверьте переменные окружения в настройках AI Studio.</li>
+                    <li>Убедитесь, что в Supabase созданы все таблицы (organizations, users, work_logs, machines, positions, plans, promo_codes, active_shifts, system_config).</li>
+                    <li>Если отсутствует колонка (column does not exist), используйте SQL-запрос <code>ALTER TABLE имя_таблицы ADD COLUMN имя_колонки ТИП;</code></li>
+                    <li>Для бакетов Storage убедитесь, что они публичные (Public).</li>
+                  </ul>
+                </div>
               </div>
-              <div>
-                <h4 className="font-bold text-indigo-900 mb-1">Как исправить ошибки?</h4>
-                <ul className="text-sm text-indigo-700 space-y-2 list-disc ml-4 mt-2">
-                  <li>Проверьте переменные окружения в настройках AI Studio.</li>
-                  <li>Убедитесь, что в Supabase созданы все таблицы (organizations, users, work_logs, machines, positions, plans, promo_codes, active_shifts, system_config).</li>
-                  <li>Проверьте политики RLS (Row Level Security) — для тестов можно временно разрешить анонимный доступ.</li>
-                  <li>Убедитесь, что вы не используете прокси или VPN, блокирующие запросы к Supabase.</li>
-                </ul>
+
+              <div className="bg-amber-50 p-6 rounded-3xl border border-amber-100 flex items-start gap-4">
+                <div className="p-3 bg-white rounded-2xl shadow-sm">
+                  <AlertCircle className="w-6 h-6 text-amber-600" />
+                </div>
+                <div>
+                  <h4 className="font-bold text-amber-900 mb-1">Советы по SQL</h4>
+                  <p className="text-sm text-amber-700 leading-relaxed">
+                    Если автоматический SQL не помог, нажмите <b>"Сформировать полный SQL запрос"</b>. 
+                    Скопируйте его и вставьте в <b>SQL Editor</b> в панели Supabase. 
+                    Это гарантированно создаст все нужные структуры.
+                  </p>
+                </div>
               </div>
             </div>
           </div>

@@ -214,6 +214,8 @@ export const calculateMonthlyPayroll = (
           regularPay += (log.durationMinutes / 60) * currentRate;
         } else if (config.type === 'shift') {
           regularPay += currentRate;
+        } else if (config.type === 'piecework') {
+          regularPay += (log.itemsProduced || 0) * currentRate;
         }
 
         // Расчет часов для каждого станка отдельно
@@ -230,6 +232,10 @@ export const calculateMonthlyPayroll = (
             } else if (config.type === 'shift') {
               const impliedHourlyRate = currentRate / (standardShiftMinutes / 60);
               overtimePay += (overtimeMinutes / 60) * impliedHourlyRate * (config.overtimeMultiplier - 1);
+            } else if (config.type === 'piecework') {
+              // Для сдельной оплаты сверхурочные можно считать от базовой часовой ставки, 
+              // но проще не применять множитель к сдельной оплате, либо применять его к произведенным деталям в сверхурочное время.
+              // Пока оставим без сверхурочных для сдельной, так как это требует отдельного учета деталей в овертайм.
             }
           }
 

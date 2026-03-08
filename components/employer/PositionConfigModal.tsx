@@ -118,13 +118,13 @@ export const PositionConfigModal: React.FC<PositionConfigModalProps> = ({
                 <div className="space-y-1">
                   <label className="text-[9px] font-black text-slate-400 uppercase ml-1">Тип оплаты</label>
                   <div className="flex bg-white rounded-xl p-1 border border-slate-200">
-                    {(['hourly', 'fixed', 'shift'] as const).map(type => (
+                    {(['hourly', 'fixed', 'shift', 'piecework'] as const).map(type => (
                       <button
                         key={type}
                         onClick={() => handleUpdatePayrollConfig('type', type)}
                         className={`flex-1 py-2 rounded-lg text-[10px] font-black uppercase transition-all ${(configuringPosition.payroll?.type || DEFAULT_PAYROLL_CONFIG.type) === type ? 'bg-slate-900 text-white shadow-md' : 'text-slate-400 hover:text-slate-600'}`}
                       >
-                        {type === 'hourly' ? 'Почасовая' : type === 'fixed' ? 'Оклад' : 'За смену'}
+                        {type === 'hourly' ? 'Почасовая' : type === 'fixed' ? 'Оклад' : type === 'shift' ? 'За смену' : 'Сдельная'}
                       </button>
                     ))}
                   </div>

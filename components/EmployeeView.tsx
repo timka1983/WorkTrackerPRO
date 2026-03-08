@@ -140,6 +140,8 @@ const EmployeeView: React.FC<EmployeeViewProps> = ({
 
   const [showCamera, setShowCamera] = useState<{ slot: number; type: 'start' | 'stop'; location?: any } | null>(null);
   const [isUploadingPhoto, setIsUploadingPhoto] = useState(false);
+  const [showPieceworkModal, setShowPieceworkModal] = useState<{ slot: number; photo?: string } | null>(null);
+  const [itemsProduced, setItemsProduced] = useState<string>('');
   
   const [showPinChange, setShowPinChange] = useState(user.forcePinChange || false);
   const [pinState, setPinState] = useState({ old: '', new: '', confirm: '' });
@@ -335,9 +337,17 @@ const EmployeeView: React.FC<EmployeeViewProps> = ({
     }
   };
 
-  const handleStopWork = (slot: number, photo?: string) => {
+  const handleStopWork = (slot: number, photo?: string, items?: number) => {
     const currentShift = activeShifts[slot];
     if (!currentShift) return;
+    
+    const isPiecework = user.payroll?.type === 'piecework' || (!user.payroll?.overrides?.type && positions.find(p => p.name === user.position)?.payroll?.type === 'piecework');
+    
+    if (isPiecework && items === undefined) {
+      setShowPieceworkModal({ slot, photo });
+      setItemsProduced('');
+      return;
+    }
     
     const now = getNow();
     let duration = calculateMinutes(currentShift.checkIn!, now.toISOString());
@@ -351,7 +361,8 @@ const EmployeeView: React.FC<EmployeeViewProps> = ({
       ...currentShift, 
       checkOut: now.toISOString(), 
       durationMinutes: Math.max(0, duration),
-      photoOut: photo
+      photoOut: photo,
+      itemsProduced: items
     };
     
     // Explicitly update active shifts first
@@ -367,7 +378,8 @@ const EmployeeView: React.FC<EmployeeViewProps> = ({
     if (currentOrg?.telegramSettings?.enabled && currentOrg.telegramSettings.botToken && currentOrg.telegramSettings.chatId) {
       const machineName = currentShift.machineId ? getMachineName(currentShift.machineId) : 'Работа';
       const durationFormatted = formatDuration(Math.max(0, duration));
-      const msg = `🔴 <b>Конец смены</b>\n👤 Сотрудник: ${user.name}\n📍 Позиция: ${user.position}\n🔧 Слот: ${slot} (${machineName})\n⏰ Время: ${formatTime(now.toISOString())}\n⏱ Длительность: ${durationFormatted}`;
+      const itemsText = items !== undefined ? `\n📦 Произведено: ${items} шт.` : '';
+      const msg = `🔴 <b>Конец смены</b>\n👤 Сотрудник: ${user.name}\n📍 Позиция: ${user.position}\n🔧 Слот: ${slot} (${machineName})\n⏰ Время: ${formatTime(now.toISOString())}\n⏱ Длительность: ${durationFormatted}${itemsText}`;
       sendTelegramNotification(currentOrg.telegramSettings.botToken, currentOrg.telegramSettings.chatId, msg);
     }
   };
@@ -639,6 +651,53 @@ const EmployeeView: React.FC<EmployeeViewProps> = ({
           onForceClose={handleForceClose}
         />
       ))}
+      {showPieceworkModal && (
+        <div className="fixed inset-0 bg-slate-900/50 backdrop-blur-sm flex items-center justify-center p-4 z-50 no-print">
+          <div className="bg-white rounded-3xl p-6 w-full max-w-sm shadow-2xl">
+            <h3 className="text-xl font-black text-slate-900 mb-4">Сдельная оплата</h3>
+            <p className="text-sm text-slate-500 mb-4">Введите количество произведенных единиц за эту смену.</p>
+            
+            <input
+              type="number"
+              min="0"
+              value={itemsProduced}
+              onChange={e => setItemsProduced(e.target.value)}
+              placeholder="Например: 15"
+              className="w-full bg-slate-50 border-2 border-slate-200 rounded-2xl px-4 py-3 text-lg font-black outline-none focus:border-blue-500 mb-6"
+              autoFocus
+            />
+            
+            <div className="flex gap-3">
+              <button
+                onClick={() => {
+                  setShowPieceworkModal(null);
+                  setItemsProduced('');
+                }}
+                className="flex-1 py-3 rounded-xl font-bold text-slate-500 hover:bg-slate-100 transition-colors"
+              >
+                Отмена
+              </button>
+              <button
+                onClick={() => {
+                  const items = parseInt(itemsProduced, 10);
+                  if (isNaN(items) || items < 0) {
+                    alert('Пожалуйста, введите корректное число');
+                    return;
+                  }
+                  const { slot, photo } = showPieceworkModal;
+                  setShowPieceworkModal(null);
+                  setItemsProduced('');
+                  handleStopWork(slot, photo, items);
+                }}
+                className="flex-1 py-3 rounded-xl font-black bg-blue-600 text-white hover:bg-blue-700 transition-colors shadow-lg shadow-blue-600/20"
+              >
+                Сохранить
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
       {showPinChange && (
         <PinChangeModal
           user={user}

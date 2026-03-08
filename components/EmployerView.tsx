@@ -53,6 +53,9 @@ interface EmployerViewProps {
   onUpdateOrg: (org: Organization) => void;
   currentUser?: User | null;
   onMonthChange?: (month: string) => void;
+  payments: any[];
+  onSavePayment: (payment: any) => void;
+  onDeletePayment: (id: string) => void;
   getNow: () => Date;
   viewMode: 'matrix' | 'team' | 'analytics' | 'settings' | 'billing' | 'payroll';
   setViewMode: (mode: 'matrix' | 'team' | 'analytics' | 'settings' | 'billing' | 'payroll') => void;
@@ -61,7 +64,7 @@ interface EmployerViewProps {
 const EmployerView: React.FC<EmployerViewProps> = ({ 
   logs, logsLookup = {}, users, onAddUser, onUpdateUser, onDeleteUser, 
   machines, onUpdateMachines, positions, onUpdatePositions, branches, onUpdateBranches, onDeleteBranch, onImportData, onLogsUpsert, activeShiftsMap = {}, onActiveShiftsUpdate, onDeleteLog,
-  onRefresh, forceCleanAll, onCleanupDatabase, onRemoveBase64Photos, onRunDiagnostics, onMergeDuplicates, onFixDbStructure, isSyncing = false, nightShiftBonusMinutes, onUpdateNightBonus, currentOrg, plans, onUpdateOrg, currentUser: propCurrentUser, onMonthChange, getNow, viewMode, setViewMode
+  onRefresh, forceCleanAll, onCleanupDatabase, onRemoveBase64Photos, onRunDiagnostics, onMergeDuplicates, onFixDbStructure, isSyncing = false, nightShiftBonusMinutes, onUpdateNightBonus, currentOrg, plans, onUpdateOrg, currentUser: propCurrentUser, onMonthChange, payments, onSavePayment, onDeletePayment, getNow, viewMode, setViewMode
 }) => {
   const [filterMonth, setFilterMonth] = useState(format(getNow(), 'yyyy-MM'));
   const [selectedBranchId, setSelectedBranchId] = useState<string | null>(null);
@@ -470,7 +473,7 @@ const EmployerView: React.FC<EmployerViewProps> = ({
     }
   };
 
-  const saveCorrection = (logId: string, val: number, fine?: number, bonus?: number) => {
+  const saveCorrection = (logId: string, val: number, fine?: number, bonus?: number, itemsProduced?: number) => {
     const log = logs.find(l => l.id === logId);
     if (!log) return;
     
@@ -482,7 +485,8 @@ const EmployerView: React.FC<EmployerViewProps> = ({
       correctionNote: note,
       correctionTimestamp: getNow().toISOString(),
       fine: fine !== undefined ? fine : log.fine,
-      bonus: bonus !== undefined ? bonus : log.bonus
+      bonus: bonus !== undefined ? bonus : log.bonus,
+      itemsProduced: itemsProduced !== undefined ? itemsProduced : log.itemsProduced
     };
     
     onLogsUpsert([updatedLog]);
@@ -928,6 +932,10 @@ const EmployerView: React.FC<EmployerViewProps> = ({
           onAddGeneralBonus={handleAddGeneralBonus}
           branches={branches}
           currentOrg={currentOrg}
+          payments={payments}
+          onSavePayment={onSavePayment}
+          onDeletePayment={onDeletePayment}
+          planLimits={planLimits}
         />
       )}
 

@@ -10,7 +10,8 @@ export const PLAN_LIMITS: Record<PlanType, PlanLimits> = {
       nightShift: false,
       advancedAnalytics: false,
       payroll: false,
-      shiftMonitoring: false
+      shiftMonitoring: false,
+      payments: false
     }
   },
   [PlanType.PRO]: {
@@ -21,7 +22,8 @@ export const PLAN_LIMITS: Record<PlanType, PlanLimits> = {
       nightShift: true,
       advancedAnalytics: true,
       payroll: false,
-      shiftMonitoring: true
+      shiftMonitoring: true,
+      payments: false
     }
   },
   [PlanType.BUSINESS]: {
@@ -32,7 +34,8 @@ export const PLAN_LIMITS: Record<PlanType, PlanLimits> = {
       nightShift: true,
       advancedAnalytics: true,
       payroll: true,
-      shiftMonitoring: true
+      shiftMonitoring: true,
+      payments: true
     }
   }
 };

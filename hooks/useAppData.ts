@@ -4,7 +4,7 @@ import { format } from 'date-fns';
 import { db } from '../lib/supabase';
 import { 
   User, UserRole, WorkLog, Machine, PositionConfig, Organization, 
-  PlanType, Plan, EntryType, Branch 
+  PlanType, Plan, EntryType, Branch, PayrollPayment
 } from '../types';
 import { 
   STORAGE_KEYS, INITIAL_USERS, INITIAL_MACHINES, INITIAL_POSITIONS, 
@@ -49,11 +49,20 @@ export const useAppData = (currentUser: User | null) => {
   const [upgradeReason, setUpgradeReason] = useState<string | null>(null);
   const [showUpgradeModal, setShowUpgradeModal] = useState(false);
   const [dbError, setDbError] = useState<string | null>(null);
+  const [payments, setPayments] = useState<PayrollPayment[]>([]);
   
-  const [nightShiftBonus, setNightShiftBonus] = useState<number>(() => {
+  const [nightShiftBonus, setNightShiftBonusState] = useState<number>(() => {
     const saved = localStorage.getItem('timesheet_night_bonus');
     return saved ? parseInt(saved) : 20;
   });
+
+  const setNightShiftBonus = useCallback(async (minutes: number) => {
+    setNightShiftBonusState(minutes);
+    localStorage.setItem('timesheet_night_bonus', minutes.toString());
+    if (currentOrgRef.current) {
+      await db.updateOrganization(currentOrgRef.current.id, { nightShiftBonus: minutes });
+    }
+  }, []);
 
   const [superAdminPin, setSuperAdminPin] = useState('7777');
   const [globalAdminPin, setGlobalAdminPin] = useState('0000');
@@ -107,10 +116,6 @@ export const useAppData = (currentUser: User | null) => {
     currentUserRef.current = currentUser;
   }, [currentUser]);
 
-  useEffect(() => {
-    localStorage.setItem('timesheet_night_bonus', nightShiftBonus.toString());
-  }, [nightShiftBonus]);
-
   // --- Queries ---
 
   // 1. Organization
@@ -123,6 +128,10 @@ export const useAppData = (currentUser: User | null) => {
 
       const org = await db.getOrganization(orgId);
       if (org) {
+        if (org.nightShiftBonus !== undefined) {
+          setNightShiftBonusState(org.nightShiftBonus);
+          localStorage.setItem('timesheet_night_bonus', org.nightShiftBonus.toString());
+        }
         // Check expiry
         const isExpired = org.expiryDate && new Date(org.expiryDate) < new Date();
         if (isExpired && org.status !== 'expired' && org.plan !== PlanType.FREE) {
@@ -398,12 +407,19 @@ export const useAppData = (currentUser: User | null) => {
         const currentMonth = format(now, 'yyyy-MM');
         const prevMonth = format(new Date(now.getFullYear(), now.getMonth() - 1, 1), 'yyyy-MM');
         
-        const [current, prev] = await Promise.all([
+        const [current, prev, currentPayments, prevPayments] = await Promise.all([
           db.getLogs(orgId, currentMonth),
-          db.getLogs(orgId, prevMonth)
+          db.getLogs(orgId, prevMonth),
+          db.getPayments(orgId, currentMonth),
+          db.getPayments(orgId, prevMonth)
         ]);
         
         const combinedRaw = [...(current || []), ...(prev || [])];
+        const combinedPayments = [...(currentPayments || []), ...(prevPayments || [])];
+
+        if (combinedPayments.length > 0) {
+          setPayments(combinedPayments.sort((a, b) => b.date.localeCompare(a.date)));
+        }
         const combined = combinedRaw.map(l => ({
           ...l,
           id: cleanValue(l.id),
@@ -615,7 +631,7 @@ export const useAppData = (currentUser: User | null) => {
 
   // --- Actions / Mutations ---
 
-  const checkLimit = useCallback((type: 'users' | 'machines' | 'nightShift' | 'photo') => {
+  const checkLimit = useCallback((type: 'users' | 'machines' | 'nightShift' | 'photo' | 'payments') => {
     if (!currentOrg) return true;
     const currentPlan = plans.find(p => p.type === currentOrg.plan);
     const limits = currentPlan ? currentPlan.limits : PLAN_LIMITS[currentOrg.plan as PlanType];
@@ -647,6 +663,13 @@ export const useAppData = (currentUser: User | null) => {
           return false;
         }
         break;
+      case 'payments':
+        if (!limits.features.payments) {
+          setUpgradeReason(`Модуль авансов и выплат доступен только в тарифе BUSINESS.`);
+          setShowUpgradeModal(true);
+          return false;
+        }
+        break;
     }
     return true;
   }, [currentOrg, users.length, machines.length, plans]);
@@ -654,7 +677,11 @@ export const useAppData = (currentUser: User | null) => {
   const loadLogsForMonth = useCallback(async (month: string) => {
     if (!currentOrg) return;
     try {
-      const newLogs = await db.getLogs(currentOrg.id, month);
+      const [newLogs, newPayments] = await Promise.all([
+        db.getLogs(currentOrg.id, month),
+        db.getPayments(currentOrg.id, month)
+      ]);
+
       if (newLogs) {
         setLogs(prev => {
           const newLogIds = new Set(newLogs.map(l => l.id));
@@ -664,10 +691,46 @@ export const useAppData = (currentUser: User | null) => {
           return merged;
         });
       }
+
+      if (newPayments) {
+        setPayments(prev => {
+          const newIds = new Set(newPayments.map(p => p.id));
+          const prevKept = prev.filter(p => !newIds.has(p.id));
+          return [...prevKept, ...newPayments].sort((a, b) => b.date.localeCompare(a.date));
+        });
+      }
     } catch (e) {
       console.error('Failed to load logs', e);
     }
   }, [currentOrg]);
+
+  const handleSavePayment = useCallback(async (payment: PayrollPayment) => {
+    if (!currentOrg) return;
+    setPayments(prev => {
+      const filtered = prev.filter(p => p.id !== payment.id);
+      return [payment, ...filtered].sort((a, b) => b.date.localeCompare(a.date));
+    });
+    const res = await db.savePayment(payment);
+    if (res?.error) {
+      alert(typeof res.error === 'string' ? res.error : 'Ошибка при сохранении выплаты');
+      // Revert optimistic update
+      setPayments(prev => prev.filter(p => p.id !== payment.id));
+    }
+  }, [currentOrg]);
+
+  const handleDeletePayment = useCallback(async (id: string) => {
+    if (!currentOrg) return;
+    const paymentToDelete = payments.find(p => p.id === id);
+    setPayments(prev => prev.filter(p => p.id !== id));
+    const res = await db.deletePayment(id);
+    if (res?.error) {
+      alert(typeof res.error === 'string' ? res.error : 'Ошибка при удалении выплаты');
+      // Revert optimistic update
+      if (paymentToDelete) {
+        setPayments(prev => [...prev, paymentToDelete].sort((a, b) => b.date.localeCompare(a.date)));
+      }
+    }
+  }, [currentOrg, payments]);
 
   const [offlineQueue, setOfflineQueue] = useState<WorkLog[][]>(() => {
     const cached = localStorage.getItem(STORAGE_KEYS.OFFLINE_QUEUE);
@@ -1280,6 +1343,9 @@ export const useAppData = (currentUser: User | null) => {
     handleRemoveBase64Photos,
     handleRunDiagnostics,
     handleMergeDuplicates,
-    handleFixDbStructure
+    handleFixDbStructure,
+    payments,
+    handleSavePayment,
+    handleDeletePayment
   };
 };

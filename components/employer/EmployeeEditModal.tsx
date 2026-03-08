@@ -134,7 +134,7 @@ export const EmployeeEditModal: React.FC<EmployeeEditModalProps> = ({
                     <div className="space-y-1">
                       {renderOverrideLabel('type', 'Тип оплаты')}
                       <div className="flex bg-white rounded-xl p-1 border border-slate-200">
-                        {(['hourly', 'fixed', 'shift'] as const).map(type => (
+                        {(['hourly', 'fixed', 'shift', 'piecework'] as const).map(type => (
                           <button
                             key={type}
                             type="button"
@@ -142,7 +142,7 @@ export const EmployeeEditModal: React.FC<EmployeeEditModalProps> = ({
                             onClick={() => handleUpdateEmployeePayroll('type', type)}
                             className={`flex-1 py-2 rounded-lg text-[10px] font-black uppercase transition-all ${(editingEmployee.payroll?.type || positions.find(p => p.name === editingEmployee.position)?.payroll?.type || DEFAULT_PAYROLL_CONFIG.type) === type ? 'bg-slate-900 text-white shadow-md' : 'text-slate-400 hover:text-slate-600'} ${!editingEmployee.payroll?.overrides?.type ? 'opacity-50 cursor-not-allowed' : ''}`}
                           >
-                            {type === 'hourly' ? 'Почасовая' : type === 'fixed' ? 'Оклад' : 'За смену'}
+                            {type === 'hourly' ? 'Почасовая' : type === 'fixed' ? 'Оклад' : type === 'shift' ? 'За смену' : 'Сдельная'}
                           </button>
                         ))}
                       </div>

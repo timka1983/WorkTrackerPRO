@@ -371,6 +371,9 @@ const App: React.FC = () => {
                 onUpdateOrg={appData.setCurrentOrg}
                 currentUser={activeUser!} 
                 onMonthChange={appData.loadLogsForMonth}
+                payments={appData.payments}
+                onSavePayment={appData.handleSavePayment}
+                onDeletePayment={appData.handleDeletePayment}
                 getNow={getNow}
                 viewMode={employerViewMode}
                 setViewMode={setEmployerViewMode}

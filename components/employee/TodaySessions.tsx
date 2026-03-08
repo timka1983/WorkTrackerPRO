@@ -18,7 +18,7 @@ export const TodaySessions = memo<TodaySessionsProps>(({ todayLogs, getMachineNa
                 <th className="px-4 py-3 text-[10px] font-black text-slate-400 uppercase tracking-widest">Объект / Статус</th>
                 <th className="px-4 py-3 text-[10px] font-black text-slate-400 uppercase tracking-widest">Начало</th>
                 <th className="px-4 py-3 text-[10px] font-black text-slate-400 uppercase tracking-widest">Конец</th>
-                <th className="px-4 py-3 text-[10px] font-black text-slate-400 uppercase tracking-widest text-right">Время</th>
+                <th className="px-4 py-3 text-[10px] font-black text-slate-400 uppercase tracking-widest text-right">Время / Шт.</th>
               </tr>
             </thead>
             <tbody>
@@ -32,7 +32,12 @@ export const TodaySessions = memo<TodaySessionsProps>(({ todayLogs, getMachineNa
                   </td>
                   <td className="px-4 py-3 font-mono font-bold text-slate-600">{log.checkIn ? formatTime(log.checkIn) : '--:--'}</td>
                   <td className="px-4 py-3 font-mono font-bold text-slate-600">{log.checkOut ? formatTime(log.checkOut) : '--:--'}</td>
-                  <td className="px-4 py-3 font-black text-slate-900 text-right">{log.durationMinutes > 0 ? formatDurationShort(log.durationMinutes) : (log.entryType === EntryType.WORK && !log.checkOut ? '--:--' : '0:00')}</td>
+                  <td className="px-4 py-3 font-black text-slate-900 text-right">
+                    {log.durationMinutes > 0 ? formatDurationShort(log.durationMinutes) : (log.entryType === EntryType.WORK && !log.checkOut ? '--:--' : '0:00')}
+                    {log.itemsProduced !== undefined && (
+                      <span className="block text-[10px] text-emerald-600 mt-0.5">{log.itemsProduced} шт.</span>
+                    )}
+                  </td>
                 </tr>
               )) : (
                 <tr>
