@@ -1,5 +1,5 @@
-import React from 'react';
-import { User, PositionConfig, PlanLimits, PayrollConfig, Machine, Branch } from '../../types';
+import React, { useMemo } from 'react';
+import { User, PositionConfig, PlanLimits, PayrollConfig, Machine, Branch, WorkLog, EntryType } from '../../types';
 import { DEFAULT_PAYROLL_CONFIG } from '../../constants';
 import { Trash2 } from 'lucide-react';
 
@@ -228,7 +228,9 @@ export const EmployeeEditModal: React.FC<EmployeeEditModalProps> = ({
                             if (!m) return null;
                             return (
                               <div key={m.id} className="flex items-center gap-2">
-                                <span className="text-xs font-bold text-slate-700 flex-1 truncate">{m.name}</span>
+                                <div className="flex-1 min-w-0">
+                                  <span className="text-xs font-bold text-slate-700 truncate block">{m.name}</span>
+                                </div>
                                 <input 
                                   type="number" 
                                   placeholder="Ставка"

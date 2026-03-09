@@ -203,6 +203,7 @@ export enum PaymentType {
   ADVANCE = 'advance',
   SALARY = 'salary',
   BONUS = 'bonus',
+  FINE = 'fine',
   OTHER = 'other'
 }
 

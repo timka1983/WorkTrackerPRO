@@ -146,6 +146,7 @@ const EmployeeView: React.FC<EmployeeViewProps> = ({
   const [showPinChange, setShowPinChange] = useState(user.forcePinChange || false);
   const [pinState, setPinState] = useState({ old: '', new: '', confirm: '' });
   const [pinError, setPinError] = useState('');
+  const [showMachineStatsModal, setShowMachineStatsModal] = useState(false);
 
   useEffect(() => {
     const handleOpenPinChange = () => setShowPinChange(true);
@@ -511,6 +512,16 @@ const EmployeeView: React.FC<EmployeeViewProps> = ({
     };
   }, [filteredLogs, daysInMonth, today, user.plannedShifts]);
 
+  const machineWorkBreakdown = useMemo(() => {
+    const breakdown: Record<string, number> = {};
+    filteredLogs.forEach(l => {
+      if (l.machineId && l.entryType === EntryType.WORK) {
+        breakdown[l.machineId] = (breakdown[l.machineId] || 0) + l.durationMinutes;
+      }
+    });
+    return breakdown;
+  }, [filteredLogs]);
+
   const effectivePayroll = useMemo(() => {
      if (user.payroll) return user.payroll;
      const pos = positions.find(p => p.name === user.position);
@@ -709,6 +720,41 @@ const EmployeeView: React.FC<EmployeeViewProps> = ({
         />
       )}
 
+      {showMachineStatsModal && (
+        <div className="fixed inset-0 z-[150] bg-slate-900/60 backdrop-blur-sm flex items-center justify-center p-4 no-print">
+          <div className="bg-white rounded-[2rem] w-full max-w-sm shadow-2xl border border-slate-200 overflow-hidden flex flex-col max-h-[80vh]">
+            <div className="p-5 border-b border-slate-100 flex justify-between items-center bg-slate-50/50">
+              <h3 className="font-black text-slate-900 uppercase tracking-tight text-sm">Работа на оборудовании</h3>
+              <button onClick={() => setShowMachineStatsModal(false)} className="text-slate-400 hover:text-slate-900 text-2xl font-light transition-colors">&times;</button>
+            </div>
+            <div className="p-4 overflow-y-auto custom-scrollbar">
+              <div className="divide-y divide-slate-100 border border-slate-100 rounded-xl overflow-hidden">
+                {Object.keys(machineWorkBreakdown).length === 0 ? (
+                  <p className="text-center text-slate-400 py-6 text-[10px] font-bold italic">Нет данных за этот месяц</p>
+                ) : (
+                  Object.entries(machineWorkBreakdown).map(([mId, mins]) => {
+                    const machine = machines.find(m => m.id === mId);
+                    if (!machine) return null;
+                    return (
+                      <div key={mId} className="flex justify-between items-center px-4 py-2.5 bg-white hover:bg-slate-50 transition-colors">
+                        <span className="text-[11px] font-bold text-slate-600">{machine.name}</span>
+                        <span className="text-[11px] font-black text-blue-600 tabular-nums">{formatDurationShort(mins)}</span>
+                      </div>
+                    );
+                  })
+                )}
+              </div>
+              <button 
+                onClick={() => setShowMachineStatsModal(false)}
+                className="w-full py-3 bg-slate-900 text-white rounded-xl font-black uppercase tracking-widest text-[10px] mt-4 hover:bg-slate-800 transition-all active:scale-95"
+              >
+                Закрыть
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
       <EmployeePrintView
         calendarData={calendarData}
         user={user}
@@ -791,7 +837,10 @@ const EmployeeView: React.FC<EmployeeViewProps> = ({
         </>
       ) : (
         <div id="print-area">
-          <EmployeeStats stats={stats} />
+          <EmployeeStats 
+            stats={stats} 
+            onShowMachineStats={() => setShowMachineStatsModal(true)}
+          />
 
           <EmployeeMatrix
             filterMonth={filterMonth}

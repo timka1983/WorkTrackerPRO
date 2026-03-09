@@ -143,6 +143,7 @@ export const calculateMonthlyPayroll = (
   sickLeavePay: number;
   bonuses: number;
   fines: number;
+  machineEarnings: Record<string, { mins: number, pay: number }>;
   details: {
     regularHours: number;
     overtimeHours: number;
@@ -187,6 +188,8 @@ export const calculateMonthlyPayroll = (
   let nightShiftCount = 0;
   let sickDays = 0;
 
+  const machineEarnings: Record<string, { mins: number, pay: number }> = {};
+
   const standardShiftMinutes = positionConfig?.permissions.maxShiftDurationMinutes || 480;
 
   const logsByDate: Record<string, WorkLog[]> = {};
@@ -210,12 +213,23 @@ export const calculateMonthlyPayroll = (
         }
         
         // Оплачиваем каждый лог отдельно
+        let logPay = 0;
         if (config.type === 'hourly') {
-          regularPay += (log.durationMinutes / 60) * currentRate;
+          logPay = (log.durationMinutes / 60) * currentRate;
         } else if (config.type === 'shift') {
-          regularPay += currentRate;
+          logPay = currentRate;
         } else if (config.type === 'piecework') {
-          regularPay += (log.itemsProduced || 0) * currentRate;
+          logPay = (log.itemsProduced || 0) * currentRate;
+        }
+        
+        regularPay += logPay;
+
+        if (log.machineId) {
+          if (!machineEarnings[log.machineId]) {
+            machineEarnings[log.machineId] = { mins: 0, pay: 0 };
+          }
+          machineEarnings[log.machineId].mins += log.durationMinutes;
+          machineEarnings[log.machineId].pay += logPay;
         }
 
         // Расчет часов для каждого станка отдельно
@@ -295,6 +309,7 @@ export const calculateMonthlyPayroll = (
     sickLeavePay: Math.round(sickLeavePay),
     bonuses: Math.round(bonuses),
     fines: Math.round(fines),
+    machineEarnings,
     details: {
       regularHours: toDecimalHours(regularMins),
       overtimeHours: toDecimalHours(overtimeMins),
