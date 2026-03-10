@@ -35,8 +35,19 @@ const App: React.FC = () => {
   // Telegram Notification Monitor
   useEffect(() => {
     // Check if feature is enabled in plan
-    const currentPlanType = appData.currentOrg?.plan || PlanType.FREE;
-    const planLimits = appData.plans.find(p => p.type === currentPlanType)?.limits || PLAN_LIMITS[currentPlanType];
+    const rawPlan = appData.currentOrg?.plan || PlanType.FREE;
+    const currentPlanType = String(rawPlan).toUpperCase() as PlanType;
+    const baseLimits = PLAN_LIMITS[currentPlanType] || PLAN_LIMITS[PlanType.FREE];
+    const dynamicPlan = appData.plans.find(p => p.type.toUpperCase() === currentPlanType);
+    
+    const planLimits = dynamicPlan ? {
+      ...baseLimits,
+      ...dynamicPlan.limits,
+      features: {
+        ...baseLimits.features,
+        ...(dynamicPlan.limits?.features || {})
+      }
+    } : baseLimits;
     
     if (!planLimits.features.shiftMonitoring) return;
     if (!appData.currentOrg?.telegramSettings?.enabled || !appData.currentOrg.telegramSettings.botToken) return;
@@ -65,7 +76,7 @@ const App: React.FC = () => {
 
           const duration = calculateMinutes(shift.checkIn, now.toISOString());
           
-          if (duration > alertThreshold) {
+          if (duration > alertThreshold && appData.currentOrg?.telegramSettings?.notifyOnLimitExceeded !== false) {
             const notificationKey = `tg_alert_${shift.id}`;
             const lastSent = localStorage.getItem(notificationKey);
             
@@ -177,7 +188,7 @@ const App: React.FC = () => {
             userChanged = true;
 
             // Telegram Notification
-            if (appData.currentOrg?.telegramSettings?.enabled && appData.currentOrg.telegramSettings.botToken && appData.currentOrg.telegramSettings.chatId) {
+            if (appData.currentOrg?.telegramSettings?.enabled && appData.currentOrg.telegramSettings.botToken && appData.currentOrg.telegramSettings.chatId && appData.currentOrg.telegramSettings.notifyOnLimitExceeded !== false) {
               const machineName = shift.machineId ? appData.machines.find((m: any) => m.id === shift.machineId)?.name || 'Работа' : 'Работа';
               const msg = `⛔️ <b>Авто-закрытие (Lazy)</b>\n👤 Сотрудник: ${user.name}\n📍 Позиция: ${user.position}\n🔧 Слот: ${slot} (${machineName})\n⚠️ Причина: Превышен лимит времени (серверная очистка)`;
               
@@ -278,7 +289,13 @@ const App: React.FC = () => {
         setEmployerViewMode={setEmployerViewMode}
         employeeViewMode={employeeViewMode}
         setEmployeeViewMode={setEmployeeViewMode}
-        canUsePayroll={appData.currentOrg ? (appData.plans.find(p => p.type === appData.currentOrg!.plan)?.limits.features.payroll ?? PLAN_LIMITS[appData.currentOrg!.plan].features.payroll) : false}
+        canUsePayroll={appData.currentOrg ? (() => {
+          const rawPlan = appData.currentOrg.plan;
+          const currentPlanType = String(rawPlan).toUpperCase() as PlanType;
+          const baseLimits = PLAN_LIMITS[currentPlanType] || PLAN_LIMITS[PlanType.FREE];
+          const dynamicPlan = appData.plans.find(p => p.type.toUpperCase() === currentPlanType);
+          return dynamicPlan?.limits?.features?.payroll ?? baseLimits.features.payroll;
+        })() : false}
       >
         {appData.dbError && (
           <div className="bg-rose-600 text-white px-4 py-2 text-center text-xs font-bold animate-pulse sticky top-16 z-[60] shadow-lg">

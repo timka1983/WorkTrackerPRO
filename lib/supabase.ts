@@ -122,7 +122,7 @@ export const db = {
       
       if (error) {
         // Fallback for missing organization_id column
-        if (error.code === '42703' || error.message?.includes('column')) {
+        if (error.code === '42703' || error.code === 'PGRST204' || error.message?.includes('column')) {
           console.warn('organization_id column missing in work_logs, fetching all logs');
           const { data: allData, error: allError } = await supabase
             .from('work_logs')
@@ -211,6 +211,10 @@ export const db = {
     const { error } = await supabase.from('work_logs').upsert(payload);
     if (error) {
       console.error('❌ Error upserting log:', error);
+      if (error.code === '42703' || error.code === 'PGRST204' || error.message?.includes('column')) {
+        const { is_night_shift, photo_in, photo_out, machine_id, fine, bonus, items_produced, location, branch_id, ...minimalPayload } = payload;
+        await supabase.from('work_logs').upsert(minimalPayload);
+      }
     } else {
       console.log('✅ Log upserted successfully');
     }
@@ -314,10 +318,10 @@ export const db = {
     if (error) {
       console.error('Error batch upserting logs:', error);
       
-      // Если ошибка в колонках (42703) или неопределенная ошибка, пробуем минимальный набор
-      if (error.code === '42703' || error.message?.includes('column')) {
+      // Если ошибка в колонках (42703, PGRST204) или неопределенная ошибка, пробуем минимальный набор
+      if (error.code === '42703' || error.code === 'PGRST204' || error.message?.includes('column')) {
         const minimalPayload = payload.map(p => {
-          const { is_night_shift, photo_in, photo_out, machine_id, fine, bonus, items_produced, branch_id, ...rest } = p;
+          const { is_night_shift, photo_in, photo_out, machine_id, fine, bonus, items_produced, location, branch_id, ...rest } = p;
           return rest;
         });
         console.warn('Retrying with minimal payload...');
@@ -363,7 +367,7 @@ export const db = {
       
       if (error) {
         // Fallback for missing organization_id column
-        if (error.code === '42703' || error.message?.includes('column')) {
+        if (error.code === '42703' || error.code === 'PGRST204' || error.message?.includes('column')) {
           console.warn('organization_id column missing in users, fetching all users');
           const { data: allData, error: allError } = await supabase
             .from('users')
@@ -551,12 +555,16 @@ export const db = {
     // to avoid breaking the query
     return (data || [])
       .filter(m => !m.is_archived)
-      .map(m => ({
-        ...m,
-        id: cleanValue(m.id),
-        organizationId: cleanValue(m.organization_id),
-        branchId: cleanValue(m.branch_id)
-      })) || null;
+      .map(m => {
+        const { organization_id, branch_id, is_archived, ...rest } = m;
+        return {
+          ...rest,
+          id: cleanValue(m.id),
+          organizationId: cleanValue(organization_id),
+          branchId: cleanValue(branch_id),
+          isArchived: is_archived
+        };
+      }) || null;
   },
   saveMachines: async (machines: any[], orgId: string) => {
     if (!checkConfig()) return { error: 'Not configured' };
@@ -631,9 +639,10 @@ export const db = {
 
     // Используем upsert для сохранения ID и производительности
     const payload = machines.map(m => {
-      const { branchId, organizationId, organization_id, branch_id, ...rest } = m;
+      const { branchId, organizationId, organization_id, branch_id, isArchived, is_archived, ...rest } = m;
       const item: any = { ...rest, organization_id: orgId };
       item.branch_id = branchId || branch_id || null;
+      if (isArchived !== undefined) item.is_archived = isArchived;
       return item;
     });
 
@@ -642,10 +651,10 @@ export const db = {
       { onConflict: 'id' }
     );
     
-    if (error && (error.code === '42703' || error.message?.includes('column'))) {
-       // Fallback without branch_id
+    if (error && (error.code === '42703' || error.code === 'PGRST204' || error.message?.includes('column'))) {
+       // Fallback without branch_id and is_archived
        const minimalPayload = payload.map((p: any) => {
-         const { branch_id, ...rest } = p;
+         const { branch_id, is_archived, ...rest } = p;
          return rest;
        });
        const { error: retryError } = await supabase.from('machines').upsert(
@@ -902,8 +911,8 @@ export const db = {
       if (error) {
         console.warn('⚠️ First upsert attempt failed, trying fallback:', error);
         
-        // If error is about missing columns (42703)
-        if (error.code === '42703' || error.message?.includes('column')) {
+        // If error is about missing columns (42703, PGRST204)
+        if (error.code === '42703' || error.code === 'PGRST204' || error.message?.includes('column')) {
           console.warn('⚠️ Missing column detected, attempting to strip optional fields...');
           
           // Strategy 1: Remove 'shifts' (legacy field)
@@ -964,7 +973,7 @@ export const db = {
     
     if (error) {
       // If organization_id column is missing, fetch all and we'll filter in memory or just use all
-      if (error.code === '42703' || error.message?.includes('column')) {
+      if (error.code === '42703' || error.code === 'PGRST204' || error.message?.includes('column')) {
         const { data: allData, error: allErrors } = await supabase.from('active_shifts').select('*');
         if (allErrors) return null;
         return (allData || []).map(s => ({
@@ -1098,7 +1107,7 @@ export const db = {
       console.error('Error updating organization:', error);
       
       // If column doesn't exist, try without new settings
-      if ((error.code === '42703' || error.message?.includes('column'))) {
+      if ((error.code === '42703' || error.code === 'PGRST204' || error.message?.includes('column'))) {
         console.warn('Retrying organization update without new settings columns...');
         
         // Fetch current organization to merge settings into notification_settings as fallback
@@ -1147,7 +1156,7 @@ export const db = {
       console.error('Error creating organization:', error);
       
       // Fallback if new columns don't exist
-      if (error.code === '42703' || error.message?.includes('column')) {
+      if (error.code === '42703' || error.code === 'PGRST204' || error.message?.includes('column')) {
         let mergedSettings: any = org.notificationSettings || {};
         if (org.locationSettings) mergedSettings.locationSettings = org.locationSettings;
         if (org.telegramSettings) mergedSettings.telegramSettings = org.telegramSettings;
@@ -1300,7 +1309,10 @@ CREATE TABLE IF NOT EXISTS work_logs (
   correction_timestamp TIMESTAMPTZ,
   is_night_shift BOOLEAN DEFAULT false,
   fine INTEGER DEFAULT 0,
-  bonus INTEGER DEFAULT 0
+  bonus INTEGER DEFAULT 0,
+  items_produced INTEGER,
+  location JSONB,
+  branch_id TEXT
 );
 ALTER TABLE work_logs ENABLE ROW LEVEL SECURITY;
 DROP POLICY IF EXISTS "Allow public read" ON work_logs;
@@ -1316,7 +1328,9 @@ CREATE POLICY "Allow public delete" ON work_logs FOR DELETE USING (true);
 CREATE TABLE IF NOT EXISTS machines (
   id TEXT PRIMARY KEY,
   organization_id TEXT NOT NULL,
-  name TEXT NOT NULL
+  name TEXT NOT NULL,
+  branch_id TEXT,
+  is_archived BOOLEAN DEFAULT false
 );
 ALTER TABLE machines ENABLE ROW LEVEL SECURITY;
 DROP POLICY IF EXISTS "Allow public read" ON machines;
@@ -1750,6 +1764,8 @@ CREATE TABLE IF NOT EXISTS work_logs (
   is_night_shift BOOLEAN DEFAULT false,
   fine INTEGER DEFAULT 0,
   bonus INTEGER DEFAULT 0,
+  items_produced INTEGER,
+  location JSONB,
   branch_id TEXT
 );
 ALTER TABLE work_logs ENABLE ROW LEVEL SECURITY;
@@ -1768,7 +1784,8 @@ CREATE TABLE IF NOT EXISTS machines (
   id TEXT PRIMARY KEY,
   organization_id TEXT NOT NULL,
   name TEXT NOT NULL,
-  branch_id TEXT
+  branch_id TEXT,
+  is_archived BOOLEAN DEFAULT false
 );
 ALTER TABLE machines ENABLE ROW LEVEL SECURITY;
 DROP POLICY IF EXISTS "Allow public read" ON machines;
@@ -1913,8 +1930,8 @@ CREATE POLICY "Allow public delete" ON branches FOR DELETE USING (true);
       const expectedSchema: Record<string, string[]> = {
         organizations: ['id', 'name', 'email', 'owner_id', 'plan', 'status', 'expiry_date', 'notification_settings', 'location_settings', 'telegram_settings', 'max_shift_duration', 'round_shift_minutes'],
         users: ['id', 'organization_id', 'name', 'role', 'department', 'position', 'pin', 'require_photo', 'is_admin', 'force_pin_change', 'push_token', 'planned_shifts', 'payroll', 'branch_id'],
-        work_logs: ['id', 'user_id', 'organization_id', 'date', 'entry_type', 'machine_id', 'check_in', 'check_out', 'duration_minutes', 'photo_in', 'photo_out', 'is_corrected', 'correction_note', 'correction_timestamp', 'is_night_shift', 'fine', 'bonus', 'branch_id'],
-        machines: ['id', 'organization_id', 'name', 'branch_id'],
+        work_logs: ['id', 'user_id', 'organization_id', 'date', 'entry_type', 'machine_id', 'check_in', 'check_out', 'duration_minutes', 'photo_in', 'photo_out', 'is_corrected', 'correction_note', 'correction_timestamp', 'is_night_shift', 'fine', 'bonus', 'items_produced', 'location', 'branch_id'],
+        machines: ['id', 'organization_id', 'name', 'branch_id', 'is_archived'],
         positions: ['name', 'organization_id', 'permissions', 'payroll'],
         plans: ['type', 'name', 'limits', 'price'],
         promo_codes: ['id', 'code', 'plan_type', 'duration_days', 'max_uses', 'used_count', 'created_at', 'expires_at', 'is_active', 'last_used_by', 'last_used_at'],
@@ -1941,7 +1958,7 @@ CREATE POLICY "Allow public delete" ON branches FOR DELETE USING (true);
               }
               
               // If error is about column not found
-              if (error.code === '42703' || 
+              if (error.code === '42703' || error.code === 'PGRST204' || 
                   error.message.toLowerCase().includes('column') || 
                   error.message.toLowerCase().includes('does not exist') ||
                   error.message.toLowerCase().includes('not found')) {
@@ -2239,7 +2256,7 @@ $$;
       console.error('Error saving promo code:', error);
       
       // If column error, try minimal payload
-      if (error.code === '42703' || error.message?.includes('column')) {
+      if (error.code === '42703' || error.code === 'PGRST204' || error.message?.includes('column')) {
         console.warn('Retrying promo code save with minimal payload...');
         const minimalPayload = {
           id: promo.id,

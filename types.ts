@@ -71,6 +71,9 @@ export interface TelegramSettings {
   botToken: string;
   chatId: string;
   enabled: boolean;
+  notifyOnShiftStart?: boolean;
+  notifyOnShiftEnd?: boolean;
+  notifyOnLimitExceeded?: boolean;
 }
 
 export interface Organization {
@@ -137,6 +140,7 @@ export interface Machine {
   name: string;
   organizationId?: string;
   branchId?: string;
+  isArchived?: boolean;
 }
 
 export interface User {

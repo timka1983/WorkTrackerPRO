@@ -132,9 +132,22 @@ const EmployerView: React.FC<EmployerViewProps> = ({
 
   // Расчет текущих лимитов
   const planLimits = useMemo(() => {
-    if (!currentOrg) return PLAN_LIMITS[PlanType.FREE];
-    const dynamicPlan = plans.find(p => p.type === currentOrg.plan);
-    return dynamicPlan ? (dynamicPlan.limits as PlanLimits) : PLAN_LIMITS[currentOrg.plan];
+    const rawPlan = currentOrg?.plan || PlanType.FREE;
+    const currentPlanType = String(rawPlan).toUpperCase() as PlanType;
+    const baseLimits = PLAN_LIMITS[currentPlanType] || PLAN_LIMITS[PlanType.FREE];
+    
+    const dynamicPlan = plans.find(p => p.type.toUpperCase() === currentPlanType);
+    if (!dynamicPlan) return baseLimits;
+
+    // Merge dynamic limits with base limits to ensure all features are present
+    return {
+      ...baseLimits,
+      ...dynamicPlan.limits,
+      features: {
+        ...baseLimits.features,
+        ...(dynamicPlan.limits?.features || {})
+      }
+    };
   }, [currentOrg, plans]);
 
   const isUserLimitReached = users.length >= planLimits.maxUsers;
@@ -780,6 +793,7 @@ const EmployerView: React.FC<EmployerViewProps> = ({
           handleResetDevicePairing={handleResetDevicePairing}
           machines={machines}
           branches={branches}
+          telegramSettings={currentOrg?.telegramSettings}
         />
       )}
 

@@ -14,6 +14,7 @@ interface EmployeeEditModalProps {
   handleResetDevicePairing: () => void;
   machines: Machine[];
   branches: Branch[];
+  telegramSettings?: { botToken: string; enabled: boolean };
 }
 
 export const EmployeeEditModal: React.FC<EmployeeEditModalProps> = ({
@@ -26,7 +27,8 @@ export const EmployeeEditModal: React.FC<EmployeeEditModalProps> = ({
   handleUpdateEmployeePayroll,
   handleResetDevicePairing,
   machines,
-  branches
+  branches,
+  telegramSettings
 }) => {
   const renderOverrideLabel = (key: keyof NonNullable<PayrollConfig['overrides']>, label: string) => {
     const isOverridden = editingEmployee.payroll?.overrides?.[key] || false;
@@ -272,14 +274,73 @@ export const EmployeeEditModal: React.FC<EmployeeEditModalProps> = ({
                  
                  <div className="space-y-1">
                     <label className="text-[9px] font-black text-amber-700 uppercase ml-1">Telegram Chat ID</label>
-                    <input 
-                      type="text" 
-                      value={editingEmployee.telegramChatId || ''} 
-                      onChange={e => setEditingEmployee({...editingEmployee, telegramChatId: e.target.value})} 
-                      placeholder="123456789"
-                      className="w-full border-2 border-amber-200 rounded-xl px-3 py-2 text-sm font-bold outline-none focus:border-amber-500 bg-white text-amber-900" 
-                    />
-                    <p className="text-[9px] text-amber-600/70">Для личных уведомлений</p>
+                    <div className="flex gap-2">
+                      <input 
+                        type="text" 
+                        value={editingEmployee.telegramChatId || ''} 
+                        onChange={e => setEditingEmployee({...editingEmployee, telegramChatId: e.target.value})} 
+                        placeholder="123456789"
+                        className="w-full border-2 border-amber-200 rounded-xl px-3 py-2 text-sm font-bold outline-none focus:border-amber-500 bg-white text-amber-900" 
+                      />
+                      {telegramSettings?.enabled && telegramSettings.botToken && (
+                        <button
+                          type="button"
+                          onClick={async () => {
+                            try {
+                              const res = await fetch(`https://api.telegram.org/bot${telegramSettings.botToken}/getUpdates`);
+                              const data = await res.json();
+                              if (data.ok && data.result.length > 0) {
+                                const lastMsg = data.result[data.result.length - 1];
+                                const chatId = lastMsg.message?.chat.id || lastMsg.channel_post?.chat.id;
+                                const senderName = lastMsg.message?.from?.first_name || lastMsg.message?.from?.username || 'Неизвестно';
+                                if (chatId) {
+                                  if (confirm(`Найдено сообщение от "${senderName}" (ID: ${chatId}). Использовать этот ID?`)) {
+                                    setEditingEmployee({...editingEmployee, telegramChatId: String(chatId)});
+                                  }
+                                } else {
+                                  alert('Не удалось определить ID. Напишите боту любое сообщение.');
+                                }
+                              } else {
+                                alert('Нет новых сообщений. Пусть сотрудник напишет боту любое сообщение.');
+                              }
+                            } catch (e) {
+                              alert('Ошибка при запросе к Telegram API');
+                            }
+                          }}
+                          className="px-3 py-2 bg-amber-200 text-amber-700 rounded-xl text-[10px] font-black uppercase hover:bg-amber-300 transition-colors whitespace-nowrap"
+                        >
+                          Найти
+                        </button>
+                      )}
+                    </div>
+                    <div className="flex justify-between items-center mt-1">
+                      <p className="text-[9px] text-amber-600/70">Для личных уведомлений</p>
+                      {editingEmployee.telegramChatId && telegramSettings?.enabled && telegramSettings.botToken && (
+                        <button
+                          type="button"
+                          onClick={async () => {
+                            try {
+                              const res = await fetch(`https://api.telegram.org/bot${telegramSettings.botToken}/sendMessage`, {
+                                method: 'POST',
+                                headers: { 'Content-Type': 'application/json' },
+                                body: JSON.stringify({
+                                  chat_id: editingEmployee.telegramChatId,
+                                  text: `👋 Привет, ${editingEmployee.name}! Это тестовое уведомление от WorkTracker Pro.`
+                                })
+                              });
+                              const data = await res.json();
+                              if (data.ok) alert('Тестовое сообщение отправлено!');
+                              else alert('Ошибка: ' + data.description);
+                            } catch (e) {
+                              alert('Ошибка при отправке');
+                            }
+                          }}
+                          className="text-[9px] font-bold text-amber-700 underline hover:text-amber-900"
+                        >
+                          Проверить
+                        </button>
+                      )}
+                    </div>
                  </div>
 
                  <button 

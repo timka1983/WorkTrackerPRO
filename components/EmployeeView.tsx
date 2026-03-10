@@ -344,7 +344,7 @@ const EmployeeView: React.FC<EmployeeViewProps> = ({
     setShowCamera(null);
 
     // Telegram Notification
-    if (currentOrg?.telegramSettings?.enabled && currentOrg.telegramSettings.botToken && currentOrg.telegramSettings.chatId) {
+    if (currentOrg?.telegramSettings?.enabled && currentOrg.telegramSettings.botToken && currentOrg.telegramSettings.chatId && currentOrg.telegramSettings.notifyOnShiftStart !== false) {
       const machineName = selectedMachineId ? getMachineName(selectedMachineId) : 'Работа';
       const msg = `🟢 <b>Начало смены</b>\n👤 Сотрудник: ${user.name}\n📍 Позиция: ${user.position}\n🔧 Слот: ${slot} (${machineName})\n⏰ Время: ${formatTime(now.toISOString())}`;
       sendTelegramNotification(currentOrg.telegramSettings.botToken, currentOrg.telegramSettings.chatId, msg);
@@ -389,7 +389,7 @@ const EmployeeView: React.FC<EmployeeViewProps> = ({
     setShowCamera(null);
 
     // Telegram Notification
-    if (currentOrg?.telegramSettings?.enabled && currentOrg.telegramSettings.botToken && currentOrg.telegramSettings.chatId) {
+    if (currentOrg?.telegramSettings?.enabled && currentOrg.telegramSettings.botToken && currentOrg.telegramSettings.chatId && currentOrg.telegramSettings.notifyOnShiftEnd !== false) {
       const machineName = currentShift.machineId ? getMachineName(currentShift.machineId) : 'Работа';
       const durationFormatted = formatDuration(Math.max(0, duration));
       const itemsText = items !== undefined ? `\n📦 Произведено: ${items} шт.` : '';
@@ -650,7 +650,7 @@ const EmployeeView: React.FC<EmployeeViewProps> = ({
     onLogsUpsert([completed]);
 
     // Telegram Notification for Force Close
-    if (currentOrg?.telegramSettings?.enabled && currentOrg.telegramSettings.botToken && currentOrg.telegramSettings.chatId) {
+    if (currentOrg?.telegramSettings?.enabled && currentOrg.telegramSettings.botToken && currentOrg.telegramSettings.chatId && currentOrg.telegramSettings.notifyOnLimitExceeded !== false) {
       const machineName = currentShift.machineId ? getMachineName(currentShift.machineId) : 'Работа';
       const msg = `⛔️ <b>Авто-закрытие смены</b>\n👤 Сотрудник: ${user.name}\n📍 Позиция: ${user.position}\n🔧 Слот: ${slot} (${machineName})\n⚠️ Причина: Превышен лимит времени или выход из гео-зоны`;
       
