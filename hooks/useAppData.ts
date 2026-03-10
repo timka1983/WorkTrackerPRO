@@ -969,9 +969,9 @@ export const useAppData = (currentUser: User | null) => {
   });
 
   const deleteUserMutation = useMutation({
-    mutationFn: async (userId: string) => {
+    mutationFn: async ({ userId, reason }: { userId: string, reason?: string }) => {
       if (!currentOrg) throw new Error('Организация не выбрана');
-      const { error } = await db.deleteUser(userId, currentOrg.id);
+      const { error } = await db.deleteUser(userId, currentOrg.id, reason);
       if (error) throw error;
       return userId;
     },
@@ -982,9 +982,9 @@ export const useAppData = (currentUser: User | null) => {
   });
 
   const saveMachinesMutation = useMutation({
-    mutationFn: async (newMachines: Machine[]) => {
+    mutationFn: async ({ newMachines, deletedMachineInfo }: { newMachines: Machine[], deletedMachineInfo?: { id: string, reason: string }[] }) => {
       if (!currentOrg) throw new Error('Организация не выбрана');
-      const { error } = await db.saveMachines(newMachines, currentOrg.id);
+      const { error } = await db.saveMachines(newMachines, currentOrg.id, deletedMachineInfo);
       if (error) {
         if (typeof error === 'object' && (error as any).message?.includes('LIMIT_REACHED')) {
           throw new Error((error as any).message.split(': ')[1] || 'LIMIT_REACHED');
@@ -1063,13 +1063,13 @@ export const useAppData = (currentUser: User | null) => {
     updateUserMutation.mutate(updatedUser);
   };
 
-  const handleDeleteUser = async (userId: string) => {
-    deleteUserMutation.mutate(userId);
+  const handleDeleteUser = async (userId: string, reason?: string) => {
+    deleteUserMutation.mutate({ userId, reason });
   };
 
-  const persistMachines = async (newMachines: Machine[]) => {
+  const persistMachines = async (newMachines: Machine[], deletedMachineInfo?: { id: string, reason: string }[]) => {
     if (newMachines.length > machines.length && !checkLimit('machines')) return;
-    saveMachinesMutation.mutate(newMachines);
+    saveMachinesMutation.mutate({ newMachines, deletedMachineInfo });
   };
 
   const persistPositions = async (newPositions: PositionConfig[]) => {
@@ -1325,6 +1325,14 @@ export const useAppData = (currentUser: User | null) => {
     handleActiveShiftsUpdate,
     handleDeleteLog,
     handleAddUser,
+    getArchivedUsers: async () => {
+      if (!currentOrg) return null;
+      return db.getArchivedUsers(currentOrg.id);
+    },
+    getArchivedMachines: async () => {
+      if (!currentOrg) return null;
+      return db.getArchivedMachines(currentOrg.id);
+    },
     handleUpdateUser,
     handleDeleteUser,
     persistMachines,

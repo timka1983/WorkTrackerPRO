@@ -1,5 +1,7 @@
-import React from 'react';
+import React, { useState } from 'react';
 import { User, PositionConfig, PlanLimits, Organization, Machine, WorkLog, Branch } from '../../types';
+import { Archive } from 'lucide-react';
+import { ArchiveConfirmModal, ArchiveViewModal } from './ArchiveModals';
 
 interface TeamViewProps {
   users: User[];
@@ -15,8 +17,9 @@ interface TeamViewProps {
   userPerms: any;
   handleForceFinish: (log: WorkLog) => void;
   setEditingEmployee: (user: User) => void;
-  onDeleteUser: (id: string) => void;
+  onDeleteUser: (id: string, reason?: string) => void;
   branches: Branch[];
+  getArchivedUsers: () => Promise<User[] | null>;
 }
 
 export const TeamView: React.FC<TeamViewProps> = ({
@@ -34,8 +37,21 @@ export const TeamView: React.FC<TeamViewProps> = ({
   handleForceFinish,
   setEditingEmployee,
   onDeleteUser,
-  branches
+  branches,
+  getArchivedUsers
 }) => {
+  const [archiveConfirm, setArchiveConfirm] = useState<{ isOpen: boolean; userId: string; userName: string }>({
+    isOpen: false,
+    userId: '',
+    userName: ''
+  });
+  const [isArchiveViewOpen, setIsArchiveViewOpen] = useState(false);
+
+  const handleConfirmArchive = (reason: string) => {
+    onDeleteUser(archiveConfirm.userId, reason);
+    setArchiveConfirm({ isOpen: false, userId: '', userName: '' });
+  };
+
   return (
     <section className="grid grid-cols-1 lg:grid-cols-3 gap-8">
       <div className="lg:col-span-1">
@@ -89,6 +105,17 @@ export const TeamView: React.FC<TeamViewProps> = ({
         </div>
       </div>
       <div className="lg:col-span-2 space-y-4">
+         <div className="flex items-center justify-between px-2">
+           <h3 className="text-[10px] font-black text-slate-400 uppercase tracking-widest">Список сотрудников</h3>
+           <button 
+             onClick={() => setIsArchiveViewOpen(true)}
+             className="flex items-center gap-2 px-3 py-1.5 bg-slate-100 text-slate-500 rounded-xl hover:bg-slate-200 hover:text-slate-700 transition-all text-[9px] font-black uppercase tracking-widest"
+           >
+             <Archive size={12} />
+             Архив
+           </button>
+         </div>
+
          {users.map(u => {
            const activeLogs = dashboardStats.activeLogsMap[u.id] || [];
            const isWorking = activeLogs.length > 0;
@@ -147,8 +174,12 @@ export const TeamView: React.FC<TeamViewProps> = ({
                     <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15.232 5.232l3.536 3.536m-2.036-5.036a2.5 2.5 0 113.536 3.536L6.5 21.036H3v-3.572L16.732 3.732z" /></svg>
                   </button>
                   {u.id !== 'admin' && (
-                    <button onClick={() => { if(confirm(`Удалить ${u.name}?`)) onDeleteUser(u.id); }} className="p-3 text-slate-300 hover:text-red-500 transition-all hover:bg-red-50 rounded-2xl">
-                      <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" /></svg>
+                    <button 
+                      onClick={() => setArchiveConfirm({ isOpen: true, userId: u.id, userName: u.name })} 
+                      className="p-3 text-slate-300 hover:text-amber-600 transition-all hover:bg-amber-50 rounded-2xl"
+                      title="Архивировать"
+                    >
+                      <Archive size={20} />
                     </button>
                   )}
                 </div>
@@ -156,6 +187,21 @@ export const TeamView: React.FC<TeamViewProps> = ({
            );
          })}
       </div>
+
+      <ArchiveConfirmModal
+        isOpen={archiveConfirm.isOpen}
+        onClose={() => setArchiveConfirm({ isOpen: false, userId: '', userName: '' })}
+        onConfirm={handleConfirmArchive}
+        title="Архивация сотрудника"
+        itemName={archiveConfirm.userName}
+      />
+
+      <ArchiveViewModal
+        isOpen={isArchiveViewOpen}
+        onClose={() => setIsArchiveViewOpen(false)}
+        type="users"
+        getArchivedItems={getArchivedUsers}
+      />
     </section>
   );
 };

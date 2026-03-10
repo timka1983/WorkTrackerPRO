@@ -391,6 +391,8 @@ const App: React.FC = () => {
                 payments={appData.payments}
                 onSavePayment={appData.handleSavePayment}
                 onDeletePayment={appData.handleDeletePayment}
+                getArchivedUsers={appData.getArchivedUsers}
+                getArchivedMachines={appData.getArchivedMachines}
                 getNow={getNow}
                 viewMode={employerViewMode}
                 setViewMode={setEmployerViewMode}

@@ -141,6 +141,8 @@ export interface Machine {
   organizationId?: string;
   branchId?: string;
   isArchived?: boolean;
+  archivedAt?: string;
+  archiveReason?: string;
 }
 
 export interface User {
@@ -164,6 +166,9 @@ export interface User {
     notifyOnShiftEnd: boolean;
     notifyOnLimitExceeded: boolean;
   };
+  isArchived?: boolean;
+  archivedAt?: string;
+  archiveReason?: string;
 }
 
 export interface WorkLog {

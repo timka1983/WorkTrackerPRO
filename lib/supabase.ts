@@ -374,45 +374,55 @@ export const db = {
             .select('*')
             .order('name');
           if (allError) throw allError;
-          return (allData || []).map(u => ({
-            id: cleanValue(u.id),
-            name: u.name,
-            role: u.role,
-            department: u.department,
-            position: u.position,
-            pin: u.pin,
-            requirePhoto: u.require_photo,
-            isAdmin: u.is_admin,
-            forcePinChange: u.force_pin_change,
-            organizationId: cleanValue(u.organization_id),
-            pushToken: u.push_token,
-            plannedShifts: u.planned_shifts,
-            payroll: u.payroll,
-            telegramChatId: u.telegram_chat_id,
-            telegramSettings: u.telegram_settings
-          }));
+          return (allData || [])
+            .filter(u => !u.is_archived)
+            .map(u => ({
+              id: cleanValue(u.id),
+              name: u.name,
+              role: u.role,
+              department: u.department,
+              position: u.position,
+              pin: u.pin,
+              requirePhoto: u.require_photo,
+              isAdmin: u.is_admin,
+              forcePinChange: u.force_pin_change,
+              organizationId: cleanValue(u.organization_id),
+              pushToken: u.push_token,
+              plannedShifts: u.planned_shifts,
+              payroll: u.payroll,
+              telegramChatId: u.telegram_chat_id,
+              telegramSettings: u.telegram_settings,
+              isArchived: u.is_archived,
+              archivedAt: u.archived_at,
+              archiveReason: u.archive_reason
+            }));
         }
         throw error;
       }
       
-      return (data || []).map(u => ({
-        id: cleanValue(u.id),
-        name: u.name,
-        role: u.role,
-        department: u.department,
-        position: u.position,
-        pin: u.pin,
-        requirePhoto: u.require_photo,
-        isAdmin: u.is_admin,
-        forcePinChange: u.force_pin_change,
-        organizationId: cleanValue(u.organization_id),
-        branchId: cleanValue(u.branch_id),
-        pushToken: u.push_token,
-        plannedShifts: u.planned_shifts,
-        payroll: u.payroll,
-        telegramChatId: u.telegram_chat_id,
-        telegramSettings: u.telegram_settings
-      }));
+      return (data || [])
+        .filter(u => !u.is_archived)
+        .map(u => ({
+          id: cleanValue(u.id),
+          name: u.name,
+          role: u.role,
+          department: u.department,
+          position: u.position,
+          pin: u.pin,
+          requirePhoto: u.require_photo,
+          isAdmin: u.is_admin,
+          forcePinChange: u.force_pin_change,
+          organizationId: cleanValue(u.organization_id),
+          branchId: cleanValue(u.branch_id),
+          pushToken: u.push_token,
+          plannedShifts: u.planned_shifts,
+          payroll: u.payroll,
+          telegramChatId: u.telegram_chat_id,
+          telegramSettings: u.telegram_settings,
+          isArchived: u.is_archived,
+          archivedAt: u.archived_at,
+          archiveReason: u.archive_reason
+        }));
     } catch (e) {
       console.error('Error in getUsers:', e);
       return null;
@@ -478,6 +488,15 @@ export const db = {
     if (user.branchId !== undefined) {
       payload.branch_id = user.branchId;
     }
+    if (user.isArchived !== undefined) {
+      payload.is_archived = user.isArchived;
+    }
+    if (user.archivedAt !== undefined) {
+      payload.archived_at = user.archivedAt;
+    }
+    if (user.archiveReason !== undefined) {
+      payload.archive_reason = user.archiveReason;
+    }
 
     const { error } = await supabase.from('users').upsert(payload);
     
@@ -485,7 +504,7 @@ export const db = {
       console.error('Error saving user:', error);
       // Try without new columns if it fails due to missing column
       if (error.code === '42703' || error.code === 'PGRST204' || error.message?.includes('column')) {
-        const { push_token, planned_shifts, payroll, telegram_chat_id, telegram_settings, branch_id, ...minimalPayload } = payload;
+        const { push_token, planned_shifts, payroll, telegram_chat_id, telegram_settings, branch_id, is_archived, archived_at, archive_reason, ...minimalPayload } = payload;
         const { error: retryError } = await supabase.from('users').upsert(minimalPayload);
         return { error: retryError };
       }
@@ -534,16 +553,54 @@ export const db = {
     
     return { error };
   },
-  deleteUser: async (id: string, orgId: string) => {
+  deleteUser: async (id: string, orgId: string, reason?: string) => {
     if (!isConfigured()) return { error: 'Not configured' };
-    let query = supabase.from('users').delete().eq('id', id);
-    if (orgId === 'demo_org') {
-      query = query.or(`organization_id.eq.${orgId},organization_id.is.null`);
-    } else {
-      query = query.eq('organization_id', orgId);
-    }
-    const { error } = await query;
+    
+    // Archive instead of delete
+    const { error } = await supabase.from('users').update({
+      is_archived: true,
+      archived_at: new Date().toISOString(),
+      archive_reason: reason || 'Удален администратором'
+    }).eq('id', id).eq('organization_id', orgId);
+    
     return { error };
+  },
+  getArchivedUsers: async (orgId: string) => {
+    if (!checkConfig()) return null;
+    try {
+      const { data, error } = await supabase
+        .from('users')
+        .select('*')
+        .eq('organization_id', orgId)
+        .eq('is_archived', true)
+        .order('archived_at', { ascending: false });
+      
+      if (error) return null;
+      
+      return (data || []).map(u => ({
+        id: cleanValue(u.id),
+        name: u.name,
+        role: u.role,
+        department: u.department,
+        position: u.position,
+        pin: u.pin,
+        requirePhoto: u.require_photo,
+        isAdmin: u.is_admin,
+        forcePinChange: u.force_pin_change,
+        organizationId: cleanValue(u.organization_id),
+        branchId: cleanValue(u.branch_id),
+        pushToken: u.push_token,
+        plannedShifts: u.planned_shifts,
+        payroll: u.payroll,
+        telegramChatId: u.telegram_chat_id,
+        telegramSettings: u.telegram_settings,
+        isArchived: u.is_archived,
+        archivedAt: u.archived_at,
+        archiveReason: u.archive_reason
+      }));
+    } catch (e) {
+      return null;
+    }
   },
   getMachines: async (orgId: string) => {
     if (!checkConfig()) return null;
@@ -568,109 +625,90 @@ export const db = {
           id: cleanValue(m.id),
           organizationId: cleanValue(organization_id),
           branchId: cleanValue(branch_id),
-          isArchived: is_archived
+          isArchived: is_archived,
+          archivedAt: m.archived_at,
+          archiveReason: m.archive_reason
         };
       }) || null;
   },
-  saveMachines: async (machines: any[], orgId: string) => {
+  getArchivedMachines: async (orgId: string) => {
+    if (!checkConfig()) return null;
+    const { data, error } = await supabase
+      .from('machines')
+      .select('*')
+      .eq('organization_id', orgId)
+      .eq('is_archived', true)
+      .order('archived_at', { ascending: false });
+    
+    if (error) return null;
+    
+    return (data || []).map(m => ({
+      id: cleanValue(m.id),
+      name: m.name,
+      organizationId: cleanValue(m.organization_id),
+      branchId: cleanValue(m.branch_id),
+      isArchived: m.is_archived,
+      archivedAt: m.archived_at,
+      archiveReason: m.archive_reason
+    }));
+  },
+  saveMachines: async (machines: any[], orgId: string, deletedMachineInfo?: { id: string, reason: string }[]) => {
     if (!checkConfig()) return { error: 'Not configured' };
     
-    if (machines.length === 0) {
-      // If empty array, we should probably delete all machines for this org
-      // But let's check if we want to do that. For now, just return success if empty array
-      // to avoid upserting empty array which might cause issues.
-      // Actually, we need to delete machines that are removed!
-      const { error: delError } = await supabase.from('machines').delete().eq('organization_id', orgId);
-      return { error: delError };
-    }
-
-    // 1. Get current machines to identify what to delete
+    // 1. Get current machines to identify what to delete/archive
     const { data: existing, error: fetchError } = await supabase
       .from('machines')
-      .select('id')
-      .eq('organization_id', orgId);
+      .select('id, name')
+      .eq('organization_id', orgId)
+      .eq('is_archived', false);
       
     if (fetchError) {
       console.error('Error fetching existing machines for sync:', fetchError);
     }
 
     const newIds = machines.map(m => m.id);
-    const toDelete = existing ? existing.filter(e => !newIds.includes(e.id)).map(e => e.id) : [];
+    const toArchive = existing ? existing.filter(e => !newIds.includes(e.id)) : [];
 
-    // 2. Delete or archive removed machines
-    if (toDelete.length > 0) {
-      console.log('Processing removed machines:', toDelete);
-      
-      // Check if machines have logs
-      for (const machineId of toDelete) {
-        const { count, error: countError } = await supabase
-          .from('work_logs')
-          .select('*', { count: 'exact', head: true })
-          .eq('machine_id', machineId);
-          
-        if (countError) {
-          console.error(`Error checking logs for machine ${machineId}:`, countError);
-          continue;
-        }
-        
-        if (count && count > 0) {
-          // Has logs, archive it
-          console.log(`Archiving machine ${machineId} because it has ${count} logs`);
-          const { error: archiveError } = await supabase
-            .from('machines')
-            .update({ is_archived: true })
-            .eq('id', machineId)
-            .eq('organization_id', orgId);
-            
-          if (archiveError) {
-            // If is_archived column doesn't exist, we might get an error.
-            // In that case, we just leave it as is to not break logs
-            console.warn(`Could not archive machine ${machineId} (might need DB migration):`, archiveError);
-          }
-        } else {
-          // No logs, safe to delete
-          console.log(`Deleting machine ${machineId} because it has no logs`);
-          const { error: delError } = await supabase
-            .from('machines')
-            .delete()
-            .eq('id', machineId)
-            .eq('organization_id', orgId);
-            
-          if (delError) {
-            console.error(`Error deleting machine ${machineId}:`, delError);
-          }
-        }
+    // 2. Archive removed machines
+    if (toArchive.length > 0) {
+      for (const m of toArchive) {
+        const info = deletedMachineInfo?.find(i => i.id === m.id);
+        await supabase.from('machines').update({
+          is_archived: true,
+          archived_at: new Date().toISOString(),
+          archive_reason: info?.reason || 'Удален администратором'
+        }).eq('id', m.id).eq('organization_id', orgId);
       }
     }
 
-    // Используем upsert для сохранения ID и производительности
-    const payload = machines.map(m => {
-      const { branchId, organizationId, organization_id, branch_id, isArchived, is_archived, ...rest } = m;
-      const item: any = { ...rest, organization_id: orgId };
-      item.branch_id = branchId || branch_id || null;
-      if (isArchived !== undefined) item.is_archived = isArchived;
-      return item;
-    });
-
-    const { error } = await supabase.from('machines').upsert(
-      payload,
-      { onConflict: 'id' }
-    );
-    
-    if (error && (error.code === '42703' || error.code === 'PGRST204' || error.message?.includes('column'))) {
-       // Fallback without branch_id and is_archived
-       const minimalPayload = payload.map((p: any) => {
-         const { branch_id, is_archived, ...rest } = p;
-         return rest;
-       });
-       const { error: retryError } = await supabase.from('machines').upsert(
-         minimalPayload,
-         { onConflict: 'id' }
-       );
-       return { error: retryError };
+    // 3. Upsert current machines
+    if (machines.length > 0) {
+      const payload = machines.map(m => ({
+        id: m.id,
+        name: m.name,
+        organization_id: orgId,
+        branch_id: m.branchId || null,
+        is_archived: false
+      }));
+      
+      const { error } = await supabase.from('machines').upsert(payload);
+      
+      if (error && (error.code === '42703' || error.code === 'PGRST204' || error.message?.includes('column'))) {
+         // Fallback without branch_id and is_archived
+         const minimalPayload = payload.map((p: any) => {
+           const { branch_id, is_archived, ...rest } = p;
+           return rest;
+         });
+         const { error: retryError } = await supabase.from('machines').upsert(
+           minimalPayload,
+           { onConflict: 'id' }
+         );
+         return { error: retryError };
+      }
+      return { error };
     }
     
-    return { error };
+    return { error: null };
   },
   getPositions: async (orgId: string) => {
     if (!checkConfig()) return null;

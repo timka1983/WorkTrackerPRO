@@ -3,6 +3,8 @@ import { Machine, PositionConfig, PlanLimits, Organization, FIXED_POSITION_TURNE
 import { DEFAULT_PERMISSIONS } from '../../constants';
 import { db } from '../../lib/supabase';
 import { BranchEditModal } from './BranchEditModal';
+import { Archive } from 'lucide-react';
+import { ArchiveConfirmModal, ArchiveViewModal } from './ArchiveModals';
 
 interface SettingsViewProps {
   planLimits: PlanLimits;
@@ -14,7 +16,7 @@ interface SettingsViewProps {
   isMachineLimitReached: boolean;
   newMachineName: string;
   setNewMachineName: (name: string) => void;
-  handleUpdateMachinesList: (machines: Machine[]) => void;
+  handleUpdateMachinesList: (machines: Machine[], deletedMachineInfo?: { id: string, reason: string }[]) => void;
   editingMachineId: string | null;
   setEditingMachineId: (id: string | null) => void;
   editingMachineBranchId?: string;
@@ -37,6 +39,7 @@ interface SettingsViewProps {
   onDeleteBranch: (branchId: string) => void;
   newMachineBranchId?: string;
   setNewMachineBranchId?: (id: string) => void;
+  getArchivedMachines: () => Promise<Machine[] | null>;
 }
 
 export const SettingsView: React.FC<SettingsViewProps> = ({
@@ -71,12 +74,27 @@ export const SettingsView: React.FC<SettingsViewProps> = ({
   onUpdateBranches,
   onDeleteBranch,
   newMachineBranchId,
-  setNewMachineBranchId
+  setNewMachineBranchId,
+  getArchivedMachines
 }) => {
   const [editingBranch, setEditingBranch] = useState<Branch | null>(null);
+  const [archiveConfirm, setArchiveConfirm] = useState<{ isOpen: boolean; machineId: string; machineName: string }>({
+    isOpen: false,
+    machineId: '',
+    machineName: ''
+  });
+  const [isArchiveViewOpen, setIsArchiveViewOpen] = useState(false);
 
   const handleSaveBranch = (branch: Branch) => {
     onUpdateBranches(branch);
+  };
+
+  const handleConfirmArchive = (reason: string) => {
+    handleUpdateMachinesList(
+      machines.filter(m => m.id !== archiveConfirm.machineId),
+      [{ id: archiveConfirm.machineId, reason }]
+    );
+    setArchiveConfirm({ isOpen: false, machineId: '', machineName: '' });
   };
 
   return (
@@ -521,9 +539,18 @@ export const SettingsView: React.FC<SettingsViewProps> = ({
         <section className="bg-white p-8 rounded-[2.5rem] border border-slate-200 shadow-sm">
           <div className="flex justify-between items-center mb-6">
             <h3 className="font-bold text-slate-900 underline decoration-blue-500 decoration-4 underline-offset-8 uppercase text-xs tracking-widest">Оборудование</h3>
-            <span className={`text-[10px] font-black px-2 py-0.5 rounded-full ${isMachineLimitReached ? 'bg-red-100 text-red-600' : 'bg-slate-100 text-slate-400'}`}>
-               {machines.length} / {planLimits.maxMachines}
-            </span>
+            <div className="flex items-center gap-3">
+              <button 
+                onClick={() => setIsArchiveViewOpen(true)}
+                className="flex items-center gap-2 px-3 py-1.5 bg-slate-100 text-slate-500 rounded-xl hover:bg-slate-200 hover:text-slate-700 transition-all text-[9px] font-black uppercase tracking-widest"
+              >
+                <Archive size={12} />
+                Архив
+              </button>
+              <span className={`text-[10px] font-black px-2 py-0.5 rounded-full ${isMachineLimitReached ? 'bg-red-100 text-red-600' : 'bg-slate-100 text-slate-400'}`}>
+                 {machines.length} / {planLimits.maxMachines}
+              </span>
+            </div>
           </div>
           
           <div className="flex gap-2 mb-6">
@@ -596,8 +623,12 @@ export const SettingsView: React.FC<SettingsViewProps> = ({
                        <button onClick={() => { setEditingMachineId(m.id); setEditValue(m.name); if (setEditingMachineBranchId) setEditingMachineBranchId(m.branchId); }} className="text-slate-300 hover:text-blue-500">
                          <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15.232 5.232l3.536 3.536m-2.036-5.036a2.5 2.5 0 113.536 3.536L6.5 21.036H3v-3.572L16.732 3.732z" /></svg>
                        </button>
-                       <button onClick={() => { if(confirm('Удалить?')) handleUpdateMachinesList(machines.filter(x => x.id !== m.id)); }} className="text-slate-300 hover:text-red-500">
-                         <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" /></svg>
+                       <button 
+                         onClick={() => setArchiveConfirm({ isOpen: true, machineId: m.id, machineName: m.name })} 
+                         className="text-slate-300 hover:text-amber-600"
+                         title="Архивировать"
+                       >
+                         <Archive size={18} />
                        </button>
                     </div>
                   </>
@@ -684,6 +715,21 @@ export const SettingsView: React.FC<SettingsViewProps> = ({
           </label>
         </div>
       </section>
+
+      <ArchiveConfirmModal
+        isOpen={archiveConfirm.isOpen}
+        onClose={() => setArchiveConfirm({ isOpen: false, machineId: '', machineName: '' })}
+        onConfirm={handleConfirmArchive}
+        title="Архивация оборудования"
+        itemName={archiveConfirm.machineName}
+      />
+
+      <ArchiveViewModal
+        isOpen={isArchiveViewOpen}
+        onClose={() => setIsArchiveViewOpen(false)}
+        type="machines"
+        getArchivedItems={getArchivedMachines}
+      />
     </div>
   );
 };

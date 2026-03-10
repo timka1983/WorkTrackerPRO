@@ -25,9 +25,9 @@ interface EmployerViewProps {
   users: User[];
   onAddUser: (user: User) => void;
   onUpdateUser: (user: User) => void;
-  onDeleteUser: (userId: string) => void;
+  onDeleteUser: (userId: string, reason?: string) => void;
   machines: Machine[];
-  onUpdateMachines: (machines: Machine[]) => void;
+  onUpdateMachines: (machines: Machine[], deletedMachineInfo?: { id: string, reason: string }[]) => void;
   positions: PositionConfig[];
   onUpdatePositions: (positions: PositionConfig[]) => void;
   branches: Branch[];
@@ -56,6 +56,8 @@ interface EmployerViewProps {
   payments: any[];
   onSavePayment: (payment: any) => void;
   onDeletePayment: (id: string) => void;
+  getArchivedUsers: () => Promise<User[] | null>;
+  getArchivedMachines: () => Promise<Machine[] | null>;
   getNow: () => Date;
   viewMode: 'matrix' | 'team' | 'analytics' | 'settings' | 'billing' | 'payroll';
   setViewMode: (mode: 'matrix' | 'team' | 'analytics' | 'settings' | 'billing' | 'payroll') => void;
@@ -64,7 +66,7 @@ interface EmployerViewProps {
 const EmployerView: React.FC<EmployerViewProps> = ({ 
   logs, logsLookup = {}, users, onAddUser, onUpdateUser, onDeleteUser, 
   machines, onUpdateMachines, positions, onUpdatePositions, branches, onUpdateBranches, onDeleteBranch, onImportData, onLogsUpsert, activeShiftsMap = {}, onActiveShiftsUpdate, onDeleteLog,
-  onRefresh, forceCleanAll, onCleanupDatabase, onRemoveBase64Photos, onRunDiagnostics, onMergeDuplicates, onFixDbStructure, isSyncing = false, nightShiftBonusMinutes, onUpdateNightBonus, currentOrg, plans, onUpdateOrg, currentUser: propCurrentUser, onMonthChange, payments, onSavePayment, onDeletePayment, getNow, viewMode, setViewMode
+  onRefresh, forceCleanAll, onCleanupDatabase, onRemoveBase64Photos, onRunDiagnostics, onMergeDuplicates, onFixDbStructure, isSyncing = false, nightShiftBonusMinutes, onUpdateNightBonus, currentOrg, plans, onUpdateOrg, currentUser: propCurrentUser, onMonthChange, payments, onSavePayment, onDeletePayment, getArchivedUsers, getArchivedMachines, getNow, viewMode, setViewMode
 }) => {
   const [filterMonth, setFilterMonth] = useState(format(getNow(), 'yyyy-MM'));
   const [selectedBranchId, setSelectedBranchId] = useState<string | null>(null);
@@ -520,7 +522,7 @@ const EmployerView: React.FC<EmployerViewProps> = ({
     onLogsUpsert([updatedLog]);
   };
 
-  const handleUpdateMachinesList = (newMachines: Machine[]) => onUpdateMachines(newMachines);
+  const handleUpdateMachinesList = (newMachines: Machine[], deletedMachineInfo?: { id: string, reason: string }[]) => onUpdateMachines(newMachines, deletedMachineInfo);
   
   const handlePermissionToggle = (key: keyof PositionPermissions) => {
     if (!configuringPosition) return;
@@ -929,6 +931,7 @@ const EmployerView: React.FC<EmployerViewProps> = ({
           setEditingEmployee={setEditingEmployee}
           onDeleteUser={onDeleteUser}
           branches={branches}
+          getArchivedUsers={getArchivedUsers}
         />
       )}
 
@@ -1002,6 +1005,7 @@ const EmployerView: React.FC<EmployerViewProps> = ({
           onDeleteBranch={onDeleteBranch}
           newMachineBranchId={newMachineBranchId}
           setNewMachineBranchId={setNewMachineBranchId}
+          getArchivedMachines={getArchivedMachines}
         />
       )}
       {/* Debug Info (Only for admins) */}
