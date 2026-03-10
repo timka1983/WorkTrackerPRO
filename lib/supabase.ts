@@ -388,7 +388,8 @@ export const db = {
             pushToken: u.push_token,
             plannedShifts: u.planned_shifts,
             payroll: u.payroll,
-            telegramChatId: u.telegram_chat_id
+            telegramChatId: u.telegram_chat_id,
+            telegramSettings: u.telegram_settings
           }));
         }
         throw error;
@@ -409,7 +410,8 @@ export const db = {
         pushToken: u.push_token,
         plannedShifts: u.planned_shifts,
         payroll: u.payroll,
-        telegramChatId: u.telegram_chat_id
+        telegramChatId: u.telegram_chat_id,
+        telegramSettings: u.telegram_settings
       }));
     } catch (e) {
       console.error('Error in getUsers:', e);
@@ -470,6 +472,9 @@ export const db = {
     if (user.telegramChatId !== undefined) {
       payload.telegram_chat_id = user.telegramChatId;
     }
+    if (user.telegramSettings !== undefined) {
+      payload.telegram_settings = user.telegramSettings;
+    }
     if (user.branchId !== undefined) {
       payload.branch_id = user.branchId;
     }
@@ -480,7 +485,7 @@ export const db = {
       console.error('Error saving user:', error);
       // Try without new columns if it fails due to missing column
       if (error.code === '42703' || error.code === 'PGRST204' || error.message?.includes('column')) {
-        const { push_token, planned_shifts, payroll, telegram_chat_id, branch_id, ...minimalPayload } = payload;
+        const { push_token, planned_shifts, payroll, telegram_chat_id, telegram_settings, branch_id, ...minimalPayload } = payload;
         const { error: retryError } = await supabase.from('users').upsert(minimalPayload);
         return { error: retryError };
       }
@@ -507,6 +512,7 @@ export const db = {
         planned_shifts: user.plannedShifts !== undefined ? user.plannedShifts : null,
         payroll: user.payroll !== undefined ? user.payroll : null,
         telegram_chat_id: user.telegramChatId !== undefined ? user.telegramChatId : null,
+        telegram_settings: user.telegramSettings !== undefined ? user.telegramSettings : null,
         branch_id: user.branchId !== undefined ? user.branchId : null
       };
       return p;
@@ -518,7 +524,7 @@ export const db = {
       console.error('Error batch upserting users:', error);
       if (error.code === '42703' || error.code === 'PGRST204' || error.message?.includes('column')) {
         const minimalPayload = payload.map(p => {
-          const { push_token, planned_shifts, payroll, telegram_chat_id, branch_id, ...rest } = p;
+          const { push_token, planned_shifts, payroll, telegram_chat_id, telegram_settings, branch_id, ...rest } = p;
           return rest;
         });
         const { error: retryError } = await supabase.from('users').upsert(minimalPayload);

@@ -344,10 +344,19 @@ const EmployeeView: React.FC<EmployeeViewProps> = ({
     setShowCamera(null);
 
     // Telegram Notification
-    if (currentOrg?.telegramSettings?.enabled && currentOrg.telegramSettings.botToken && currentOrg.telegramSettings.chatId && currentOrg.telegramSettings.notifyOnShiftStart !== false) {
+    if (currentOrg?.telegramSettings?.enabled && currentOrg.telegramSettings.botToken) {
       const machineName = selectedMachineId ? getMachineName(selectedMachineId) : 'Работа';
       const msg = `🟢 <b>Начало смены</b>\n👤 Сотрудник: ${user.name}\n📍 Позиция: ${user.position}\n🔧 Слот: ${slot} (${machineName})\n⏰ Время: ${formatTime(now.toISOString())}`;
-      sendTelegramNotification(currentOrg.telegramSettings.botToken, currentOrg.telegramSettings.chatId, msg);
+      
+      // 1. Notify Admin (Organization Chat)
+      if (currentOrg.telegramSettings.chatId && currentOrg.telegramSettings.notifyOnShiftStart !== false) {
+        sendTelegramNotification(currentOrg.telegramSettings.botToken, currentOrg.telegramSettings.chatId, msg);
+      }
+
+      // 2. Notify Employee (Personal Chat)
+      if (user.telegramChatId && (user.telegramSettings?.notifyOnShiftStart ?? true)) {
+        sendTelegramNotification(currentOrg.telegramSettings.botToken, user.telegramChatId, msg);
+      }
     }
   };
 
@@ -389,12 +398,21 @@ const EmployeeView: React.FC<EmployeeViewProps> = ({
     setShowCamera(null);
 
     // Telegram Notification
-    if (currentOrg?.telegramSettings?.enabled && currentOrg.telegramSettings.botToken && currentOrg.telegramSettings.chatId && currentOrg.telegramSettings.notifyOnShiftEnd !== false) {
+    if (currentOrg?.telegramSettings?.enabled && currentOrg.telegramSettings.botToken) {
       const machineName = currentShift.machineId ? getMachineName(currentShift.machineId) : 'Работа';
       const durationFormatted = formatDuration(Math.max(0, duration));
       const itemsText = items !== undefined ? `\n📦 Произведено: ${items} шт.` : '';
       const msg = `🔴 <b>Конец смены</b>\n👤 Сотрудник: ${user.name}\n📍 Позиция: ${user.position}\n🔧 Слот: ${slot} (${machineName})\n⏰ Время: ${formatTime(now.toISOString())}\n⏱ Длительность: ${durationFormatted}${itemsText}`;
-      sendTelegramNotification(currentOrg.telegramSettings.botToken, currentOrg.telegramSettings.chatId, msg);
+      
+      // 1. Notify Admin (Organization Chat)
+      if (currentOrg.telegramSettings.chatId && currentOrg.telegramSettings.notifyOnShiftEnd !== false) {
+        sendTelegramNotification(currentOrg.telegramSettings.botToken, currentOrg.telegramSettings.chatId, msg);
+      }
+
+      // 2. Notify Employee (Personal Chat)
+      if (user.telegramChatId && (user.telegramSettings?.notifyOnShiftEnd ?? true)) {
+        sendTelegramNotification(currentOrg.telegramSettings.botToken, user.telegramChatId, msg);
+      }
     }
   };
 
@@ -658,7 +676,7 @@ const EmployeeView: React.FC<EmployeeViewProps> = ({
       sendTelegramNotification(currentOrg.telegramSettings.botToken, currentOrg.telegramSettings.chatId, msg);
       
       // Notify Employee
-      if (user.telegramChatId) {
+      if (user.telegramChatId && (user.telegramSettings?.notifyOnLimitExceeded ?? true)) {
          sendTelegramNotification(currentOrg.telegramSettings.botToken, user.telegramChatId, msg);
       }
     }

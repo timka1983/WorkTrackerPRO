@@ -84,7 +84,7 @@ const App: React.FC = () => {
             if (!lastSent || (Date.now() - parseInt(lastSent)) > 5 * 60 * 1000) {
               
               // 1. Notify Employee
-              if (user.telegramChatId) {
+              if (user.telegramChatId && (user.telegramSettings?.notifyOnLimitExceeded ?? true)) {
                  const msg = `⚠️ <b>Внимание!</b>\nВы забыли закрыть смену!\n⏱ Длительность: ${Math.floor(duration / 60)}ч ${duration % 60}м\nПожалуйста, закройте смену в приложении.`;
                  sendTelegramNotification(botToken, user.telegramChatId, msg);
               }
@@ -193,7 +193,7 @@ const App: React.FC = () => {
               const msg = `⛔️ <b>Авто-закрытие (Lazy)</b>\n👤 Сотрудник: ${user.name}\n📍 Позиция: ${user.position}\n🔧 Слот: ${slot} (${machineName})\n⚠️ Причина: Превышен лимит времени (серверная очистка)`;
               
               sendTelegramNotification(appData.currentOrg.telegramSettings.botToken, appData.currentOrg.telegramSettings.chatId, msg);
-              if (user.telegramChatId) {
+              if (user.telegramChatId && (user.telegramSettings?.notifyOnLimitExceeded ?? true)) {
                  sendTelegramNotification(appData.currentOrg.telegramSettings.botToken, user.telegramChatId, msg);
               }
             }

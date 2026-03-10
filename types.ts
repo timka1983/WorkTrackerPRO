@@ -159,6 +159,11 @@ export interface User {
   plannedShifts?: Record<string, string>; // YYYY-MM-DD -> 'Р' | 'В' | 'Д' | 'О' | 'Н'
   payroll?: PayrollConfig;
   telegramChatId?: string; // Personal Telegram Chat ID for notifications
+  telegramSettings?: {
+    notifyOnShiftStart: boolean;
+    notifyOnShiftEnd: boolean;
+    notifyOnLimitExceeded: boolean;
+  };
 }
 
 export interface WorkLog {

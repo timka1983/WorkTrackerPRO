@@ -341,6 +341,50 @@ export const EmployeeEditModal: React.FC<EmployeeEditModalProps> = ({
                         </button>
                       )}
                     </div>
+
+                    {telegramSettings?.enabled && (
+                      <div className="mt-3 pt-3 border-t border-amber-200/50 space-y-2">
+                        <div className="flex items-center justify-between mb-1">
+                          <p className="text-[8px] font-black text-amber-700 uppercase tracking-tighter">Типы уведомлений для сотрудника:</p>
+                          {!editingEmployee.telegramChatId && (
+                            <span className="text-[7px] font-bold text-amber-500 uppercase bg-amber-100 px-1.5 py-0.5 rounded">Требуется ID</span>
+                          )}
+                        </div>
+                        <div className={`grid grid-cols-1 gap-2 ${!editingEmployee.telegramChatId ? 'opacity-50 pointer-events-none' : ''}`}>
+                          {[
+                            { id: 'notifyOnShiftStart', label: 'Начало смены' },
+                            { id: 'notifyOnShiftEnd', label: 'Конец смены' },
+                            { id: 'notifyOnLimitExceeded', label: 'Превышение лимита' }
+                          ].map(type => (
+                            <label key={type.id} className="flex items-center gap-2 cursor-pointer group">
+                              <div className="relative flex items-center">
+                                <input 
+                                  type="checkbox" 
+                                  disabled={!editingEmployee.telegramChatId}
+                                  checked={editingEmployee.telegramSettings?.[type.id as keyof typeof editingEmployee.telegramSettings] ?? true}
+                                  onChange={e => {
+                                    const currentSettings = editingEmployee.telegramSettings || {
+                                      notifyOnShiftStart: true,
+                                      notifyOnShiftEnd: true,
+                                      notifyOnLimitExceeded: true
+                                    };
+                                    setEditingEmployee({
+                                      ...editingEmployee,
+                                      telegramSettings: {
+                                        ...currentSettings,
+                                        [type.id]: e.target.checked
+                                      }
+                                    });
+                                  }}
+                                  className="w-4 h-4 rounded border-amber-300 text-amber-600 focus:ring-amber-500 cursor-pointer"
+                                />
+                              </div>
+                              <span className="text-[10px] font-bold text-amber-800 group-hover:text-amber-900 transition-colors uppercase tracking-tight">{type.label}</span>
+                            </label>
+                          ))}
+                        </div>
+                      </div>
+                    )}
                  </div>
 
                  <button 
