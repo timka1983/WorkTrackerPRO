@@ -664,11 +664,6 @@ export const useAppData = (currentUser: User | null) => {
         }
         break;
       case 'payments':
-        if (!limits.features.payments) {
-          setUpgradeReason(`Модуль авансов и выплат доступен только в тарифе BUSINESS.`);
-          setShowUpgradeModal(true);
-          return false;
-        }
         break;
     }
     return true;

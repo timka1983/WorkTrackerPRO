@@ -17,6 +17,7 @@ interface ShiftControlProps {
   processAction: (slot: number, type: 'start' | 'stop') => void;
   getMachineName: (id?: string) => string;
   isAnyShiftActiveInLogs: boolean;
+  isPaid?: boolean;
 }
 
 export const ShiftControl = memo<ShiftControlProps>(({
@@ -33,7 +34,8 @@ export const ShiftControl = memo<ShiftControlProps>(({
   busyMachineIds,
   processAction,
   getMachineName,
-  isAnyShiftActiveInLogs
+  isAnyShiftActiveInLogs,
+  isPaid
 }) => {
   const renderSlot = (slot: number) => {
     const active = activeShifts[slot];
@@ -68,7 +70,13 @@ export const ShiftControl = memo<ShiftControlProps>(({
                 </p>
               )}
             </div>
-            <button onClick={() => processAction(slot, 'stop')} className="w-full py-4 bg-red-500 hover:bg-red-600 text-white rounded-2xl font-black text-sm shadow-lg shadow-red-100 transition-all active:scale-95 uppercase">Завершить</button>
+            <button onClick={() => {
+              if (isPaid) {
+                alert('Финансовый период закрыт. Изменение данных заблокировано.');
+                return;
+              }
+              processAction(slot, 'stop');
+            }} className="w-full py-4 bg-red-500 hover:bg-red-600 text-white rounded-2xl font-black text-sm shadow-lg shadow-red-100 transition-all active:scale-95 uppercase">Завершить</button>
           </div>
         ) : (
           <div className="w-full space-y-4">
@@ -117,8 +125,14 @@ export const ShiftControl = memo<ShiftControlProps>(({
             )}
 
             <button 
-              disabled={isAbsentToday || isAnyShiftActiveInLogs || (perms.useMachines && busyMachineIds.includes(slotMachineIds[slot]))}
-              onClick={() => processAction(slot, 'start')} 
+              disabled={isAbsentToday || isAnyShiftActiveInLogs || (perms.useMachines && busyMachineIds.includes(slotMachineIds[slot])) || isPaid}
+              onClick={() => {
+                if (isPaid) {
+                  alert('Финансовый период закрыт. Изменение данных заблокировано.');
+                  return;
+                }
+                processAction(slot, 'start');
+              }} 
               className="w-full py-4 bg-blue-600 hover:bg-blue-700 text-white rounded-2xl font-black text-sm shadow-lg shadow-blue-100 transition-all active:scale-95 uppercase disabled:bg-slate-300 disabled:shadow-none"
             >
               Начать {isNightModeGlobal && perms.canUseNightShift ? 'ночную' : ''} смену

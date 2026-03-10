@@ -1362,7 +1362,7 @@ CREATE TABLE IF NOT EXISTS payroll_payments (
   id TEXT PRIMARY KEY,
   user_id TEXT NOT NULL,
   organization_id TEXT NOT NULL,
-  amount INTEGER NOT NULL,
+  amount NUMERIC NOT NULL,
   date TEXT NOT NULL,
   type TEXT NOT NULL,
   comment TEXT,
@@ -1377,6 +1377,24 @@ DROP POLICY IF EXISTS "Allow public update" ON payroll_payments;
 CREATE POLICY "Allow public update" ON payroll_payments FOR UPDATE USING (true);
 DROP POLICY IF EXISTS "Allow public delete" ON payroll_payments;
 CREATE POLICY "Allow public delete" ON payroll_payments FOR DELETE USING (true);
+-- 13. Payroll Periods
+CREATE TABLE IF NOT EXISTS payroll_periods (
+  id TEXT PRIMARY KEY,
+  organization_id TEXT NOT NULL,
+  month TEXT NOT NULL,
+  status TEXT NOT NULL DEFAULT 'DRAFT',
+  closed_at TIMESTAMPTZ,
+  closed_by TEXT
+);
+ALTER TABLE payroll_periods ENABLE ROW LEVEL SECURITY;
+DROP POLICY IF EXISTS "Allow public read" ON payroll_periods;
+CREATE POLICY "Allow public read" ON payroll_periods FOR SELECT USING (true);
+DROP POLICY IF EXISTS "Allow public insert" ON payroll_periods;
+CREATE POLICY "Allow public insert" ON payroll_periods FOR INSERT WITH CHECK (true);
+DROP POLICY IF EXISTS "Allow public update" ON payroll_periods;
+CREATE POLICY "Allow public update" ON payroll_periods FOR UPDATE USING (true);
+DROP POLICY IF EXISTS "Allow public delete" ON payroll_periods;
+CREATE POLICY "Allow public delete" ON payroll_periods FOR DELETE USING (true);
     `;
   },
   getDiagnostics: async () => {
@@ -1395,7 +1413,7 @@ CREATE POLICY "Allow public delete" ON payroll_payments FOR DELETE USING (true);
     }
 
     try {
-      const tablesToCheck = ['organizations', 'users', 'work_logs', 'machines', 'positions', 'plans', 'promo_codes', 'active_shifts', 'system_config', 'payroll_snapshots', 'payroll_payments'];
+      const tablesToCheck = ['organizations', 'users', 'work_logs', 'machines', 'positions', 'plans', 'promo_codes', 'active_shifts', 'system_config', 'payroll_snapshots', 'payroll_payments', 'payroll_periods'];
       results.storage = {};
       
       try {
@@ -1707,7 +1725,7 @@ CREATE TABLE IF NOT EXISTS payroll_payments (
   id TEXT PRIMARY KEY,
   user_id TEXT NOT NULL,
   organization_id TEXT NOT NULL,
-  amount INTEGER NOT NULL,
+  amount NUMERIC NOT NULL,
   date TEXT NOT NULL,
   type TEXT NOT NULL,
   comment TEXT,
@@ -1722,6 +1740,26 @@ DROP POLICY IF EXISTS "Allow public update" ON payroll_payments;
 CREATE POLICY "Allow public update" ON payroll_payments FOR UPDATE USING (true);
 DROP POLICY IF EXISTS "Allow public delete" ON payroll_payments;
 CREATE POLICY "Allow public delete" ON payroll_payments FOR DELETE USING (true);
+              `);
+             } else if (table === 'payroll_periods') {
+               results.sqlFixes.push(`
+CREATE TABLE IF NOT EXISTS payroll_periods (
+  id TEXT PRIMARY KEY,
+  organization_id TEXT NOT NULL,
+  month TEXT NOT NULL,
+  status TEXT NOT NULL DEFAULT 'DRAFT',
+  closed_at TIMESTAMPTZ,
+  closed_by TEXT
+);
+ALTER TABLE payroll_periods ENABLE ROW LEVEL SECURITY;
+DROP POLICY IF EXISTS "Allow public read" ON payroll_periods;
+CREATE POLICY "Allow public read" ON payroll_periods FOR SELECT USING (true);
+DROP POLICY IF EXISTS "Allow public insert" ON payroll_periods;
+CREATE POLICY "Allow public insert" ON payroll_periods FOR INSERT WITH CHECK (true);
+DROP POLICY IF EXISTS "Allow public update" ON payroll_periods;
+CREATE POLICY "Allow public update" ON payroll_periods FOR UPDATE USING (true);
+DROP POLICY IF EXISTS "Allow public delete" ON payroll_periods;
+CREATE POLICY "Allow public delete" ON payroll_periods FOR DELETE USING (true);
               `);
              } else if (table === 'branches') {
                results.sqlFixes.push(`
@@ -1763,6 +1801,7 @@ CREATE POLICY "Allow public delete" ON branches FOR DELETE USING (true);
         system_config: ['id', 'super_admin_pin', 'global_admin_pin'],
         payroll_snapshots: ['id', 'user_id', 'organization_id', 'month', 'total_minutes', 'total_salary', 'bonuses', 'fines', 'rate_used', 'rate_type', 'calculated_at', 'details'],
         payroll_payments: ['id', 'user_id', 'organization_id', 'amount', 'date', 'type', 'comment', 'created_at'],
+        payroll_periods: ['id', 'organization_id', 'month', 'status', 'closed_at', 'closed_by'],
         branches: ['id', 'organization_id', 'name', 'address', 'location_settings', 'created_at']
       };
 
@@ -2224,6 +2263,41 @@ $$;
     const { error } = await supabase.from('payroll_payments').delete().eq('id', id);
     if (error && error.code === 'PGRST205') {
       return { error: 'Таблица payroll_payments не найдена в базе данных.' };
+    }
+    return { error };
+  },
+  getPayrollPeriod: async (orgId: string, month: string) => {
+    if (!checkConfig()) return null;
+    const { data, error } = await supabase
+      .from('payroll_periods')
+      .select('*')
+      .eq('organization_id', orgId)
+      .eq('month', month)
+      .maybeSingle();
+    
+    if (error || !data) return null;
+    return {
+      id: data.id,
+      organizationId: data.organization_id,
+      month: data.month,
+      status: data.status,
+      closedAt: data.closed_at,
+      closedBy: data.closed_by
+    };
+  },
+  savePayrollPeriod: async (period: any) => {
+    if (!checkConfig()) return { error: 'Not configured' };
+    const payload = {
+      id: period.id,
+      organization_id: period.organizationId,
+      month: period.month,
+      status: period.status,
+      closed_at: period.closedAt,
+      closed_by: period.closedBy
+    };
+    const { error } = await supabase.from('payroll_periods').upsert(payload);
+    if (error && error.code === 'PGRST205') {
+      return { error: 'Таблица payroll_periods не найдена в базе данных. Пожалуйста, зайдите в панель Супер-Админа -> Диагностика и выполните SQL-скрипт для ее создания.' };
     }
     return { error };
   },

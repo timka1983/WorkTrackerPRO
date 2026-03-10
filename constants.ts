@@ -9,9 +9,9 @@ export const PLAN_LIMITS: Record<PlanType, PlanLimits> = {
       photoCapture: false,
       nightShift: false,
       advancedAnalytics: false,
-      payroll: false,
+      payroll: true,
       shiftMonitoring: false,
-      payments: false
+      payments: true
     }
   },
   [PlanType.PRO]: {
@@ -21,9 +21,9 @@ export const PLAN_LIMITS: Record<PlanType, PlanLimits> = {
       photoCapture: true,
       nightShift: true,
       advancedAnalytics: true,
-      payroll: false,
+      payroll: true,
       shiftMonitoring: true,
-      payments: false
+      payments: true
     }
   },
   [PlanType.BUSINESS]: {

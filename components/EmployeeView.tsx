@@ -1,6 +1,6 @@
 
 import React, { useState, useEffect, useMemo, useRef, memo } from 'react';
-import { WorkLog, User, EntryType, Machine, PositionConfig, PlanLimits, Organization } from '../types';
+import { WorkLog, User, EntryType, Machine, PositionConfig, PlanLimits, Organization, PayrollPeriod, PayrollStatus } from '../types';
 import { formatTime, formatDate, formatDuration, calculateMinutes, getDaysInMonthArray, formatDurationShort, sendNotification, calculateDistance, sendTelegramNotification, applyRounding } from '../utils';
 import { STORAGE_KEYS, DEFAULT_PERMISSIONS } from '../constants';
 import { format, isAfter, endOfMonth, eachDayOfInterval, getDay, addMonths } from 'date-fns';
@@ -124,6 +124,19 @@ const EmployeeView: React.FC<EmployeeViewProps> = ({
 
   const [filterMonth, setFilterMonth] = useState(new Date().toISOString().substring(0, 7));
   
+  const [payrollPeriod, setPayrollPeriod] = useState<PayrollPeriod | null>(null);
+
+  useEffect(() => {
+    const fetchPeriod = async () => {
+      if (!currentOrg) return;
+      const period = await db.getPayrollPeriod(currentOrg.id, filterMonth);
+      setPayrollPeriod(period);
+    };
+    fetchPeriod();
+  }, [currentOrg, filterMonth]);
+
+  const isPaid = payrollPeriod?.status === PayrollStatus.PAID;
+
   const shiftCounts = useMemo(() => {
     const counts = { 'Р': 0, 'В': 0, 'Д': 0, 'О': 0, 'Н': 0 };
     if (!user.plannedShifts) return counts;
@@ -821,6 +834,7 @@ const EmployeeView: React.FC<EmployeeViewProps> = ({
             processAction={processAction}
             getMachineName={getMachineName}
             isAnyShiftActiveInLogs={isAnyShiftActiveInLogs}
+            isPaid={isPaid}
           />
 
           <TodaySessions
@@ -832,6 +846,7 @@ const EmployeeView: React.FC<EmployeeViewProps> = ({
             <AbsenceControls
               isAbsentToday={isAbsentToday}
               handleMarkAbsence={handleMarkAbsence}
+              isPaid={isPaid}
             />
           )}
         </>
@@ -857,6 +872,7 @@ const EmployeeView: React.FC<EmployeeViewProps> = ({
             logsLookup={logsLookup}
             downloadCalendarPDF={downloadCalendarPDF}
             roundShiftMinutes={currentOrg?.roundShiftMinutes}
+            isPaid={isPaid}
           />
         </div>
       )}

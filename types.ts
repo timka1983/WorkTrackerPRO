@@ -184,6 +184,21 @@ export interface WorkLog {
   };
 }
 
+export enum PayrollStatus {
+  DRAFT = 'DRAFT',
+  APPROVED = 'APPROVED',
+  PAID = 'PAID'
+}
+
+export interface PayrollPeriod {
+  id: string;
+  organizationId: string;
+  month: string; // YYYY-MM
+  status: PayrollStatus;
+  closedAt?: string;
+  closedBy?: string;
+}
+
 export interface PayrollSnapshot {
   id: string;
   userId: string;

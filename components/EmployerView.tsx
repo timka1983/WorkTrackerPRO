@@ -1,7 +1,7 @@
 
 import React, { useState, useMemo, useEffect } from 'react';
 import * as XLSX from 'xlsx';
-import { WorkLog, User, EntryType, UserRole, Machine, FIXED_POSITION_TURNER, PositionConfig, PositionPermissions, Organization, PlanType, Plan, PayrollConfig, PlanLimits, Branch } from '../types';
+import { WorkLog, User, EntryType, UserRole, Machine, FIXED_POSITION_TURNER, PositionConfig, PositionPermissions, Organization, PlanType, Plan, PayrollConfig, PlanLimits, Branch, PayrollPeriod, PayrollStatus } from '../types';
 import { getDaysInMonthArray, formatTime, calculateMinutes } from '../utils';
 import { format } from 'date-fns';
 import { startOfDay } from 'date-fns/startOfDay';
@@ -91,12 +91,16 @@ const EmployerView: React.FC<EmployerViewProps> = ({
   const [newPositionName, setNewPositionName] = useState('');
   
   const [serverStats, setServerStats] = useState<{ avgWeeklyHours: number, absenceCounts: any[] } | null>(null);
+  const [payrollPeriod, setPayrollPeriod] = useState<PayrollPeriod | null>(null);
 
   useEffect(() => {
     const fetchStats = async () => {
       if (!currentOrg) return;
       const last7Days = Array.from({ length: 7 }, (_, i) => format(subDays(getNow(), i), 'yyyy-MM-dd'));
-      const stats = await db.getDashboardStats(currentOrg.id, filterMonth, last7Days);
+      const [stats, period] = await Promise.all([
+        db.getDashboardStats(currentOrg.id, filterMonth, last7Days),
+        db.getPayrollPeriod(currentOrg.id, filterMonth)
+      ]);
       if (stats) {
         setServerStats({
           avgWeeklyHours: (stats.total_weekly_minutes / 60) / 7,
@@ -105,9 +109,12 @@ const EmployerView: React.FC<EmployerViewProps> = ({
       } else {
         setServerStats(null);
       }
+      setPayrollPeriod(period);
     };
     fetchStats();
   }, [currentOrg, filterMonth, logs, getNow]);
+
+  const isPaid = payrollPeriod?.status === PayrollStatus.PAID;
 
   const filteredUsers = useMemo(() => {
     if (!selectedBranchId) return users;
@@ -164,6 +171,14 @@ const EmployerView: React.FC<EmployerViewProps> = ({
     if (newSet.has(empId)) newSet.delete(empId);
     else newSet.add(empId);
     setExpandedTurnerRows(newSet);
+  };
+
+  const handleSetEditingLog = (data: { userId: string; date: string } | null) => {
+    if (data && isPaid) {
+      alert('Финансовый период закрыт. Изменение данных заблокировано.');
+      return;
+    }
+    setEditingLog(data);
   };
 
   const downloadExcel = () => {
@@ -874,7 +889,7 @@ const EmployerView: React.FC<EmployerViewProps> = ({
           today={today}
           expandedTurnerRows={expandedTurnerRows}
           toggleTurnerRow={toggleTurnerRow}
-          setEditingLog={setEditingLog}
+          setEditingLog={handleSetEditingLog}
           machines={filteredMachines}
           virtuosoComponents={virtuosoComponents}
           logsLookup={logsLookup}

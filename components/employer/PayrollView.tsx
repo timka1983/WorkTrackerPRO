@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { User, WorkLog, PositionConfig, UserRole, Machine, EntryType, Branch, Organization, PayrollSnapshot, PayrollPayment, PaymentType, PlanLimits } from '../../types';
+import { User, WorkLog, PositionConfig, UserRole, Machine, EntryType, Branch, Organization, PayrollSnapshot, PayrollPayment, PaymentType, PlanLimits, PayrollPeriod, PayrollStatus } from '../../types';
 import { calculateMonthlyPayroll, formatDurationShort } from '../../utils';
 import { format } from 'date-fns';
 import { ScheduleModal } from '../employee/ScheduleModal';
@@ -62,15 +62,21 @@ export const PayrollView: React.FC<PayrollViewProps> = ({
   const [selectedUserForSchedule, setSelectedUserForSchedule] = useState<User | null>(null);
   const [selectedUserForDetails, setSelectedUserForDetails] = useState<User | null>(null); // New state
   const [snapshots, setSnapshots] = useState<PayrollSnapshot[]>([]);
+  const [payrollPeriod, setPayrollPeriod] = useState<PayrollPeriod | null>(null);
   const [isRecalculating, setIsRecalculating] = useState(false);
+  const [isChangingStatus, setIsChangingStatus] = useState(false);
 
   useEffect(() => {
-    const fetchSnapshots = async () => {
+    const fetchData = async () => {
       if (!currentOrg) return;
-      const data = await db.getPayrollSnapshots(currentOrg.id, filterMonth);
+      const [data, periodData] = await Promise.all([
+        db.getPayrollSnapshots(currentOrg.id, filterMonth),
+        db.getPayrollPeriod(currentOrg.id, filterMonth)
+      ]);
       setSnapshots(data);
+      setPayrollPeriod(periodData);
     };
-    fetchSnapshots();
+    fetchData();
   }, [currentOrg, filterMonth]);
 
   const employees = users.filter(u => u.role === UserRole.EMPLOYEE);
@@ -189,23 +195,77 @@ export const PayrollView: React.FC<PayrollViewProps> = ({
     setSelectedUsers(newSet);
   };
 
+  const isPaid = payrollPeriod?.status === PayrollStatus.PAID;
+
+  const handleStatusChange = async (newStatus: PayrollStatus) => {
+    if (!currentOrg) return;
+    if (newStatus === PayrollStatus.PAID) {
+      if (!confirm('Вы уверены, что хотите закрыть финансовый период? После этого данные будут заблокированы для изменений.')) {
+        return;
+      }
+    }
+    setIsChangingStatus(true);
+    try {
+      const period: PayrollPeriod = {
+        id: `${currentOrg.id}-${filterMonth}`,
+        organizationId: currentOrg.id,
+        month: filterMonth,
+        status: newStatus,
+        closedAt: newStatus === PayrollStatus.PAID ? new Date().toISOString() : undefined,
+        closedBy: newStatus === PayrollStatus.PAID ? 'admin' : undefined
+      };
+      await db.savePayrollPeriod(period);
+      setPayrollPeriod(period);
+    } catch (e) {
+      console.error(e);
+      alert('Ошибка при изменении статуса');
+    } finally {
+      setIsChangingStatus(false);
+    }
+  };
+
   return (
     <div className="bg-white rounded-[2.5rem] shadow-xl border border-slate-200 overflow-hidden relative">
-      <div className="p-8 border-b border-slate-100 flex justify-between items-center bg-slate-50/50">
+      <div className="p-8 border-b border-slate-100 flex justify-between items-center bg-slate-50/50 flex-wrap gap-4">
          <div className="flex flex-col">
            <h2 className="text-2xl font-black text-slate-900 uppercase tracking-tight">Расчет зарплаты</h2>
-           <p className="text-[10px] font-bold text-slate-400 uppercase tracking-widest mt-1">Отчетный период: {filterMonth}</p>
+           <div className="flex items-center gap-3 mt-1">
+             <p className="text-[10px] font-bold text-slate-400 uppercase tracking-widest">Отчетный период: {filterMonth}</p>
+             <div className="flex items-center bg-white rounded-lg border border-slate-200 p-1">
+               <button 
+                 onClick={() => handleStatusChange(PayrollStatus.DRAFT)}
+                 disabled={isChangingStatus || isPaid}
+                 className={`px-3 py-1 text-[10px] font-black uppercase tracking-widest rounded-md transition-all ${(!payrollPeriod || payrollPeriod.status === PayrollStatus.DRAFT) ? 'bg-slate-800 text-white' : 'text-slate-400 hover:bg-slate-100'} ${isPaid ? 'opacity-50 cursor-not-allowed' : ''}`}
+               >
+                 Черновик
+               </button>
+               <button 
+                 onClick={() => handleStatusChange(PayrollStatus.APPROVED)}
+                 disabled={isChangingStatus || isPaid}
+                 className={`px-3 py-1 text-[10px] font-black uppercase tracking-widest rounded-md transition-all ${payrollPeriod?.status === PayrollStatus.APPROVED ? 'bg-blue-600 text-white' : 'text-slate-400 hover:bg-slate-100'} ${isPaid ? 'opacity-50 cursor-not-allowed' : ''}`}
+               >
+                 Утверждено
+               </button>
+               <button 
+                 onClick={() => handleStatusChange(PayrollStatus.PAID)}
+                 disabled={isChangingStatus || isPaid}
+                 className={`px-3 py-1 text-[10px] font-black uppercase tracking-widest rounded-md transition-all ${payrollPeriod?.status === PayrollStatus.PAID ? 'bg-green-600 text-white' : 'text-slate-400 hover:bg-slate-100'} ${isPaid ? 'opacity-50 cursor-not-allowed' : ''}`}
+               >
+                 Оплачено
+               </button>
+             </div>
+           </div>
          </div>
          <div className="flex gap-3">
            <button 
              onClick={handleRecalculate} 
-             disabled={isRecalculating}
-             className="flex items-center gap-2 px-6 py-3 bg-indigo-600 text-white rounded-2xl font-black text-xs uppercase tracking-widest hover:bg-indigo-700 transition-all shadow-lg shadow-indigo-100 hover:shadow-indigo-200 active:scale-95 disabled:opacity-50"
+             disabled={isRecalculating || isPaid}
+             className="flex items-center gap-2 px-6 py-3 bg-indigo-600 text-white rounded-2xl font-black text-xs uppercase tracking-widest hover:bg-indigo-700 transition-all shadow-lg shadow-indigo-100 hover:shadow-indigo-200 active:scale-95 disabled:opacity-50 disabled:cursor-not-allowed"
            >
              <RefreshCw className={`w-4 h-4 ${isRecalculating ? 'animate-spin' : ''}`} />
              Пересчитать табель
            </button>
-           <button onClick={() => setShowBonusModal(true)} className="px-6 py-3 bg-green-600 text-white rounded-2xl font-black text-xs uppercase tracking-widest hover:bg-green-700 transition-all shadow-lg shadow-green-200 hover:shadow-green-300 active:scale-95">Общая премия</button>
+           <button onClick={() => setShowBonusModal(true)} disabled={isPaid} className="px-6 py-3 bg-green-600 text-white rounded-2xl font-black text-xs uppercase tracking-widest hover:bg-green-700 transition-all shadow-lg shadow-green-200 hover:shadow-green-300 active:scale-95 disabled:opacity-50 disabled:cursor-not-allowed">Общая премия</button>
            <button onClick={handleExportAll} className="px-6 py-3 bg-slate-900 text-white rounded-2xl font-black text-xs uppercase tracking-widest hover:bg-blue-600 transition-all shadow-lg shadow-slate-200 hover:shadow-blue-200 active:scale-95">Экспорт</button>
          </div>
       </div>
@@ -319,8 +379,9 @@ export const PayrollView: React.FC<PayrollViewProps> = ({
                               setSelectedUserForPayment(emp); 
                               setShowPaymentModal(true); 
                             }}
-                            className={`p-2 rounded-xl transition-all ${planLimits.features.payments ? 'text-indigo-400 hover:text-indigo-600 hover:bg-indigo-50' : 'text-slate-300 hover:text-slate-400 hover:bg-slate-50'}`}
-                            title={planLimits.features.payments ? "Внести выплату" : "Внести выплату (Требуется тариф BUSINESS)"}
+                            disabled={isPaid}
+                            className={`p-2 rounded-xl transition-all ${planLimits.features.payments ? 'text-indigo-400 hover:text-indigo-600 hover:bg-indigo-50' : 'text-slate-300 hover:text-slate-400 hover:bg-slate-50'} ${isPaid ? 'opacity-50 cursor-not-allowed' : ''}`}
+                            title={isPaid ? "Финансовый период закрыт" : planLimits.features.payments ? "Внести выплату" : "Внести выплату (Требуется тариф BUSINESS)"}
                           >
                             <Coins size={18} />
                           </button>
@@ -811,11 +872,14 @@ export const PayrollView: React.FC<PayrollViewProps> = ({
                           <span className="text-sm font-black text-slate-900">{payment.amount.toLocaleString()} ₽</span>
                           <button 
                             onClick={() => {
+                              if (isPaid) return;
                               if (confirm('Удалить запись о выплате?')) {
                                 onDeletePayment(payment.id);
                               }
                             }}
-                            className="p-2 text-slate-300 hover:text-red-500 hover:bg-red-50 rounded-xl transition-all opacity-0 group-hover:opacity-100"
+                            disabled={isPaid}
+                            className={`p-2 rounded-xl transition-all ${isPaid ? 'text-slate-200 cursor-not-allowed' : 'text-slate-300 hover:text-red-500 hover:bg-red-50 opacity-0 group-hover:opacity-100'}`}
+                            title={isPaid ? "Финансовый период закрыт" : "Удалить"}
                           >
                             <Trash2 size={16} />
                           </button>

@@ -21,6 +21,7 @@ interface EmployeeMatrixProps {
   logsLookup?: Record<string, Record<string, WorkLog[]>>;
   downloadCalendarPDF: () => void;
   roundShiftMinutes?: boolean;
+  isPaid?: boolean;
 }
 
 const SHIFT_COLORS = {
@@ -45,7 +46,8 @@ export const EmployeeMatrix = memo<EmployeeMatrixProps>(({
   filteredLogs,
   logsLookup = {},
   downloadCalendarPDF,
-  roundShiftMinutes
+  roundShiftMinutes,
+  isPaid
 }) => {
   const userLogsLookup = logsLookup[user.id] || {};
   const [isScheduleModalOpen, setIsScheduleModalOpen] = useState(false);
@@ -209,6 +211,10 @@ export const EmployeeMatrix = memo<EmployeeMatrixProps>(({
             }
 
             const handleClick = () => {
+              if (isPaid) {
+                alert('Финансовый период закрыт. Изменение графика заблокировано.');
+                return;
+              }
               const cycle = ['', 'Р', 'В', 'Д', 'О', 'Н'];
               const currentVal = shift || '';
               const nextIdx = (cycle.indexOf(currentVal) + 1) % cycle.length;
@@ -257,6 +263,7 @@ export const EmployeeMatrix = memo<EmployeeMatrixProps>(({
         currentMonth={filterMonth}
         setFilterMonth={setFilterMonth}
         onMonthChange={onMonthChange}
+        readOnly={isPaid}
       />
     </section>
   );
