@@ -143,6 +143,7 @@ export interface Machine {
   isArchived?: boolean;
   archivedAt?: string;
   archiveReason?: string;
+  createdAt?: string;
 }
 
 export interface User {

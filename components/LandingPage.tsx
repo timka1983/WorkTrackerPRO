@@ -100,7 +100,7 @@ const LandingPage: React.FC<LandingPageProps> = ({ onStart, onRegister, plans })
       {/* Hero Section */}
       <section className="pt-28 sm:pt-32 pb-12 sm:pb-20 px-4 sm:px-6 lg:px-8 max-w-7xl mx-auto text-center">
         <div className="inline-block px-4 py-1.5 bg-blue-50 text-blue-600 rounded-full text-[10px] font-black uppercase tracking-widest mb-6 animate-fadeIn">
-          Версия 2.0.0-PRO уже доступна
+          Версия 2.2.0-PRO уже доступна
         </div>
         <h1 className="text-4xl sm:text-5xl md:text-7xl font-black tracking-tight leading-[1.1] mb-6 sm:mb-8 animate-slideUp">
           Умный табель для <br /> 

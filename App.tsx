@@ -20,7 +20,7 @@ const RegistrationForm = React.lazy(() => import('./components/RegistrationForm'
 const SuperAdminView = React.lazy(() => import('./components/SuperAdminView'));
 const LoginScreen = React.lazy(() => import('./components/LoginScreen'));
 
-const APP_VERSION = 'v2.0.0-PRO-SAAS';
+const APP_VERSION = 'v2.2.0-PRO-SAAS';
 
 const App: React.FC = () => {
   const auth = useAuth();
