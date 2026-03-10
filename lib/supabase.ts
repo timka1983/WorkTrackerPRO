@@ -82,8 +82,8 @@ export const db = {
       ownerId: data.owner_id,
       expiryDate: data.expiry_date,
       notificationSettings: data.notification_settings,
-      locationSettings: data.location_settings,
-      telegramSettings: data.telegram_settings,
+      locationSettings: data.location_settings || data.notification_settings?.locationSettings,
+      telegramSettings: data.telegram_settings || data.notification_settings?.telegramSettings,
       maxShiftDuration: data.max_shift_duration,
       roundShiftMinutes: data.round_shift_minutes,
       nightShiftBonus: data.night_shift_bonus
@@ -292,26 +292,20 @@ export const db = {
         check_in: log.checkIn,
         check_out: log.checkOut || null,
         duration_minutes: log.durationMinutes || 0,
+        machine_id: log.machineId || null,
+        photo_in: log.photoIn || null,
+        photo_out: log.photoOut || null,
+        is_corrected: log.isCorrected || false,
+        correction_note: log.correctionNote || null,
+        correction_timestamp: log.correctionTimestamp || null,
+        is_night_shift: log.isNightShift || false,
+        fine: log.fine || 0,
+        bonus: log.bonus || 0,
+        items_produced: log.itemsProduced !== undefined ? log.itemsProduced : null,
+        location: log.location || null,
+        branch_id: log.branchId || null,
+        organization_id: orgId
       };
-      
-      // Только если значения не пустые/дефолтные, чтобы не ломать старые схемы БД
-      if (log.machineId) item.machine_id = log.machineId;
-      if (log.photoIn) item.photo_in = log.photoIn;
-      if (log.photoOut) item.photo_out = log.photoOut;
-      if (log.isCorrected) {
-        item.is_corrected = true;
-        if (log.correctionNote) item.correction_note = log.correctionNote;
-        if (log.correctionTimestamp) item.correction_timestamp = log.correctionTimestamp;
-      }
-      
-      // Эти колонки могут отсутствовать в старых версиях БД
-      if (log.isNightShift) item.is_night_shift = true;
-      if (log.fine) item.fine = log.fine;
-      if (log.bonus) item.bonus = log.bonus;
-      if (log.itemsProduced !== undefined) item.items_produced = log.itemsProduced;
-      if (log.location) item.location = log.location;
-      if (log.branchId) item.branch_id = log.branchId;
-      if (orgId) item.organization_id = orgId;
       
       return item;
     });
@@ -504,23 +498,13 @@ export const db = {
         require_photo: user.requirePhoto,
         is_admin: user.isAdmin,
         force_pin_change: user.forcePinChange,
-        organization_id: orgId
+        organization_id: orgId,
+        push_token: user.pushToken !== undefined ? user.pushToken : null,
+        planned_shifts: user.plannedShifts !== undefined ? user.plannedShifts : null,
+        payroll: user.payroll !== undefined ? user.payroll : null,
+        telegram_chat_id: user.telegramChatId !== undefined ? user.telegramChatId : null,
+        branch_id: user.branchId !== undefined ? user.branchId : null
       };
-      if (user.pushToken !== undefined) {
-        p.push_token = user.pushToken;
-      }
-      if (user.plannedShifts !== undefined) {
-        p.planned_shifts = user.plannedShifts;
-      }
-      if (user.payroll !== undefined) {
-        p.payroll = user.payroll;
-      }
-      if (user.telegramChatId !== undefined) {
-        p.telegram_chat_id = user.telegramChatId;
-      }
-      if (user.branchId !== undefined) {
-        p.branch_id = user.branchId;
-      }
       return p;
     });
 
@@ -562,20 +546,94 @@ export const db = {
     }
     
     const { data } = await query.order('name');
-    return (data || []).map(m => ({
-      ...m,
-      id: cleanValue(m.id),
-      organization_id: cleanValue(m.organization_id),
-      branchId: cleanValue(m.branch_id)
-    })) || null;
+    
+    // Filter out archived machines on the client side just in case the column doesn't exist
+    // to avoid breaking the query
+    return (data || [])
+      .filter(m => !m.is_archived)
+      .map(m => ({
+        ...m,
+        id: cleanValue(m.id),
+        organizationId: cleanValue(m.organization_id),
+        branchId: cleanValue(m.branch_id)
+      })) || null;
   },
   saveMachines: async (machines: any[], orgId: string) => {
     if (!checkConfig()) return { error: 'Not configured' };
     
+    if (machines.length === 0) {
+      // If empty array, we should probably delete all machines for this org
+      // But let's check if we want to do that. For now, just return success if empty array
+      // to avoid upserting empty array which might cause issues.
+      // Actually, we need to delete machines that are removed!
+      const { error: delError } = await supabase.from('machines').delete().eq('organization_id', orgId);
+      return { error: delError };
+    }
+
+    // 1. Get current machines to identify what to delete
+    const { data: existing, error: fetchError } = await supabase
+      .from('machines')
+      .select('id')
+      .eq('organization_id', orgId);
+      
+    if (fetchError) {
+      console.error('Error fetching existing machines for sync:', fetchError);
+    }
+
+    const newIds = machines.map(m => m.id);
+    const toDelete = existing ? existing.filter(e => !newIds.includes(e.id)).map(e => e.id) : [];
+
+    // 2. Delete or archive removed machines
+    if (toDelete.length > 0) {
+      console.log('Processing removed machines:', toDelete);
+      
+      // Check if machines have logs
+      for (const machineId of toDelete) {
+        const { count, error: countError } = await supabase
+          .from('work_logs')
+          .select('*', { count: 'exact', head: true })
+          .eq('machine_id', machineId);
+          
+        if (countError) {
+          console.error(`Error checking logs for machine ${machineId}:`, countError);
+          continue;
+        }
+        
+        if (count && count > 0) {
+          // Has logs, archive it
+          console.log(`Archiving machine ${machineId} because it has ${count} logs`);
+          const { error: archiveError } = await supabase
+            .from('machines')
+            .update({ is_archived: true })
+            .eq('id', machineId)
+            .eq('organization_id', orgId);
+            
+          if (archiveError) {
+            // If is_archived column doesn't exist, we might get an error.
+            // In that case, we just leave it as is to not break logs
+            console.warn(`Could not archive machine ${machineId} (might need DB migration):`, archiveError);
+          }
+        } else {
+          // No logs, safe to delete
+          console.log(`Deleting machine ${machineId} because it has no logs`);
+          const { error: delError } = await supabase
+            .from('machines')
+            .delete()
+            .eq('id', machineId)
+            .eq('organization_id', orgId);
+            
+          if (delError) {
+            console.error(`Error deleting machine ${machineId}:`, delError);
+          }
+        }
+      }
+    }
+
     // Используем upsert для сохранения ID и производительности
     const payload = machines.map(m => {
-      const item: any = { ...m, organization_id: orgId };
-      if (m.branchId) item.branch_id = m.branchId;
+      const { branchId, organizationId, organization_id, branch_id, ...rest } = m;
+      const item: any = { ...rest, organization_id: orgId };
+      item.branch_id = branchId || branch_id || null;
       return item;
     });
 
@@ -943,7 +1001,13 @@ export const db = {
     return data.map(org => ({
       ...org,
       ownerId: org.owner_id,
-      expiryDate: org.expiry_date
+      expiryDate: org.expiry_date,
+      notificationSettings: org.notification_settings,
+      locationSettings: org.location_settings || org.notification_settings?.locationSettings,
+      telegramSettings: org.telegram_settings || org.notification_settings?.telegramSettings,
+      maxShiftDuration: org.max_shift_duration,
+      roundShiftMinutes: org.round_shift_minutes,
+      nightShiftBonus: org.night_shift_bonus
     }));
   },
   getGlobalStats: async () => {
@@ -1019,16 +1083,41 @@ export const db = {
       dbUpdates.night_shift_bonus = updates.nightShiftBonus;
       delete dbUpdates.nightShiftBonus;
     }
+    if (updates.locationSettings !== undefined) {
+      dbUpdates.location_settings = updates.locationSettings;
+      delete dbUpdates.locationSettings;
+    }
+    if (updates.telegramSettings !== undefined) {
+      dbUpdates.telegram_settings = updates.telegramSettings;
+      delete dbUpdates.telegramSettings;
+    }
 
     const { error } = await supabase.from('organizations').update(dbUpdates).eq('id', orgId);
     
     if (error) {
       console.error('Error updating organization:', error);
       
-      // If column doesn't exist, try without notification_settings
-      if ((error.code === '42703' || error.message?.includes('column')) && dbUpdates.notification_settings) {
-        console.warn('Retrying organization update without notification_settings...');
-        const { notification_settings, ...minimalUpdates } = dbUpdates;
+      // If column doesn't exist, try without new settings
+      if ((error.code === '42703' || error.message?.includes('column'))) {
+        console.warn('Retrying organization update without new settings columns...');
+        
+        // Fetch current organization to merge settings into notification_settings as fallback
+        const { data: currentOrg } = await supabase.from('organizations').select('notification_settings').eq('id', orgId).single();
+        let mergedSettings = currentOrg?.notification_settings || {};
+        
+        if (dbUpdates.notification_settings) {
+          mergedSettings = { ...mergedSettings, ...dbUpdates.notification_settings };
+        }
+        if (dbUpdates.location_settings) {
+          mergedSettings.locationSettings = dbUpdates.location_settings;
+        }
+        if (dbUpdates.telegram_settings) {
+          mergedSettings.telegramSettings = dbUpdates.telegram_settings;
+        }
+        
+        const { notification_settings, location_settings, telegram_settings, ...minimalUpdates } = dbUpdates;
+        minimalUpdates.notification_settings = mergedSettings;
+        
         const { error: retryError } = await supabase.from('organizations').update(minimalUpdates).eq('id', orgId);
         return { error: retryError };
       }
@@ -1047,6 +1136,8 @@ export const db = {
       status: org.status,
       expiry_date: org.expiryDate,
       notification_settings: org.notificationSettings,
+      location_settings: org.locationSettings,
+      telegram_settings: org.telegramSettings,
       max_shift_duration: org.maxShiftDuration,
       round_shift_minutes: org.roundShiftMinutes,
       night_shift_bonus: org.nightShiftBonus
@@ -1054,6 +1145,27 @@ export const db = {
     
     if (error && error.code !== '23505') {
       console.error('Error creating organization:', error);
+      
+      // Fallback if new columns don't exist
+      if (error.code === '42703' || error.message?.includes('column')) {
+        let mergedSettings: any = org.notificationSettings || {};
+        if (org.locationSettings) mergedSettings.locationSettings = org.locationSettings;
+        if (org.telegramSettings) mergedSettings.telegramSettings = org.telegramSettings;
+        
+        await supabase.from('organizations').upsert({
+          id: org.id,
+          name: org.name,
+          email: org.email,
+          owner_id: org.ownerId,
+          plan: org.plan,
+          status: org.status,
+          expiry_date: org.expiryDate,
+          notification_settings: mergedSettings,
+          max_shift_duration: org.maxShiftDuration,
+          round_shift_minutes: org.roundShiftMinutes,
+          night_shift_bonus: org.nightShiftBonus
+        }, { onConflict: 'id' });
+      }
     }
   },
   getOrganizationByEmail: async (email: string) => {
@@ -1064,7 +1176,12 @@ export const db = {
       ...data,
       ownerId: data.owner_id,
       expiryDate: data.expiry_date,
-      notificationSettings: data.notification_settings
+      notificationSettings: data.notification_settings,
+      locationSettings: data.location_settings || data.notification_settings?.locationSettings,
+      telegramSettings: data.telegram_settings || data.notification_settings?.telegramSettings,
+      maxShiftDuration: data.max_shift_duration,
+      roundShiftMinutes: data.round_shift_minutes,
+      nightShiftBonus: data.night_shift_bonus
     };
   },
   resetAdminPin: async (orgId: string, newPin: string) => {
@@ -1126,6 +1243,8 @@ CREATE TABLE IF NOT EXISTS organizations (
   status TEXT DEFAULT 'active',
   expiry_date TIMESTAMPTZ,
   notification_settings JSONB DEFAULT '{}',
+  location_settings JSONB,
+  telegram_settings JSONB,
   max_shift_duration INTEGER DEFAULT 720,
   round_shift_minutes BOOLEAN DEFAULT false
 );
@@ -1570,6 +1689,8 @@ CREATE TABLE IF NOT EXISTS organizations (
   status TEXT DEFAULT 'active',
   expiry_date TIMESTAMPTZ,
   notification_settings JSONB DEFAULT '{}',
+  location_settings JSONB,
+  telegram_settings JSONB,
   max_shift_duration INTEGER DEFAULT 720,
   round_shift_minutes BOOLEAN DEFAULT false
 );
@@ -1790,7 +1911,7 @@ CREATE POLICY "Allow public delete" ON branches FOR DELETE USING (true);
 
       // Check specific columns
       const expectedSchema: Record<string, string[]> = {
-        organizations: ['id', 'name', 'email', 'owner_id', 'plan', 'status', 'expiry_date', 'notification_settings', 'max_shift_duration', 'round_shift_minutes'],
+        organizations: ['id', 'name', 'email', 'owner_id', 'plan', 'status', 'expiry_date', 'notification_settings', 'location_settings', 'telegram_settings', 'max_shift_duration', 'round_shift_minutes'],
         users: ['id', 'organization_id', 'name', 'role', 'department', 'position', 'pin', 'require_photo', 'is_admin', 'force_pin_change', 'push_token', 'planned_shifts', 'payroll', 'branch_id'],
         work_logs: ['id', 'user_id', 'organization_id', 'date', 'entry_type', 'machine_id', 'check_in', 'check_out', 'duration_minutes', 'photo_in', 'photo_out', 'is_corrected', 'correction_note', 'correction_timestamp', 'is_night_shift', 'fine', 'bonus', 'branch_id'],
         machines: ['id', 'organization_id', 'name', 'branch_id'],
