@@ -70,6 +70,7 @@ export const MatrixView: React.FC<MatrixViewProps> = ({
                     <td className="sticky left-0 z-10 bg-white border-r px-3 py-3 font-black text-slate-900 text-[11px] truncate w-[140px] min-w-[140px] max-w-[140px]">
                       <div className="flex items-center justify-between group/name">
                         <span className="truncate pr-1">{row.emp.name}</span>
+                        {row.emp.isArchived && <span className="text-[7px] bg-slate-200 text-slate-600 px-1 rounded-full ml-1">Архив</span>}
                         {usedMachineIds.length > 0 && (
                           <button 
                             onClick={() => toggleTurnerRow(row.emp.id)}

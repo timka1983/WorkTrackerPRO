@@ -375,7 +375,6 @@ export const db = {
             .order('name');
           if (allError) throw allError;
           return (allData || [])
-            .filter(u => !u.is_archived)
             .map(u => ({
               id: cleanValue(u.id),
               name: u.name,
@@ -401,7 +400,6 @@ export const db = {
       }
       
       return (data || [])
-        .filter(u => !u.is_archived)
         .map(u => ({
           id: cleanValue(u.id),
           name: u.name,

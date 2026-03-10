@@ -79,7 +79,20 @@ export const PayrollView: React.FC<PayrollViewProps> = ({
     fetchData();
   }, [currentOrg, filterMonth]);
 
-  const employees = users.filter(u => u.role === UserRole.EMPLOYEE);
+  const employees = users.filter(u => {
+    if (u.role !== UserRole.EMPLOYEE) return false;
+    
+    const periodStartDate = `${filterMonth}-01`;
+    const periodEndDate = `${filterMonth}-31`;
+    
+    // If created after the period ends, they shouldn't be here
+    if (u.createdAt && u.createdAt > periodEndDate) return false;
+    
+    // If archived before the period starts, they shouldn't be here
+    if (u.isArchived && u.archivedAt && u.archivedAt < periodStartDate) return false;
+    
+    return true;
+  });
 
   const toggleRow = (id: string) => {
     const newSet = new Set(expandedRows);
@@ -345,6 +358,7 @@ export const PayrollView: React.FC<PayrollViewProps> = ({
                           <div className="flex flex-col cursor-pointer hover:text-blue-600" onClick={() => setSelectedUserForSchedule(emp)}>
                             <div className="flex items-center gap-1">
                               <span>{emp.name}</span>
+                              {emp.isArchived && <span className="text-[10px] bg-slate-200 text-slate-600 px-2 py-0.5 rounded-full ml-1">Архив</span>}
                               {snapshot && (
                                 <span title={`Сохранено: ${format(new Date(snapshot.calculatedAt), 'dd.MM HH:mm')}`}>
                                   <CheckCircle2 size={12} className="text-indigo-500" />

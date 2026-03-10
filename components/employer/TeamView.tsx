@@ -116,7 +116,7 @@ export const TeamView: React.FC<TeamViewProps> = ({
            </button>
          </div>
 
-         {users.map(u => {
+         {users.filter(u => !u.isArchived).map(u => {
            const activeLogs = dashboardStats.activeLogsMap[u.id] || [];
            const isWorking = activeLogs.length > 0;
            return (

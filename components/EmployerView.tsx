@@ -123,14 +123,30 @@ const EmployerView: React.FC<EmployerViewProps> = ({
     return users.filter(u => u.branchId === selectedBranchId);
   }, [users, selectedBranchId]);
 
+  useEffect(() => {
+    console.log('All users:', users);
+  }, [users]);
+
   const employees = useMemo(() => {
     return [...filteredUsers].sort((a, b) => a.name.localeCompare(b.name));
   }, [filteredUsers]);
 
   const filteredMachines = useMemo(() => {
-    if (!selectedBranchId) return machines;
-    return machines.filter(m => m.branchId === selectedBranchId);
-  }, [machines, selectedBranchId]);
+    const periodStartDate = `${filterMonth}-01`;
+    const periodEndDate = `${filterMonth}-31`;
+    
+    return machines.filter(m => {
+      if (selectedBranchId && m.branchId !== selectedBranchId) return false;
+      
+      // If created after the period ends, they shouldn't be here
+      if (m.createdAt && m.createdAt > periodEndDate) return false;
+      
+      // If archived before the period starts, they shouldn't be here
+      if (m.isArchived && m.archivedAt && m.archivedAt < periodStartDate) return false;
+      
+      return true;
+    });
+  }, [machines, selectedBranchId, filterMonth]);
 
   // Расчет текущих лимитов
   const planLimits = useMemo(() => {
@@ -430,6 +446,19 @@ const EmployerView: React.FC<EmployerViewProps> = ({
           empLogs.push(...userLogsMap[date]);
         }
       });
+
+      // Keep if not archived, OR if archived but still within the period (created before end of period)
+      // Actually, the user wants them to appear if they were created before the period ends, 
+      // and they were not archived before the period started.
+      const periodStartDate = `${filterMonth}-01`;
+      const periodEndDate = `${filterMonth}-31`;
+      
+      const createdBeforePeriodEnd = emp.createdAt && emp.createdAt <= periodEndDate;
+      const archivedBeforePeriodStart = emp.isArchived && emp.archivedAt && emp.archivedAt < periodStartDate;
+      
+      if (emp.isArchived && empLogs.length === 0 && (archivedBeforePeriodStart || !createdBeforePeriodEnd)) {
+        return;
+      }
 
       rows.push({ type: 'employee', emp, empLogs });
       if (expandedTurnerRows.has(emp.id)) {
@@ -1014,10 +1043,9 @@ const EmployerView: React.FC<EmployerViewProps> = ({
           <div className="flex justify-between items-start">
             <div id="debug-content" className="space-y-1">
               <p>Debug: OrgID: [{currentOrg?.id}] | Users: {users.length} | Logs: {logs.length}</p>
+              <p>Users: {users.map(u => `${u.name}(${u.isArchived ? 'A' : 'Act'}, Org:${u.organizationId})`).join(', ')}</p>
               <p>First User: {users[0] ? `${users[0].name} (ID: [${users[0].id}])` : 'NONE'}</p>
-              {logs.length > 0 && (
-                <p>Sample Log: ID=[${logs[0].id}] User=[${logs[0].userId}] Date=[${logs[0].date}] Type={logs[0].entryType} Out={logs[0].checkOut || 'NULL'}</p>
-              )}
+              <p>Logs: {logs.slice(0, 5).map(l => l.userId).join(', ')}</p>
               <p>Active Shifts Map Keys: {Object.keys(activeShiftsMap).join(', ')}</p>
             </div>
             <button 

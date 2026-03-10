@@ -169,6 +169,7 @@ export interface User {
   isArchived?: boolean;
   archivedAt?: string;
   archiveReason?: string;
+  createdAt?: string;
 }
 
 export interface WorkLog {
