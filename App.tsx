@@ -72,7 +72,7 @@ const App: React.FC = () => {
         if (!shiftsRecord) return;
 
         Object.entries(shiftsRecord).forEach(([slot, shift]: [string, any]) => {
-          if (!shift || !shift.checkIn) return;
+          if (!shift || !shift.checkIn || shift.checkOut) return;
 
           const duration = calculateMinutes(shift.checkIn, now.toISOString());
           
