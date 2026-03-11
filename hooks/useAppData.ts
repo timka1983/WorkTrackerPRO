@@ -1064,6 +1064,13 @@ export const useAppData = (currentUser: User | null) => {
   };
 
   const handleDeleteUser = async (userId: string, reason?: string) => {
+    if (currentUser?.id === userId) {
+      localStorage.removeItem(STORAGE_KEYS.CURRENT_USER);
+      localStorage.removeItem(STORAGE_KEYS.LAST_USER_ID);
+      window.location.reload();
+    } else if (localStorage.getItem(STORAGE_KEYS.LAST_USER_ID) === userId) {
+      localStorage.removeItem(STORAGE_KEYS.LAST_USER_ID);
+    }
     deleteUserMutation.mutate({ userId, reason });
   };
 

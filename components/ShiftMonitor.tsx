@@ -27,6 +27,10 @@ export const ShiftMonitor: React.FC<ShiftMonitorProps> = ({
   
   // Default max duration: 12 hours (720 mins)
   const maxDuration = userPosition?.permissions.maxShiftDurationMinutes || organization?.maxShiftDuration || 720;
+  const autoShift = organization?.autoShiftCompletion;
+  const firstInterval = autoShift?.enabled ? autoShift.firstAlertMinutes : 15;
+  const secondInterval = autoShift?.enabled ? autoShift.secondAlertMinutes : 5;
+  const thirdInterval = autoShift?.enabled ? autoShift.thirdAlertMinutes : 5;
 
   useEffect(() => {
     if (!activeShift || !activeShift.checkIn) {
@@ -49,8 +53,8 @@ export const ShiftMonitor: React.FC<ShiftMonitorProps> = ({
         notifiedStage2.current = null;
       }
 
-      // Stage 3: Force Close (Max + 25m)
-      if (elapsed >= maxDuration + 25) {
+      // Stage 3: Force Close (Max + first + second + third)
+      if (elapsed >= maxDuration + firstInterval + secondInterval + thirdInterval) {
         setStatus('expired');
         setMessage('Смена принудительно завершена (превышен лимит времени)');
         // Trigger force close
@@ -59,16 +63,16 @@ export const ShiftMonitor: React.FC<ShiftMonitorProps> = ({
         return;
       }
 
-      // Stage 2: Critical Warning (Max + 20m)
-      if (elapsed >= maxDuration + 20) {
+      // Stage 2: Critical Warning (Max + first + second)
+      if (elapsed >= maxDuration + firstInterval + secondInterval) {
         setStatus('critical');
-        setMessage('Смена будет закрыта через 5 минут! Подтвердите присутствие.');
+        setMessage('Смена будет закрыта через ' + thirdInterval + ' минут! Подтвердите присутствие.');
         
         if (notifiedStage2.current !== activeShift.id) {
           // Send notification / Check location
           if (Notification.permission === 'granted') {
             new Notification('Внимание! Смена будет закрыта', {
-              body: 'Вы превысили максимальное время смены на 20 минут.',
+              body: 'Вы превысили максимальное время смены.',
               icon: '/icon-192.png'
             });
           }
@@ -79,15 +83,15 @@ export const ShiftMonitor: React.FC<ShiftMonitorProps> = ({
         return;
       }
 
-      // Stage 1: Warning (Max + 15m)
-      if (elapsed >= maxDuration + 15) {
+      // Stage 1: Warning (Max + first)
+      if (elapsed >= maxDuration + firstInterval) {
         setStatus('warning');
         setMessage('Вы забыли закрыть смену? Проверка местоположения...');
         
         if (notifiedStage1.current !== activeShift.id) {
            if (Notification.permission === 'granted') {
             new Notification('Вы забыли закрыть смену?', {
-              body: 'Прошло 15 минут после окончания смены.',
+              body: 'Прошло ' + firstInterval + ' минут после окончания смены.',
               icon: '/icon-192.png'
             });
           }
@@ -136,7 +140,7 @@ export const ShiftMonitor: React.FC<ShiftMonitorProps> = ({
     checkShift(); // Initial check
 
     return () => clearInterval(interval);
-  }, [activeShift, maxDuration, organization, onForceClose]);
+  }, [activeShift, maxDuration, organization, onForceClose, firstInterval, secondInterval, thirdInterval]);
 
   // Helper for distance
   function getDistanceFromLatLonInM(lat1: number, lon1: number, lat2: number, lon2: number) {

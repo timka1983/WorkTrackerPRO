@@ -32,6 +32,40 @@ const App: React.FC = () => {
   const [employerViewMode, setEmployerViewMode] = useState<'matrix' | 'team' | 'analytics' | 'settings' | 'billing' | 'payroll'>('analytics');
   const [employeeViewMode, setEmployeeViewMode] = useState<'control' | 'matrix'>('control');
 
+  const userPermissions = useMemo(() => {
+    if (!auth.currentUser) return DEFAULT_PERMISSIONS;
+    if (auth.currentUser.id === 'admin') return { ...DEFAULT_PERMISSIONS, isFullAdmin: true };
+    const pos = appData.positions.find((p: PositionConfig) => p.name === auth.currentUser!.position);
+    return pos?.permissions || DEFAULT_PERMISSIONS;
+  }, [auth.currentUser, appData.positions]);
+
+  const isSelectedUserAdmin = useMemo(() => {
+    const user = auth.selectedLoginUser;
+    if (!user) return false;
+    if (user.id === 'admin') return true;
+    const pos = appData.positions.find((p: PositionConfig) => p.name === user.position);
+    return (pos?.permissions?.isFullAdmin || pos?.permissions?.isLimitedAdmin) ?? false;
+  }, [auth.selectedLoginUser, appData.positions]);
+
+  // Check if current user is archived
+  useEffect(() => {
+    if (auth.currentUser) {
+      const user = appData.users.find(u => u.id === auth.currentUser?.id);
+      if (user && user.isArchived) {
+        auth.handleLogout();
+        alert('Ваш аккаунт был заблокирован.');
+      }
+    }
+  }, [auth.currentUser, appData.users]);
+
+  const isEmployerAuthorized = useMemo(() => {
+    return userPermissions.isFullAdmin || userPermissions.isLimitedAdmin;
+  }, [userPermissions]);
+
+  const isSuperAdmin = useMemo(() => {
+    return auth.currentUser?.role === UserRole.SUPER_ADMIN;
+  }, [auth.currentUser]);
+
   // Telegram Notification Monitor
   useEffect(() => {
     // Check if feature is enabled in plan
@@ -57,6 +91,9 @@ const App: React.FC = () => {
       const botToken = appData.currentOrg!.telegramSettings!.botToken;
       
       Object.entries(appData.activeShiftsMap).forEach(([userId, shifts]) => {
+        // Prevent other employees' stale devices from sending notifications for this user
+        if (userId !== auth.currentUser?.id && !isEmployerAuthorized) return;
+
         const user = appData.users.find((u: User) => u.id === userId);
         if (!user) return;
 
@@ -73,6 +110,10 @@ const App: React.FC = () => {
 
         Object.entries(shiftsRecord).forEach(([slot, shift]: [string, any]) => {
           if (!shift || !shift.checkIn || shift.checkOut) return;
+
+          // Double-check if the shift is already closed in the logs
+          const log = appData.logs.find((l: any) => l.id === shift.id);
+          if (log && log.checkOut) return;
 
           const duration = calculateMinutes(shift.checkIn, now.toISOString());
           
@@ -104,7 +145,7 @@ const App: React.FC = () => {
 
     const interval = setInterval(checkShifts, 60000); // Check every minute
     return () => clearInterval(interval);
-  }, [appData.activeShiftsMap, appData.currentOrg, appData.users, appData.positions, getNow]);
+  }, [appData.activeShiftsMap, appData.currentOrg, appData.users, appData.positions, appData.logs, getNow, auth.currentUser?.id, isEmployerAuthorized]);
 
   useEffect(() => {
     const lastUserId = localStorage.getItem(STORAGE_KEYS.LAST_USER_ID);
@@ -117,28 +158,9 @@ const App: React.FC = () => {
     }
   }, [appData.users, auth.currentUser]);
 
-  const userPermissions = useMemo(() => {
-    if (!auth.currentUser) return DEFAULT_PERMISSIONS;
-    if (auth.currentUser.id === 'admin') return { ...DEFAULT_PERMISSIONS, isFullAdmin: true };
-    const pos = appData.positions.find((p: PositionConfig) => p.name === auth.currentUser!.position);
-    return pos?.permissions || DEFAULT_PERMISSIONS;
-  }, [auth.currentUser, appData.positions]);
-
-  const isSelectedUserAdmin = useMemo(() => {
-    const user = auth.selectedLoginUser;
-    if (!user) return false;
-    if (user.id === 'admin') return true;
-    const pos = appData.positions.find((p: PositionConfig) => p.name === user.position);
-    return (pos?.permissions?.isFullAdmin || pos?.permissions?.isLimitedAdmin) ?? false;
-  }, [auth.selectedLoginUser, appData.positions]);
-
-  const isEmployerAuthorized = useMemo(() => {
-    return userPermissions.isFullAdmin || userPermissions.isLimitedAdmin;
-  }, [userPermissions]);
-
   // Lazy Cleanup for Zombie Shifts (Server-side emulation)
   useEffect(() => {
-    if (!isEmployerAuthorized || !appData.currentOrg) return;
+    if (!appData.currentOrg) return;
 
     const cleanupZombieShifts = () => {
       const now = getNow();
@@ -146,6 +168,9 @@ const App: React.FC = () => {
       const shiftUpdates: Record<string, any> = {};
 
       Object.entries(appData.activeShiftsMap).forEach(([userId, shifts]) => {
+        // Only process if it's the current user, OR if the current user is an employer
+        if (userId !== auth.currentUser?.id && !isEmployerAuthorized) return;
+
         const user = appData.users.find(u => u.id === userId);
         if (!user) return;
         
@@ -218,11 +243,7 @@ const App: React.FC = () => {
     cleanupZombieShifts(); // Initial check
     return () => clearInterval(interval);
 
-  }, [isEmployerAuthorized, appData.currentOrg, appData.activeShiftsMap, appData.users, appData.positions, getNow]);
-
-  const isSuperAdmin = useMemo(() => {
-    return auth.currentUser?.role === UserRole.SUPER_ADMIN;
-  }, [auth.currentUser]);
+  }, [isEmployerAuthorized, auth.currentUser?.id, appData.currentOrg, appData.activeShiftsMap, appData.users, appData.positions, getNow]);
 
   const activeUser = useMemo(() => {
     if (!auth.currentUser) return null;
@@ -310,7 +331,7 @@ const App: React.FC = () => {
 
         {!auth.currentUser ? (
           <LoginScreen 
-             users={appData.users}
+             users={appData.users.filter(u => !u.isArchived)}
              selectedLoginUser={auth.selectedLoginUser}
              setSelectedLoginUser={auth.setSelectedLoginUser}
              pinInput={auth.pinInput}

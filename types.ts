@@ -76,6 +76,13 @@ export interface TelegramSettings {
   notifyOnLimitExceeded?: boolean;
 }
 
+export interface AutoShiftCompletionSettings {
+  enabled: boolean;
+  firstAlertMinutes: number;
+  secondAlertMinutes: number;
+  thirdAlertMinutes: number;
+}
+
 export interface Organization {
   id: string;
   name: string;
@@ -91,6 +98,7 @@ export interface Organization {
   };
   locationSettings?: LocationSettings;
   telegramSettings?: TelegramSettings;
+  autoShiftCompletion?: AutoShiftCompletionSettings;
   maxShiftDuration?: number; // Global max shift duration in minutes (default 720 = 12h)
   roundShiftMinutes?: boolean; // 15-minute rounding rule
   nightShiftBonus?: number; // Global night shift bonus in minutes

@@ -158,6 +158,62 @@ export const SettingsView: React.FC<SettingsViewProps> = ({
          </div>
       </section>
       <section className="bg-white p-8 rounded-[2.5rem] border border-slate-200 shadow-sm relative overflow-hidden">
+        <h3 className="font-black text-slate-900 mb-6 flex items-center gap-2 underline decoration-blue-500 decoration-4 underline-offset-8 uppercase text-xs tracking-widest">Автоматическое завершение смены</h3>
+        <p className="text-xs text-slate-500 mb-6 leading-relaxed">
+          Система автоматически отслеживает просроченные смены. Если смена не закрыта вовремя, включается трехэтапный контроль:
+          <br/>1. <b>Предупреждение</b> через заданный 1-й интервал.
+          <br/>2. <b>Критическое уведомление</b> через 2-й интервал (проверка геопозиции).
+          <br/>3. <b>Принудительное закрытие</b> через 3-й интервал, если сотрудник не подтвердил присутствие.
+        </p>
+        <div className="space-y-4">
+          <label className="flex items-center justify-between p-3 bg-slate-50 rounded-xl border border-slate-100 cursor-pointer hover:bg-white transition-all">
+            <p className="text-[11px] font-bold text-slate-800 uppercase tracking-tight">Включить авто-завершение</p>
+            <input 
+              type="checkbox" 
+              checked={currentOrg?.autoShiftCompletion?.enabled || false}
+              onChange={(e) => {
+                const newSettings = {
+                  ...(currentOrg?.autoShiftCompletion || { enabled: false, firstAlertMinutes: 15, secondAlertMinutes: 5, thirdAlertMinutes: 5 }),
+                  enabled: e.target.checked
+                };
+                if (currentOrg) {
+                  onUpdateOrg({ ...currentOrg, autoShiftCompletion: newSettings });
+                  db.updateOrganization(currentOrg.id, { autoShiftCompletion: newSettings });
+                }
+              }}
+              className="w-4 h-4 rounded accent-blue-600"
+            />
+          </label>
+          {currentOrg?.autoShiftCompletion?.enabled && (
+            <div className="grid grid-cols-3 gap-4">
+              {[
+                { key: 'firstAlertMinutes', label: '1-й интервал (мин)' },
+                { key: 'secondAlertMinutes', label: '2-й интервал (мин)' },
+                { key: 'thirdAlertMinutes', label: '3-й интервал (мин)' }
+              ].map((field) => (
+                <div key={field.key}>
+                  <label className="text-[10px] font-black text-slate-400 uppercase ml-1">{field.label}</label>
+                  <input 
+                    type="number"
+                    value={(currentOrg.autoShiftCompletion as any)?.[field.key] || 0}
+                    onChange={(e) => {
+                      const newSettings = {
+                        ...currentOrg.autoShiftCompletion!,
+                        [field.key]: parseInt(e.target.value)
+                      };
+                      onUpdateOrg({ ...currentOrg, autoShiftCompletion: newSettings });
+                      db.updateOrganization(currentOrg.id, { autoShiftCompletion: newSettings });
+                    }}
+                    className="w-full border-2 border-slate-100 rounded-xl px-3 py-2 text-sm font-bold outline-none focus:border-blue-500"
+                  />
+                </div>
+              ))}
+            </div>
+          )}
+        </div>
+      </section>
+
+      <section className="bg-white p-8 rounded-[2.5rem] border border-slate-200 shadow-sm relative overflow-hidden">
         {!planLimits.features.nightShift && (
            <div className="absolute inset-0 bg-white/40 backdrop-blur-[2px] z-10 flex items-center justify-center cursor-help" onClick={() => alert('Ночная смена доступна в PRO тарифе')}>
               <span className="bg-blue-600 text-white px-6 py-2 rounded-full text-xs font-black uppercase tracking-widest shadow-xl">Разблокировать в PRO</span>

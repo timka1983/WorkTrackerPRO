@@ -61,6 +61,11 @@ export const useAuth = () => {
     }
 
     if (user && pin === user.pin) {
+      if (user.isArchived) {
+        setLoginError('Пользователь заблокирован');
+        setTimeout(() => setPinInput(''), 500);
+        return;
+      }
       const loginSessionUser = { ...user, role: UserRole.EMPLOYEE };
       setCurrentUser(loginSessionUser);
       localStorage.setItem(STORAGE_KEYS.CURRENT_USER, JSON.stringify(loginSessionUser));

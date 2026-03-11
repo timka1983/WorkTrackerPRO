@@ -87,7 +87,7 @@ const LoginScreen: React.FC<LoginScreenProps> = ({
               <select 
                 onChange={(e) => {
                   const user = users.find(u => u.id === e.target.value);
-                  if (user) {
+                  if (user && !user.isArchived) {
                     setSelectedLoginUser(user);
                     localStorage.setItem(STORAGE_KEYS.LAST_USER_ID, user.id);
                   }
@@ -96,7 +96,7 @@ const LoginScreen: React.FC<LoginScreenProps> = ({
                 defaultValue=""
               >
                 <option value="" disabled>Выберите себя в списке...</option>
-                {users.map(u => (
+                {users.filter(u => !u.isArchived).map(u => (
                   <option key={u.id} value={u.id}>{u.name} — {u.position}</option>
                 ))}
               </select>
