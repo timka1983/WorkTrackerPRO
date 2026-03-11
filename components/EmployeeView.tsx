@@ -1,7 +1,7 @@
 
 import React, { useState, useEffect, useMemo, useRef, memo } from 'react';
 import { WorkLog, User, EntryType, Machine, PositionConfig, PlanLimits, Organization, PayrollPeriod, PayrollStatus } from '../types';
-import { formatTime, formatDate, formatDuration, calculateMinutes, getDaysInMonthArray, formatDurationShort, sendNotification, calculateDistance, sendTelegramNotification, applyRounding, getEffectivePayrollConfig } from '../utils';
+import { formatTime, formatDate, formatDuration, calculateMinutes, getDaysInMonthArray, formatDurationShort, sendNotification, calculateDistance, sendTelegramNotification, applyRounding, getEffectivePayrollConfig, calculateMonthlyPayroll } from '../utils';
 import { STORAGE_KEYS, DEFAULT_PERMISSIONS } from '../constants';
 import { format, isAfter, endOfMonth, eachDayOfInterval, getDay, addMonths } from 'date-fns';
 import { startOfDay } from 'date-fns/startOfDay';
@@ -560,44 +560,13 @@ const EmployeeView: React.FC<EmployeeViewProps> = ({
   const monthEarnings = useMemo(() => {
     if (!effectivePayroll || !planLimits.features.payroll) return 0;
     
-    const todayStr = format(getNow(), 'yyyy-MM-dd');
     const closedWorkLogs = filteredLogs.filter(l => 
-      l.entryType === EntryType.WORK && 
-      l.checkOut
+      l.entryType !== EntryType.WORK || l.checkOut
     );
     
-    const logsByDate: Record<string, WorkLog[]> = {};
-    closedWorkLogs.forEach(l => {
-      if (!logsByDate[l.date]) logsByDate[l.date] = [];
-      logsByDate[l.date].push(l);
-    });
-
-    let totalEarnings = 0;
-    Object.values(logsByDate).forEach(dayLogs => {
-      let dayTotalMinutes = 0;
-      let hasNightShift = false;
-      
-      dayLogs.forEach(l => {
-        dayTotalMinutes += l.durationMinutes;
-        if (l.isNightShift) hasNightShift = true;
-      });
-      
-      let dayEarnings = 0;
-      if (effectivePayroll.type === 'hourly') {
-        dayEarnings = (dayTotalMinutes / 60) * effectivePayroll.rate;
-      } else if (effectivePayroll.type === 'shift') {
-        if (dayTotalMinutes > 0) dayEarnings = effectivePayroll.rate;
-      }
-      
-      if (hasNightShift) {
-        dayEarnings += effectivePayroll.nightShiftBonus;
-      }
-      
-      totalEarnings += dayEarnings;
-    });
-    
-    return totalEarnings;
-  }, [filteredLogs, effectivePayroll, planLimits.features.payroll, getNow]);
+    const payrollResult = calculateMonthlyPayroll(user, closedWorkLogs, positions, currentOrg || undefined);
+    return payrollResult.totalSalary;
+  }, [filteredLogs, effectivePayroll, planLimits.features.payroll, user, positions, currentOrg]);
 
   const getMachineName = (id?: string) => machines.find(m => m.id === id)?.name || 'Работа';
 

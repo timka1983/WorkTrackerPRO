@@ -18,8 +18,15 @@ const getEnv = (name: string): string => {
 
 const SUPABASE_URL = getEnv('VITE_SUPABASE_URL') || 'https://placeholder-project.supabase.co';
 const SUPABASE_ANON_KEY = getEnv('VITE_SUPABASE_ANON_KEY') || 'placeholder-anon-key';
+const APP_SECRET = 'work-tracker-pro-secret-2026';
 
-export const supabase = createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
+export const supabase = createClient(SUPABASE_URL, SUPABASE_ANON_KEY, {
+  global: {
+    headers: {
+      'x-app-token': APP_SECRET
+    }
+  }
+});
 
 const isConfigured = () => {
   const configured = SUPABASE_URL !== 'https://placeholder-project.supabase.co' && 
