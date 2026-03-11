@@ -130,6 +130,32 @@ export const sendTelegramNotification = async (
   }
 };
 
+export const getEffectivePayrollConfig = (user: User, positions: PositionConfig[]) => {
+  const positionConfig = positions.find(p => p.name === user.position);
+  const baseConfig = positionConfig?.payroll || {
+    type: 'hourly' as const,
+    rate: 0,
+    overtimeMultiplier: 1.5,
+    nightShiftBonus: 0,
+    sickLeaveRate: 0,
+    machineRates: {}
+  };
+
+  if (!user.payroll) return baseConfig;
+
+  return {
+    ...baseConfig,
+    type: user.payroll.overrides?.type ? (user.payroll.type ?? baseConfig.type) : baseConfig.type,
+    rate: user.payroll.overrides?.rate ? (user.payroll.rate ?? baseConfig.rate) : baseConfig.rate,
+    overtimeMultiplier: user.payroll.overrides?.overtimeMultiplier ? (user.payroll.overtimeMultiplier ?? baseConfig.overtimeMultiplier) : baseConfig.overtimeMultiplier,
+    nightShiftBonus: user.payroll.overrides?.nightShiftBonus ? (user.payroll.nightShiftBonus ?? baseConfig.nightShiftBonus) : baseConfig.nightShiftBonus,
+    sickLeaveRate: user.payroll.overrides?.sickLeaveRate ? (user.payroll.sickLeaveRate ?? baseConfig.sickLeaveRate) : baseConfig.sickLeaveRate,
+    machineRates: user.payroll.overrides?.machineRates 
+      ? (user.payroll.machineRates ?? baseConfig.machineRates)
+      : baseConfig.machineRates
+  };
+};
+
 export const calculateMonthlyPayroll = (
   user: User,
   logs: WorkLog[],
@@ -151,30 +177,8 @@ export const calculateMonthlyPayroll = (
     sickDays: number;
   };
 } => {
+  const config = getEffectivePayrollConfig(user, positions);
   const positionConfig = positions.find(p => p.name === user.position);
-  const baseConfig = positionConfig?.payroll || {
-    type: 'hourly',
-    rate: 0,
-    overtimeMultiplier: 1.5,
-    nightShiftBonus: 0,
-    sickLeaveRate: 0,
-    machineRates: {}
-  };
-
-  // Merge user's personal payroll config with position's default config
-  // User's specific settings take precedence over position defaults ONLY IF overrides flag is true
-  const config = user.payroll ? {
-    ...baseConfig,
-    type: user.payroll.overrides?.type ? (user.payroll.type ?? baseConfig.type) : baseConfig.type,
-    rate: user.payroll.overrides?.rate ? (user.payroll.rate ?? baseConfig.rate) : baseConfig.rate,
-    overtimeMultiplier: user.payroll.overrides?.overtimeMultiplier ? (user.payroll.overtimeMultiplier ?? baseConfig.overtimeMultiplier) : baseConfig.overtimeMultiplier,
-    nightShiftBonus: user.payroll.overrides?.nightShiftBonus ? (user.payroll.nightShiftBonus ?? baseConfig.nightShiftBonus) : baseConfig.nightShiftBonus,
-    sickLeaveRate: user.payroll.overrides?.sickLeaveRate ? (user.payroll.sickLeaveRate ?? baseConfig.sickLeaveRate) : baseConfig.sickLeaveRate,
-    // Ensure machineRates are also merged if both exist
-    machineRates: user.payroll.overrides?.machineRates 
-      ? (user.payroll.machineRates ?? baseConfig.machineRates)
-      : baseConfig.machineRates
-  } : baseConfig;
 
   let regularPay = 0;
   let overtimePay = 0;

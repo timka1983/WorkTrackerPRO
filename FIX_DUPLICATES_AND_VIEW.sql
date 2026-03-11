@@ -9,7 +9,17 @@ WHERE a.ctid < b.ctid
 
 -- 2. Add Primary Key to 'positions' to prevent future duplicates
 -- If this fails, it means duplicates still exist or PK already exists
-ALTER TABLE positions ADD PRIMARY KEY (organization_id, name);
+DO $$
+BEGIN
+    IF NOT EXISTS (
+        SELECT 1
+        FROM pg_constraint
+        WHERE conrelid = 'positions'::regclass
+          AND contype = 'p'
+    ) THEN
+        ALTER TABLE positions ADD PRIMARY KEY (organization_id, name);
+    END IF;
+END $$;
 
 -- 3. Remove duplicates from 'active_shifts' table
 DELETE FROM active_shifts a USING active_shifts b
@@ -17,7 +27,16 @@ WHERE a.ctid < b.ctid
   AND a.user_id = b.user_id;
 
 -- 4. Add Unique Constraint to 'active_shifts'
-ALTER TABLE active_shifts ADD CONSTRAINT unique_active_shift_per_user UNIQUE (user_id);
+DO $$
+BEGIN
+    IF NOT EXISTS (
+        SELECT 1
+        FROM pg_constraint
+        WHERE conname = 'unique_active_shift_per_user'
+    ) THEN
+        ALTER TABLE active_shifts ADD CONSTRAINT unique_active_shift_per_user UNIQUE (user_id);
+    END IF;
+END $$;
 
 -- 5. Recreate 'monthly_report_view' with correct definition
 DROP VIEW IF EXISTS monthly_report_view;

@@ -87,4 +87,4 @@ RETURNS TIMESTAMPTZ AS $$
 BEGIN
     RETURN NOW();
 END;
-$$ LANGUAGE plpgsql;
+$$ LANGUAGE plpgsql SET search_path = public;

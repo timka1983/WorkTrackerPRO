@@ -2,7 +2,7 @@
 import React, { useState, useMemo, useEffect } from 'react';
 import * as XLSX from 'xlsx';
 import { WorkLog, User, EntryType, UserRole, Machine, FIXED_POSITION_TURNER, PositionConfig, PositionPermissions, Organization, PlanType, Plan, PayrollConfig, PlanLimits, Branch, PayrollPeriod, PayrollStatus, PayrollSnapshot } from '../types';
-import { getDaysInMonthArray, formatTime, calculateMinutes, calculateMonthlyPayroll } from '../utils';
+import { getDaysInMonthArray, formatTime, calculateMinutes, calculateMonthlyPayroll, getEffectivePayrollConfig } from '../utils';
 import { format } from 'date-fns';
 import { startOfDay } from 'date-fns/startOfDay';
 import { subDays } from 'date-fns/subDays';
@@ -671,8 +671,7 @@ const EmployerView: React.FC<EmployerViewProps> = ({
         });
 
         const payroll = calculateMonthlyPayroll(emp, empLogs, positions, currentOrg || undefined);
-        const posConfig = positions.find(p => p.name === emp.position);
-        const config = emp.payroll || posConfig?.payroll || DEFAULT_PAYROLL_CONFIG;
+        const config = getEffectivePayrollConfig(emp, positions);
         
         const snapshot: PayrollSnapshot = {
           id: `${emp.id}-${filterMonth}`,

@@ -1,7 +1,7 @@
 
 import React, { useState, useEffect, useMemo, useRef, memo } from 'react';
 import { WorkLog, User, EntryType, Machine, PositionConfig, PlanLimits, Organization, PayrollPeriod, PayrollStatus } from '../types';
-import { formatTime, formatDate, formatDuration, calculateMinutes, getDaysInMonthArray, formatDurationShort, sendNotification, calculateDistance, sendTelegramNotification, applyRounding } from '../utils';
+import { formatTime, formatDate, formatDuration, calculateMinutes, getDaysInMonthArray, formatDurationShort, sendNotification, calculateDistance, sendTelegramNotification, applyRounding, getEffectivePayrollConfig } from '../utils';
 import { STORAGE_KEYS, DEFAULT_PERMISSIONS } from '../constants';
 import { format, isAfter, endOfMonth, eachDayOfInterval, getDay, addMonths } from 'date-fns';
 import { startOfDay } from 'date-fns/startOfDay';
@@ -364,7 +364,7 @@ const EmployeeView: React.FC<EmployeeViewProps> = ({
     const currentShift = activeShifts[slot];
     if (!currentShift) return;
     
-    const isPiecework = user.payroll?.type === 'piecework' || (!user.payroll?.overrides?.type && positions.find(p => p.name === user.position)?.payroll?.type === 'piecework');
+    const isPiecework = getEffectivePayrollConfig(user, positions).type === 'piecework';
     
     if (isPiecework && items === undefined) {
       setShowPieceworkModal({ slot, photo });
@@ -554,9 +554,7 @@ const EmployeeView: React.FC<EmployeeViewProps> = ({
   }, [filteredLogs]);
 
   const effectivePayroll = useMemo(() => {
-     if (user.payroll) return user.payroll;
-     const pos = positions.find(p => p.name === user.position);
-     return pos?.payroll;
+     return getEffectivePayrollConfig(user, positions);
   }, [user, positions]);
 
   const monthEarnings = useMemo(() => {

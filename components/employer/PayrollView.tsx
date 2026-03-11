@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { User, WorkLog, PositionConfig, UserRole, Machine, EntryType, Branch, Organization, PayrollSnapshot, PayrollPayment, PaymentType, PlanLimits, PayrollPeriod, PayrollStatus } from '../../types';
-import { calculateMonthlyPayroll, formatDurationShort, calculateMinutes } from '../../utils';
+import { calculateMonthlyPayroll, getEffectivePayrollConfig, formatDurationShort, calculateMinutes } from '../../utils';
 import { format } from 'date-fns';
 import { ScheduleModal } from '../employee/ScheduleModal';
 import { generatePayslipPDF } from '../../utils/pdfGenerator';
@@ -306,8 +306,9 @@ export const PayrollView: React.FC<PayrollViewProps> = ({
                
                const snapshot = snapshots.find(s => s.userId === emp.id);
                const payroll = snapshot ? snapshot.details : calculateMonthlyPayroll(emp, empLogs, positions, currentOrg || undefined);
-               const rate = snapshot ? snapshot.rateUsed : (emp.payroll?.rate ?? (positions.find(p => p.name === emp.position)?.payroll?.rate || 0));
-               const type = snapshot ? snapshot.rateType : (emp.payroll?.type ?? (positions.find(p => p.name === emp.position)?.payroll?.type || 'hourly'));
+               const effectiveConfig = getEffectivePayrollConfig(emp, positions);
+               const rate = snapshot ? snapshot.rateUsed : effectiveConfig.rate;
+               const type = snapshot ? snapshot.rateType : effectiveConfig.type;
                
                const userPayments = payments.filter(p => p.userId === emp.id && p.date.startsWith(filterMonth));
                const totalPaid = userPayments.reduce((sum, p) => sum + p.amount, 0);
@@ -416,8 +417,7 @@ export const PayrollView: React.FC<PayrollViewProps> = ({
                      const mMins = mLogs.reduce((s, l) => s + l.durationMinutes, 0);
                      const mHours = formatMinsToHHMM(mMins);
                      
-                     const posConfig = positions.find(p => p.name === emp.position);
-                     const config = emp.payroll || posConfig?.payroll;
+                     const config = getEffectivePayrollConfig(emp, positions);
                      const mRate = config?.machineRates?.[mId] ?? config?.rate ?? 0;
                      const mPay = Math.round((mMins / 60) * mRate);
 
@@ -503,8 +503,9 @@ export const PayrollView: React.FC<PayrollViewProps> = ({
                 });
                 const snapshot = snapshots.find(s => s.userId === selectedUserForDetails.id);
                 const payroll = snapshot ? snapshot.details : calculateMonthlyPayroll(selectedUserForDetails, empLogs, positions, currentOrg || undefined);
-                const rate = snapshot ? snapshot.rateUsed : (selectedUserForDetails.payroll?.rate ?? (positions.find(p => p.name === selectedUserForDetails.position)?.payroll?.rate || 0));
-                const type = snapshot ? snapshot.rateType : (selectedUserForDetails.payroll?.type ?? (positions.find(p => p.name === selectedUserForDetails.position)?.payroll?.type || 'hourly'));
+                const effectiveConfig = getEffectivePayrollConfig(selectedUserForDetails, positions);
+                const rate = snapshot ? snapshot.rateUsed : effectiveConfig.rate;
+                const type = snapshot ? snapshot.rateType : effectiveConfig.type;
 
                 const usedMachineIds = [...new Set(empLogs.filter(l => l.machineId && l.entryType === EntryType.WORK).map(l => l.machineId!))];
                 const userPayments = payments.filter(p => p.userId === selectedUserForDetails.id && p.date.startsWith(filterMonth));
@@ -537,8 +538,7 @@ export const PayrollView: React.FC<PayrollViewProps> = ({
                   const machineName = machines.find(m => m.id === mId)?.name || 'Работа';
                   const mLogs = empLogs.filter(l => l.machineId === mId && l.entryType === EntryType.WORK);
                   const mMins = mLogs.reduce((s, l) => s + l.durationMinutes, 0);
-                  const posConfig = positions.find(p => p.name === selectedUserForDetails.position);
-                  const config = selectedUserForDetails.payroll || posConfig?.payroll;
+                  const config = getEffectivePayrollConfig(selectedUserForDetails, positions);
                   const mRate = config?.machineRates?.[mId] ?? config?.rate ?? 0;
                   return { name: machineName, hours: formatMinsToHHMM(mMins), rate: mRate };
                 });
