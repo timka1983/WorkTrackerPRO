@@ -152,8 +152,8 @@ const App: React.FC = () => {
         const pos = appData.positions.find((p: PositionConfig) => p.name === user.position);
         const maxDuration = pos?.permissions.maxShiftDurationMinutes || appData.currentOrg!.maxShiftDuration || 720;
         
-        // Threshold: Max + 30 mins (give client time to handle it first)
-        const threshold = maxDuration + 30;
+        // Threshold: Max + 120 mins (give client more time to handle it first)
+        const threshold = maxDuration + 120;
 
         const userShifts = shifts as Record<string, any>;
         if (!userShifts) return;
@@ -171,8 +171,8 @@ const App: React.FC = () => {
             const endTime = new Date(new Date(shift.checkIn).getTime() + maxDuration * 60000).toISOString();
             
             let finalDuration = maxDuration;
-            if (shift.isNightShift) {
-               finalDuration += appData.nightShiftBonus;
+            if (shift.isNightShift && appData.nightShiftBonus > 0) {
+               finalDuration += Math.floor(maxDuration * (appData.nightShiftBonus / 100));
             }
 
             const completed: WorkLog = {

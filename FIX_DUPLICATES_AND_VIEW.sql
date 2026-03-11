@@ -22,7 +22,7 @@ ALTER TABLE active_shifts ADD CONSTRAINT unique_active_shift_per_user UNIQUE (us
 -- 5. Recreate 'monthly_report_view' with correct definition
 DROP VIEW IF EXISTS monthly_report_view;
 
-CREATE OR REPLACE VIEW monthly_report_view AS
+CREATE OR REPLACE VIEW monthly_report_view WITH (security_invoker = true) AS
 SELECT
     u.id AS user_id,
     u.name AS user_name,

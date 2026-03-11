@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { User, WorkLog, PositionConfig, UserRole, Machine, EntryType, Branch, Organization, PayrollSnapshot, PayrollPayment, PaymentType, PlanLimits, PayrollPeriod, PayrollStatus } from '../../types';
-import { calculateMonthlyPayroll, formatDurationShort } from '../../utils';
+import { calculateMonthlyPayroll, formatDurationShort, calculateMinutes } from '../../utils';
 import { format } from 'date-fns';
 import { ScheduleModal } from '../employee/ScheduleModal';
 import { generatePayslipPDF } from '../../utils/pdfGenerator';
@@ -24,6 +24,9 @@ interface PayrollViewProps {
   payments: PayrollPayment[];
   onSavePayment: (payment: PayrollPayment) => void;
   onDeletePayment: (id: string) => void;
+  onLogsUpsert: (logs: WorkLog[]) => void;
+  onRecalculate: () => void;
+  isRecalculating: boolean;
   planLimits: PlanLimits;
 }
 
@@ -43,6 +46,9 @@ export const PayrollView: React.FC<PayrollViewProps> = ({
   payments,
   onSavePayment,
   onDeletePayment,
+  onLogsUpsert,
+  onRecalculate,
+  isRecalculating,
   planLimits
 }) => {
   const [expandedRows, setExpandedRows] = useState<Set<string>>(new Set());
@@ -61,21 +67,22 @@ export const PayrollView: React.FC<PayrollViewProps> = ({
 
   const [selectedUserForSchedule, setSelectedUserForSchedule] = useState<User | null>(null);
   const [selectedUserForDetails, setSelectedUserForDetails] = useState<User | null>(null); // New state
+
   const [snapshots, setSnapshots] = useState<PayrollSnapshot[]>([]);
   const [payrollPeriod, setPayrollPeriod] = useState<PayrollPeriod | null>(null);
-  const [isRecalculating, setIsRecalculating] = useState(false);
   const [isChangingStatus, setIsChangingStatus] = useState(false);
 
+  const fetchData = async () => {
+    if (!currentOrg) return;
+    const [data, periodData] = await Promise.all([
+      db.getPayrollSnapshots(currentOrg.id, filterMonth),
+      db.getPayrollPeriod(currentOrg.id, filterMonth)
+    ]);
+    setSnapshots(data);
+    setPayrollPeriod(periodData);
+  };
+
   useEffect(() => {
-    const fetchData = async () => {
-      if (!currentOrg) return;
-      const [data, periodData] = await Promise.all([
-        db.getPayrollSnapshots(currentOrg.id, filterMonth),
-        db.getPayrollPeriod(currentOrg.id, filterMonth)
-      ]);
-      setSnapshots(data);
-      setPayrollPeriod(periodData);
-    };
     fetchData();
   }, [currentOrg, filterMonth]);
 
@@ -151,54 +158,8 @@ export const PayrollView: React.FC<PayrollViewProps> = ({
   };
 
   const handleRecalculate = async () => {
-    if (!currentOrg) return;
-    if (!confirm(`Пересчитать табель за ${filterMonth}? Это обновит сохраненные данные текущими ставками.`)) return;
-    
-    setIsRecalculating(true);
-    try {
-      const newSnapshots: PayrollSnapshot[] = [];
-      
-      for (const emp of employees) {
-        const userLogsMap = logsLookup[emp.id] || {};
-        const empLogs: WorkLog[] = [];
-        Object.keys(userLogsMap).forEach(date => {
-          if (date.startsWith(filterMonth)) {
-            empLogs.push(...userLogsMap[date]);
-          }
-        });
-
-        const payroll = calculateMonthlyPayroll(emp, empLogs, positions, currentOrg || undefined);
-        
-        const posConfig = positions.find(p => p.name === emp.position);
-        const config = emp.payroll || posConfig?.payroll || DEFAULT_PAYROLL_CONFIG;
-        
-        const snapshot: PayrollSnapshot = {
-          id: `${emp.id}-${filterMonth}`,
-          userId: emp.id,
-          organizationId: currentOrg.id,
-          month: filterMonth,
-          totalMinutes: empLogs.filter(l => l.entryType === EntryType.WORK).reduce((sum, l) => sum + l.durationMinutes, 0),
-          totalSalary: payroll.totalSalary,
-          bonuses: payroll.bonuses,
-          fines: payroll.fines,
-          rateUsed: config.rate,
-          rateType: config.type,
-          calculatedAt: new Date().toISOString(),
-          details: payroll
-        };
-        
-        await db.savePayrollSnapshot(snapshot);
-        newSnapshots.push(snapshot);
-      }
-      
-      setSnapshots(newSnapshots);
-      alert('Табель успешно пересчитан и сохранен.');
-    } catch (error) {
-      console.error('Error recalculating payroll:', error);
-      alert('Ошибка при пересчете табеля.');
-    } finally {
-      setIsRecalculating(false);
-    }
+    await onRecalculate();
+    await fetchData();
   };
 
   const toggleUserSelection = (id: string) => {
@@ -240,35 +201,35 @@ export const PayrollView: React.FC<PayrollViewProps> = ({
   return (
     <div className="bg-white rounded-[2.5rem] shadow-xl border border-slate-200 overflow-hidden relative">
       <div className="p-8 border-b border-slate-100 flex justify-between items-center bg-slate-50/50 flex-wrap gap-4">
-         <div className="flex flex-col">
-           <h2 className="text-2xl font-black text-slate-900 uppercase tracking-tight">Расчет зарплаты</h2>
-           <div className="flex items-center gap-3 mt-1">
-             <p className="text-[10px] font-bold text-slate-400 uppercase tracking-widest">Отчетный период: {filterMonth}</p>
-             <div className="flex items-center bg-white rounded-lg border border-slate-200 p-1">
-               <button 
-                 onClick={() => handleStatusChange(PayrollStatus.DRAFT)}
-                 disabled={isChangingStatus || isPaid}
-                 className={`px-3 py-1 text-[10px] font-black uppercase tracking-widest rounded-md transition-all ${(!payrollPeriod || payrollPeriod.status === PayrollStatus.DRAFT) ? 'bg-slate-800 text-white' : 'text-slate-400 hover:bg-slate-100'} ${isPaid ? 'opacity-50 cursor-not-allowed' : ''}`}
-               >
-                 Черновик
-               </button>
-               <button 
-                 onClick={() => handleStatusChange(PayrollStatus.APPROVED)}
-                 disabled={isChangingStatus || isPaid}
-                 className={`px-3 py-1 text-[10px] font-black uppercase tracking-widest rounded-md transition-all ${payrollPeriod?.status === PayrollStatus.APPROVED ? 'bg-blue-600 text-white' : 'text-slate-400 hover:bg-slate-100'} ${isPaid ? 'opacity-50 cursor-not-allowed' : ''}`}
-               >
-                 Утверждено
-               </button>
-               <button 
-                 onClick={() => handleStatusChange(PayrollStatus.PAID)}
-                 disabled={isChangingStatus || isPaid}
-                 className={`px-3 py-1 text-[10px] font-black uppercase tracking-widest rounded-md transition-all ${payrollPeriod?.status === PayrollStatus.PAID ? 'bg-green-600 text-white' : 'text-slate-400 hover:bg-slate-100'} ${isPaid ? 'opacity-50 cursor-not-allowed' : ''}`}
-               >
-                 Оплачено
-               </button>
-             </div>
-           </div>
-         </div>
+          <div className="flex flex-col">
+            <h2 className="text-2xl font-black text-slate-900 uppercase tracking-tight">Расчет зарплаты</h2>
+            <div className="flex items-center gap-3 mt-1">
+              <p className="text-[10px] font-bold text-slate-400 uppercase tracking-widest">Отчетный период: {filterMonth}</p>
+            </div>
+            <div className="flex items-center bg-white rounded-lg border border-slate-200 p-1 mt-2">
+              <button 
+                onClick={() => handleStatusChange(PayrollStatus.DRAFT)}
+                disabled={isChangingStatus || isPaid}
+                className={`px-3 py-1 text-[10px] font-black uppercase tracking-widest rounded-md transition-all ${(!payrollPeriod || payrollPeriod.status === PayrollStatus.DRAFT) ? 'bg-slate-800 text-white' : 'text-slate-400 hover:bg-slate-100'} ${isPaid ? 'opacity-50 cursor-not-allowed' : ''}`}
+              >
+                Черновик
+              </button>
+              <button 
+                onClick={() => handleStatusChange(PayrollStatus.APPROVED)}
+                disabled={isChangingStatus || isPaid}
+                className={`px-3 py-1 text-[10px] font-black uppercase tracking-widest rounded-md transition-all ${payrollPeriod?.status === PayrollStatus.APPROVED ? 'bg-blue-600 text-white' : 'text-slate-400 hover:bg-slate-100'} ${isPaid ? 'opacity-50 cursor-not-allowed' : ''}`}
+              >
+                Утверждено
+              </button>
+              <button 
+                onClick={() => handleStatusChange(PayrollStatus.PAID)}
+                disabled={isChangingStatus || isPaid}
+                className={`px-3 py-1 text-[10px] font-black uppercase tracking-widest rounded-md transition-all ${payrollPeriod?.status === PayrollStatus.PAID ? 'bg-green-600 text-white' : 'text-slate-400 hover:bg-slate-100'} ${isPaid ? 'opacity-50 cursor-not-allowed' : ''}`}
+              >
+                Оплачено
+              </button>
+            </div>
+          </div>
          <div className="flex gap-3">
            <button 
              onClick={handleRecalculate} 
@@ -278,8 +239,14 @@ export const PayrollView: React.FC<PayrollViewProps> = ({
              <RefreshCw className={`w-4 h-4 ${isRecalculating ? 'animate-spin' : ''}`} />
              Пересчитать табель
            </button>
-           <button onClick={() => setShowBonusModal(true)} disabled={isPaid} className="px-6 py-3 bg-green-600 text-white rounded-2xl font-black text-xs uppercase tracking-widest hover:bg-green-700 transition-all shadow-lg shadow-green-200 hover:shadow-green-300 active:scale-95 disabled:opacity-50 disabled:cursor-not-allowed">Общая премия</button>
-           <button onClick={handleExportAll} className="px-6 py-3 bg-slate-900 text-white rounded-2xl font-black text-xs uppercase tracking-widest hover:bg-blue-600 transition-all shadow-lg shadow-slate-200 hover:shadow-blue-200 active:scale-95">Экспорт</button>
+           <button onClick={() => setShowBonusModal(true)} disabled={isPaid} className="px-3 py-3 md:px-6 md:py-3 bg-green-600 text-white rounded-2xl font-black text-xs uppercase tracking-widest hover:bg-green-700 transition-all shadow-lg shadow-green-200 hover:shadow-green-300 active:scale-95 disabled:opacity-50 disabled:cursor-not-allowed">
+            <span className="hidden md:inline">Общая премия</span>
+            <Coins className="w-5 h-5 md:hidden" />
+          </button>
+          <button onClick={handleExportAll} className="px-3 py-3 md:px-6 md:py-3 bg-slate-900 text-white rounded-2xl font-black text-xs uppercase tracking-widest hover:bg-blue-600 transition-all shadow-lg shadow-slate-200 hover:shadow-blue-200 active:scale-95">
+            <span className="hidden md:inline">Экспорт</span>
+            <FileText className="w-5 h-5 md:hidden" />
+          </button>
          </div>
       </div>
       
@@ -500,7 +467,10 @@ export const PayrollView: React.FC<PayrollViewProps> = ({
            return (
              <div key={emp.id} className="bg-white p-4 rounded-2xl border border-slate-200 shadow-sm space-y-3 cursor-pointer" onClick={() => setSelectedUserForDetails(emp)}>
                <div className="flex justify-between items-center">
-                 <span className="text-sm font-bold text-slate-900">{emp.name}</span>
+                  <div className="flex items-center gap-2 min-w-0">
+                    <span className="text-sm font-bold text-slate-900 truncate">{emp.name}</span>
+                    {emp.isArchived && <span className="flex-shrink-0 text-[10px] bg-slate-200 text-slate-600 px-2 py-0.5 rounded-full">Архив</span>}
+                  </div>
                  <span className="text-xs font-bold text-slate-500">{emp.position}</span>
                </div>
                <div className="flex justify-between items-center text-xs">
@@ -516,7 +486,10 @@ export const PayrollView: React.FC<PayrollViewProps> = ({
         <div className="fixed inset-0 z-[160] bg-slate-900/60 backdrop-blur-sm flex items-center justify-center p-4">
           <div className="bg-white rounded-[2.5rem] w-full max-w-md shadow-2xl border border-slate-200 overflow-hidden flex flex-col max-h-[90vh]">
             <div className="p-6 border-b border-slate-100 flex justify-between items-center bg-slate-50/50">
-              <h3 className="font-black text-slate-900 uppercase tracking-tight text-lg">{selectedUserForDetails.name}</h3>
+              <div className="flex items-center gap-2">
+                <h3 className="font-black text-slate-900 uppercase tracking-tight text-lg">{selectedUserForDetails.name}</h3>
+                {selectedUserForDetails.isArchived && <span className="text-[10px] bg-slate-200 text-slate-600 px-2 py-0.5 rounded-full">Архив</span>}
+              </div>
               <button onClick={() => setSelectedUserForDetails(null)} className="text-slate-400 hover:text-slate-900 text-3xl font-light transition-colors">&times;</button>
             </div>
             <div className="p-6 overflow-y-auto custom-scrollbar space-y-3">
@@ -754,7 +727,7 @@ export const PayrollView: React.FC<PayrollViewProps> = ({
         </div>
       )}
       {showPaymentModal && selectedUserForPayment && (
-        <div className="fixed inset-0 z-[150] bg-slate-900/60 backdrop-blur-sm flex items-center justify-center p-4">
+        <div className="fixed inset-0 z-[210] bg-slate-900/60 backdrop-blur-sm flex items-center justify-center p-4">
           <div className="bg-white rounded-[2.5rem] w-full max-w-md shadow-2xl border border-slate-200 overflow-hidden flex flex-col">
             <div className="p-6 border-b border-slate-100 flex justify-between items-center bg-slate-50/50">
               <div className="flex items-center gap-3">

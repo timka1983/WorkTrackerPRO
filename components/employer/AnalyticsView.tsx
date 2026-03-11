@@ -40,6 +40,7 @@ export const AnalyticsView: React.FC<AnalyticsViewProps> = ({
                        <div className="flex-1 pr-2">
                           <span className={`text-xs font-bold block truncate ${isOld ? 'text-red-900' : 'text-slate-700'}`}>
                             {emp?.name}
+                            {emp?.isArchived && <span className="ml-1 text-[8px] bg-slate-200 text-slate-600 px-1.5 py-0.5 rounded-full">Архив</span>}
                             {emp?.branchId && branches.find(b => b.id === emp.branchId) && (
                               <span className="ml-1 text-[8px] text-slate-400 font-bold uppercase">
                                 ({branches.find(b => b.id === emp.branchId)?.name})
@@ -83,15 +84,16 @@ export const AnalyticsView: React.FC<AnalyticsViewProps> = ({
          
          <div className="bg-white p-6 rounded-[2rem] border border-slate-200 shadow-sm">
             <h3 className="text-xs font-black text-slate-400 uppercase tracking-widest mb-6">Смена (Сегодня)</h3>
-            <div className="space-y-3 max-h-[250px] overflow-y-auto pr-2 custom-scrollbar">
+            <div className="space-y-3">
                {dashboardStats.finishedToday.length > 0 ? dashboardStats.finishedToday.map((s: any) => {
                   const emp = users.find(u => u.id === s.userId);
                   return (
                     <div key={s.id} className="flex justify-between items-center p-3 bg-slate-50 rounded-xl border border-slate-100">
                        <div className="flex flex-col">
-                          <span className="text-xs font-bold text-slate-800 flex items-center gap-2">
-                             {s.isNightShift && <svg className="w-3 h-3 text-slate-400" fill="currentColor" viewBox="0 0 20 20"><path d="M17.293 13.293A8 8 0 016.707 2.707a8.001 8.001 0 1010.586 10.586z"/></svg>}
-                             {emp?.name}
+                          <span className="text-xs font-bold text-slate-800 flex items-center gap-2 min-w-0">
+                             {s.isNightShift && <svg className="w-3 h-3 text-slate-400 flex-shrink-0" fill="currentColor" viewBox="0 0 20 20"><path d="M17.293 13.293A8 8 0 016.707 2.707a8.001 8.001 0 1010.586 10.586z"/></svg>}
+                             <span className="truncate">{emp?.name}</span>
+                             {emp?.isArchived && <span className="flex-shrink-0 text-[8px] bg-slate-200 text-slate-600 px-1.5 py-0.5 rounded-full">Архив</span>}
                           </span>
                           <span className="text-[9px] text-slate-400 font-black uppercase tracking-tighter">Начало: {formatTime(s.checkIn)} | Конец: {formatTime(s.checkOut)}</span>
                        </div>

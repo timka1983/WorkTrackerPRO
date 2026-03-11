@@ -167,18 +167,18 @@ export const SettingsView: React.FC<SettingsViewProps> = ({
         <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
            <div className="space-y-4">
               <div className="space-y-2">
-                 <label className="text-[10px] font-black text-slate-400 uppercase ml-1">Бонус за ночную смену (мин/час)</label>
+                 <label className="text-[10px] font-black text-slate-400 uppercase ml-1">Бонус за ночную смену (%)</label>
                  <div className="flex items-center gap-4">
                     <input 
                        type="number" 
                        min="0"
-                       max="60"
+                       max="100"
                        value={nightShiftBonusMinutes} 
                        onChange={e => onUpdateNightBonus(parseInt(e.target.value || '0'))}
                        className="w-24 border-2 border-slate-100 rounded-2xl px-4 py-3 text-sm font-bold text-blue-600 outline-none focus:border-blue-500 transition-all"
                     />
                     <span className="text-xs text-slate-500 font-medium italic leading-tight">
-                       Количество бонусных минут, добавляемых за каждый отработанный час в режиме ночной смены.
+                       Процент времени, добавляемый к длительности ночной смены. Например, 20% превратит 10 часов работы в 12 часов (10ч + 2ч бонуса).
                     </span>
                  </div>
               </div>

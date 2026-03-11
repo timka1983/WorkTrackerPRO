@@ -59,7 +59,7 @@ export const EmployeeEditModal: React.FC<EmployeeEditModalProps> = ({
   const availableMachines = machines.filter(m => !configuredMachineIds.includes(m.id));
 
   return (
-    <div className="fixed inset-0 z-[110] bg-slate-900/70 backdrop-blur-md flex items-center justify-center p-4">
+    <div className="fixed inset-0 z-[200] bg-slate-900/70 backdrop-blur-md flex items-center justify-center p-4">
       <div className="bg-white rounded-[2.5rem] w-full max-w-md shadow-2xl border border-slate-200 overflow-hidden flex flex-col max-h-[90vh]">
          <div className="p-6 border-b border-slate-100 flex justify-between items-center bg-slate-50/50 shrink-0">
             <h3 className="font-black text-slate-900 uppercase tracking-tight">Редактировать сотрудника</h3>

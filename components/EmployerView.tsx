@@ -1,8 +1,8 @@
 
 import React, { useState, useMemo, useEffect } from 'react';
 import * as XLSX from 'xlsx';
-import { WorkLog, User, EntryType, UserRole, Machine, FIXED_POSITION_TURNER, PositionConfig, PositionPermissions, Organization, PlanType, Plan, PayrollConfig, PlanLimits, Branch, PayrollPeriod, PayrollStatus } from '../types';
-import { getDaysInMonthArray, formatTime, calculateMinutes } from '../utils';
+import { WorkLog, User, EntryType, UserRole, Machine, FIXED_POSITION_TURNER, PositionConfig, PositionPermissions, Organization, PlanType, Plan, PayrollConfig, PlanLimits, Branch, PayrollPeriod, PayrollStatus, PayrollSnapshot } from '../types';
+import { getDaysInMonthArray, formatTime, calculateMinutes, calculateMonthlyPayroll } from '../utils';
 import { format } from 'date-fns';
 import { startOfDay } from 'date-fns/startOfDay';
 import { subDays } from 'date-fns/subDays';
@@ -82,6 +82,7 @@ const EmployerView: React.FC<EmployerViewProps> = ({
 
   const [configuringPosition, setConfiguringPosition] = useState<PositionConfig | null>(null);
   const [expandedTurnerRows, setExpandedTurnerRows] = useState<Set<string>>(new Set());
+  const [isRecalculating, setIsRecalculating] = useState(false);
 
   const [promoCode, setPromoCode] = useState('');
   const [isApplyingPromo, setIsApplyingPromo] = useState(false);
@@ -300,17 +301,6 @@ const EmployerView: React.FC<EmployerViewProps> = ({
   const dashboardStats = useMemo(() => {
     const todayStr = format(getNow(), 'yyyy-MM-dd');
     
-    // Use logsLookup for faster access to today's logs
-    const todayLogs: WorkLog[] = [];
-    if (logsLookup) {
-      filteredUsers.forEach(u => {
-        const userDates = logsLookup[u.id];
-        if (userDates && userDates[todayStr]) {
-          todayLogs.push(...userDates[todayStr]);
-        }
-      });
-    }
-    
     // Собираем активные смены из двух источников: из логов и из карты активных смен
     const activeFromLogs: WorkLog[] = [];
     if (logsLookup) {
@@ -345,8 +335,12 @@ const EmployerView: React.FC<EmployerViewProps> = ({
     const activeLogIds = new Set(activeFromLogs.map(l => l.id));
     const activeShifts = [...activeFromLogs, ...activeFromMap.filter(l => !activeLogIds.has(l.id))];
 
-    const finishedToday = todayLogs.filter(l => l.entryType === EntryType.WORK && l.checkOut);
-    
+    const finishedToday = logs.filter(l => 
+      l.entryType === EntryType.WORK && 
+      l.checkOut && 
+      l.checkOut.startsWith(todayStr)
+    );
+
     let avgWeeklyHours = 0;
     let absenceCounts: any[] = [];
 
@@ -405,7 +399,7 @@ const EmployerView: React.FC<EmployerViewProps> = ({
     });
 
     return { activeShifts, finishedToday, avgWeeklyHours, absenceCounts, activeLogsMap, todayStr, orphanedActiveShifts };
-  }, [logsLookup, employees, filterMonth, activeShiftsMap, serverStats, getNow, filteredUsers]);
+  }, [logs, logsLookup, employees, filterMonth, activeShiftsMap, serverStats, getNow, filteredUsers]);
 
   // Функция для принудительного завершения смены администратором
   const handleForceFinish = async (log: WorkLog) => {
@@ -607,6 +601,104 @@ const EmployerView: React.FC<EmployerViewProps> = ({
       correctionTimestamp: nowStr
     }));
     onLogsUpsert(newLogs);
+  };
+
+  const handleRecalculateAll = async () => {
+    if (!currentOrg) return;
+    if (!confirm(`Пересчитать ВСЕ логи и График (план) за ${filterMonth}? Это обновит длительность смен согласно бонусу ночных смен (${currentOrg.nightShiftBonus || 0}%) и проставит 'Р' в графике там, где были выходы.`)) return;
+    
+    setIsRecalculating(true);
+    try {
+      // 1. Recalculate logs
+      const logsToUpdate: WorkLog[] = [];
+      const bonusPercent = currentOrg.nightShiftBonus || 0;
+      logs.forEach(log => {
+        if (log.checkIn && log.checkOut && log.entryType === EntryType.WORK) {
+          const baseMinutes = calculateMinutes(log.checkIn, log.checkOut);
+          let finalMinutes = baseMinutes;
+          if (log.isNightShift && bonusPercent > 0) {
+            finalMinutes += Math.floor(baseMinutes * (bonusPercent / 100));
+          }
+          if (finalMinutes !== log.durationMinutes) {
+            logsToUpdate.push({ ...log, durationMinutes: finalMinutes });
+          }
+        }
+      });
+      if (logsToUpdate.length > 0) await onLogsUpsert(logsToUpdate);
+
+      // 2. Update Planned Shifts (График)
+      const usersToUpdate: User[] = [];
+      users.forEach(user => {
+        const userLogsMap = logsLookup[user.id] || {};
+        const newPlannedShifts = { ...(user.plannedShifts || {}) };
+        let changed = false;
+
+        Object.keys(userLogsMap).forEach(date => {
+          if (date.startsWith(filterMonth)) {
+            const hasWork = userLogsMap[date]?.some(l => l.entryType === EntryType.WORK);
+            if (hasWork && newPlannedShifts[date] !== 'Р') {
+              newPlannedShifts[date] = 'Р';
+              changed = true;
+            }
+          }
+        });
+
+        if (changed) {
+          usersToUpdate.push({ ...user, plannedShifts: newPlannedShifts });
+        }
+      });
+
+      for (const u of usersToUpdate) {
+        await onUpdateUser(u);
+      }
+
+      // 3. Recalculate snapshots (for PayrollView)
+      const updatedLogsLookup = { ...logsLookup };
+      logsToUpdate.forEach(log => {
+        if (!updatedLogsLookup[log.userId]) updatedLogsLookup[log.userId] = {};
+        if (!updatedLogsLookup[log.userId][log.date]) updatedLogsLookup[log.userId][log.date] = [];
+        const idx = updatedLogsLookup[log.userId][log.date].findIndex(l => l.id === log.id);
+        if (idx !== -1) updatedLogsLookup[log.userId][log.date][idx] = log;
+        else updatedLogsLookup[log.userId][log.date].push(log);
+      });
+
+      for (const emp of users) {
+        if (emp.role !== UserRole.EMPLOYEE) continue;
+        const userLogsMap = updatedLogsLookup[emp.id] || {};
+        const empLogs: WorkLog[] = [];
+        Object.keys(userLogsMap).forEach(date => {
+          if (date.startsWith(filterMonth)) empLogs.push(...userLogsMap[date]);
+        });
+
+        const payroll = calculateMonthlyPayroll(emp, empLogs, positions, currentOrg || undefined);
+        const posConfig = positions.find(p => p.name === emp.position);
+        const config = emp.payroll || posConfig?.payroll || DEFAULT_PAYROLL_CONFIG;
+        
+        const snapshot: PayrollSnapshot = {
+          id: `${emp.id}-${filterMonth}`,
+          userId: emp.id,
+          organizationId: currentOrg.id,
+          month: filterMonth,
+          totalMinutes: empLogs.filter(l => l.entryType === EntryType.WORK).reduce((sum, l) => sum + l.durationMinutes, 0),
+          totalSalary: payroll.totalSalary,
+          bonuses: payroll.bonuses,
+          fines: payroll.fines,
+          rateUsed: config.rate,
+          rateType: config.type,
+          calculatedAt: new Date().toISOString(),
+          details: payroll
+        };
+        await db.savePayrollSnapshot(snapshot);
+      }
+      
+      alert(`Пересчет завершен: обновлено ${logsToUpdate.length} смен и ${usersToUpdate.length} графиков сотрудников.`);
+      if (onRefresh) await onRefresh();
+    } catch (e) {
+      console.error(e);
+      alert('Ошибка при пересчете');
+    } finally {
+      setIsRecalculating(false);
+    }
   };
   const handleUpdateEmployeePayroll = (key: keyof PayrollConfig, value: any) => {
     if (!editingEmployee) return;
@@ -940,6 +1032,8 @@ const EmployerView: React.FC<EmployerViewProps> = ({
           logsLookup={logsLookup}
           branches={branches}
           currentOrg={currentOrg}
+          onRecalculate={handleRecalculateAll}
+          isRecalculating={isRecalculating}
         />
       )}
 
@@ -996,6 +1090,9 @@ const EmployerView: React.FC<EmployerViewProps> = ({
           payments={payments}
           onSavePayment={onSavePayment}
           onDeletePayment={onDeletePayment}
+          onLogsUpsert={onLogsUpsert}
+          onRecalculate={handleRecalculateAll}
+          isRecalculating={isRecalculating}
           planLimits={planLimits}
         />
       )}

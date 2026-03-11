@@ -375,8 +375,8 @@ const EmployeeView: React.FC<EmployeeViewProps> = ({
     const now = getNow();
     let duration = calculateMinutes(currentShift.checkIn!, now.toISOString());
     
-    if (currentShift.isNightShift) {
-      const bonus = Math.floor((duration / 60) * nightShiftBonusMinutes);
+    if (currentShift.isNightShift && nightShiftBonusMinutes > 0) {
+      const bonus = Math.floor(duration * (nightShiftBonusMinutes / 100));
       duration += bonus;
     }
 
@@ -650,8 +650,8 @@ const EmployeeView: React.FC<EmployeeViewProps> = ({
 
     const now = getNow();
     let duration = calculateMinutes(currentShift.checkIn!, endTime);
-    if (currentShift.isNightShift) {
-      const bonus = Math.floor((duration / 60) * nightShiftBonusMinutes);
+    if (currentShift.isNightShift && nightShiftBonusMinutes > 0) {
+      const bonus = Math.floor(duration * (nightShiftBonusMinutes / 100));
       duration += bonus;
     }
 

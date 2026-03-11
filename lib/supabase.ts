@@ -1505,7 +1505,7 @@ BEGIN
         'top_absences', COALESCE(v_absences, '[]'::json)
     );
 END;
-$$ LANGUAGE plpgsql SECURITY DEFINER;
+$$ LANGUAGE plpgsql;
 
 -- 11. Payroll Snapshots
 CREATE TABLE IF NOT EXISTS payroll_snapshots (
@@ -2076,7 +2076,7 @@ BEGIN
         'top_absences', COALESCE(v_absences, '[]'::json)
     );
 END;
-$$ LANGUAGE plpgsql SECURITY DEFINER;
+$$ LANGUAGE plpgsql;
         `);
       }
 
@@ -2098,7 +2098,7 @@ RETURNS TABLE (
     sick_days BIGINT,
     vacation_days BIGINT
 )
-LANGUAGE plpgsql SECURITY DEFINER
+LANGUAGE plpgsql
 AS $$
 BEGIN
     RETURN QUERY
@@ -2135,7 +2135,7 @@ RETURNS TABLE (
     shifts_count BIGINT,
     avg_shift_minutes NUMERIC
 )
-LANGUAGE plpgsql SECURITY DEFINER
+LANGUAGE plpgsql
 AS $$
 BEGIN
     RETURN QUERY

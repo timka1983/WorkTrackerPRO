@@ -1,5 +1,5 @@
 -- 1. View for Monthly Report
-CREATE OR REPLACE VIEW monthly_report_view AS
+CREATE OR REPLACE VIEW monthly_report_view WITH (security_invoker = true) AS
 SELECT
     u.id AS user_id,
     u.name AS user_name,
