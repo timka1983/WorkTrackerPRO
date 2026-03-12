@@ -18,6 +18,7 @@ import { PositionConfigModal } from './employer/PositionConfigModal';
 import { EmployeeEditModal } from './employer/EmployeeEditModal';
 import { LogEditModal } from './employer/LogEditModal';
 import { PhotoPreviewModal } from './employer/PhotoPreviewModal';
+import { SupportChat } from './employer/SupportChat';
 
 interface EmployerViewProps {
   logs: WorkLog[];
@@ -59,8 +60,8 @@ interface EmployerViewProps {
   getArchivedUsers: () => Promise<User[] | null>;
   getArchivedMachines: () => Promise<Machine[] | null>;
   getNow: () => Date;
-  viewMode: 'matrix' | 'team' | 'analytics' | 'settings' | 'billing' | 'payroll';
-  setViewMode: (mode: 'matrix' | 'team' | 'analytics' | 'settings' | 'billing' | 'payroll') => void;
+  viewMode: 'matrix' | 'team' | 'analytics' | 'settings' | 'billing' | 'payroll' | 'support';
+  setViewMode: (mode: 'matrix' | 'team' | 'analytics' | 'settings' | 'billing' | 'payroll' | 'support') => void;
 }
 
 const EmployerView: React.FC<EmployerViewProps> = ({ 
@@ -774,7 +775,8 @@ const EmployerView: React.FC<EmployerViewProps> = ({
       { id: 'payroll', label: 'Зарплата' },
       { id: 'team', label: 'Команда' },
       { id: 'billing', label: 'Биллинг' },
-      { id: 'settings', label: 'Настройки' }
+      { id: 'settings', label: 'Настройки' },
+      { id: 'support', label: 'Поддержка' }
     ];
     
     let filteredTabs = allTabs;
@@ -1132,6 +1134,9 @@ const EmployerView: React.FC<EmployerViewProps> = ({
           setNewMachineBranchId={setNewMachineBranchId}
           getArchivedMachines={getArchivedMachines}
         />
+      )}
+      {viewMode === 'support' && (
+        <SupportChat key={currentOrg?.id} currentUser={currentUser || null} orgId={currentOrg?.id || ''} />
       )}
       {/* Debug Info (Only for admins) */}
       {currentUser?.isAdmin && (

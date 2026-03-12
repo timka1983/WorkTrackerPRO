@@ -2,7 +2,7 @@
 import React, { useMemo, useState, useEffect } from 'react';
 import { User, UserRole, Organization } from '../types';
 import { STORAGE_KEYS } from '../constants';
-import { LayoutDashboard, CalendarDays, CircleDollarSign, Users, CreditCard, Settings, LogOut, RefreshCw, Trash2, Menu, X, ArrowLeftRight, PanelLeftClose, PanelLeftOpen } from 'lucide-react';
+import { LayoutDashboard, CalendarDays, CircleDollarSign, Users, CreditCard, Settings, LogOut, RefreshCw, Trash2, Menu, X, ArrowLeftRight, PanelLeftClose, PanelLeftOpen, MessageSquare } from 'lucide-react';
 
 interface LayoutProps {
   children: React.ReactNode;
@@ -13,16 +13,18 @@ interface LayoutProps {
   onRefresh?: () => void;
   version: string;
   isSyncing?: boolean;
-  employerViewMode?: 'matrix' | 'team' | 'analytics' | 'settings' | 'billing' | 'payroll';
-  setEmployerViewMode?: (mode: 'matrix' | 'team' | 'analytics' | 'settings' | 'billing' | 'payroll') => void;
+  employerViewMode?: 'matrix' | 'team' | 'analytics' | 'settings' | 'billing' | 'payroll' | 'support';
+  setEmployerViewMode?: (mode: 'matrix' | 'team' | 'analytics' | 'settings' | 'billing' | 'payroll' | 'support') => void;
   employeeViewMode?: 'control' | 'matrix';
   setEmployeeViewMode?: (mode: 'control' | 'matrix') => void;
   canUsePayroll?: boolean;
+  unreadSupportMessages?: number;
 }
 
 const Layout: React.FC<LayoutProps> = ({ 
   children, user, currentOrg, onLogout, onSwitchRole, onRefresh, version, isSyncing = false,
-  employerViewMode, setEmployerViewMode, employeeViewMode, setEmployeeViewMode, canUsePayroll = false
+  employerViewMode, setEmployerViewMode, employeeViewMode, setEmployeeViewMode, canUsePayroll = false,
+  unreadSupportMessages = 0
 }) => {
   const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
   const [isSidebarCollapsed, setIsSidebarCollapsed] = useState(() => {
@@ -67,7 +69,8 @@ const Layout: React.FC<LayoutProps> = ({
       { id: 'payroll', label: 'Зарплата', icon: CircleDollarSign, hidden: !canUsePayroll },
       { id: 'team', label: 'Команда', icon: Users },
       { id: 'billing', label: 'Биллинг', icon: CreditCard },
-      { id: 'settings', label: 'Настройки', icon: Settings }
+      { id: 'settings', label: 'Настройки', icon: Settings },
+      { id: 'support', label: 'Поддержка', icon: MessageSquare }
     ].filter(t => !t.hidden);
 
     if (!userPerms) return [];
@@ -139,7 +142,7 @@ const Layout: React.FC<LayoutProps> = ({
                         setEmployerViewMode(tab.id as any);
                         setIsMobileMenuOpen(false);
                       }}
-                      className={`flex items-center sm:justify-center ${isSidebarCollapsed ? 'lg:justify-center' : 'lg:justify-start'} gap-3 p-3 rounded-xl transition-all group ${
+                      className={`flex items-center sm:justify-center ${isSidebarCollapsed ? 'lg:justify-center' : 'lg:justify-start'} gap-3 p-3 rounded-xl transition-all group relative ${
                         isActive 
                           ? 'bg-blue-50 text-blue-600 shadow-sm border border-blue-100' 
                           : 'text-slate-500 hover:bg-slate-50 hover:text-slate-900'
@@ -148,6 +151,12 @@ const Layout: React.FC<LayoutProps> = ({
                     >
                       <Icon className={`w-5 h-5 shrink-0 ${isActive ? 'stroke-[2.5px]' : 'stroke-2 group-hover:scale-110 transition-transform'}`} />
                       <span className={`font-medium sm:hidden ${isSidebarCollapsed ? 'lg:hidden' : 'lg:block'} ${isActive ? 'font-semibold' : ''}`}>{tab.label}</span>
+                      
+                      {tab.id === 'support' && unreadSupportMessages > 0 && (
+                        <span className="absolute top-2 right-2 sm:top-1 sm:right-1 flex h-5 w-5 items-center justify-center rounded-full bg-rose-500 text-[10px] font-bold text-white ring-2 ring-white">
+                          {unreadSupportMessages > 9 ? '9+' : unreadSupportMessages}
+                        </span>
+                      )}
                     </button>
                   );
                 })

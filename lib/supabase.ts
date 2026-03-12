@@ -93,7 +93,8 @@ export const db = {
       telegramSettings: data.telegram_settings || data.notification_settings?.telegramSettings,
       maxShiftDuration: data.max_shift_duration,
       roundShiftMinutes: data.round_shift_minutes,
-      nightShiftBonus: data.night_shift_bonus
+      nightShiftBonus: data.night_shift_bonus,
+      createdAt: data.created_at
     };
   },
   getLogs: async (orgId: string, monthPrefix?: string) => {
@@ -1065,7 +1066,8 @@ export const db = {
       telegramSettings: org.telegram_settings || org.notification_settings?.telegramSettings,
       maxShiftDuration: org.max_shift_duration,
       roundShiftMinutes: org.round_shift_minutes,
-      nightShiftBonus: org.night_shift_bonus
+      nightShiftBonus: org.night_shift_bonus,
+      createdAt: org.created_at
     }));
   },
   getGlobalStats: async () => {

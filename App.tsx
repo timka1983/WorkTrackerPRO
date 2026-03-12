@@ -2,6 +2,7 @@ import React, { useEffect, useMemo, useState, Suspense } from 'react';
 import { UserRole, PlanType, PositionConfig, User, WorkLog } from './types';
 import { STORAGE_KEYS, DEFAULT_PERMISSIONS, PLAN_LIMITS } from './constants';
 import { sendNotification, calculateMinutes, sendTelegramNotification } from './utils';
+import { supabase } from './lib/supabase';
 import Layout from './components/Layout';
 import LoadingScreen from './components/LoadingScreen';
 import ResetPinModal from './components/ResetPinModal';
@@ -29,8 +30,50 @@ const App: React.FC = () => {
 
   const [showRegistration, setShowRegistration] = useState(false);
   const [showResetModal, setShowResetModal] = useState(false);
-  const [employerViewMode, setEmployerViewMode] = useState<'matrix' | 'team' | 'analytics' | 'settings' | 'billing' | 'payroll'>('analytics');
+  const [employerViewMode, setEmployerViewMode] = useState<'matrix' | 'team' | 'analytics' | 'settings' | 'billing' | 'payroll' | 'support'>('analytics');
   const [employeeViewMode, setEmployeeViewMode] = useState<'control' | 'matrix'>('control');
+  const [unreadSupportMessages, setUnreadSupportMessages] = useState(0);
+
+  // Reset unread count when entering support view
+  useEffect(() => {
+    if (employerViewMode === 'support') {
+      setUnreadSupportMessages(0);
+    }
+  }, [employerViewMode]);
+
+  // Support Messages Realtime Subscription for Notifications
+  useEffect(() => {
+    if (!auth.currentUser) return;
+
+    const orgId = auth.currentUser.organizationId;
+    const isSuperAdmin = auth.currentUser.role === UserRole.SUPER_ADMIN;
+
+    if (!isSuperAdmin && !orgId) return;
+
+    const channel = supabase
+      .channel('support_notifications')
+      .on('postgres_changes', { event: 'INSERT', schema: 'public', table: 'support_messages' }, (payload) => {
+        const newMessage = payload.new;
+        
+        // Only notify if message is NOT from current user
+        if (newMessage.sender_id === auth.currentUser?.id) return;
+
+        // Check if message belongs to this org or if user is super admin
+        if (isSuperAdmin || newMessage.organization_id === orgId) {
+          if (employerViewMode !== 'support') {
+            setUnreadSupportMessages(prev => prev + 1);
+            
+            // Optional: browser notification
+            sendNotification('Новое сообщение в техподдержке', newMessage.message);
+          }
+        }
+      })
+      .subscribe();
+
+    return () => {
+      supabase.removeChannel(channel);
+    };
+  }, [auth.currentUser, employerViewMode]);
 
   const userPermissions = useMemo(() => {
     if (!auth.currentUser) return DEFAULT_PERMISSIONS;
@@ -260,7 +303,11 @@ const App: React.FC = () => {
   if (isSuperAdmin) {
     return (
       <Suspense fallback={<LoadingScreen />}>
-        <SuperAdminView onLogout={auth.handleLogout} />
+        <SuperAdminView 
+          onLogout={auth.handleLogout} 
+          unreadSupportMessages={unreadSupportMessages}
+          onResetUnread={() => setUnreadSupportMessages(0)}
+        />
       </Suspense>
     );
   }
@@ -317,6 +364,7 @@ const App: React.FC = () => {
           const dynamicPlan = appData.plans.find(p => p.type.toUpperCase() === currentPlanType);
           return dynamicPlan?.limits?.features?.payroll ?? baseLimits.features.payroll;
         })() : false}
+        unreadSupportMessages={unreadSupportMessages}
       >
         {appData.dbError && (
           <div className="bg-rose-600 text-white px-4 py-2 text-center text-xs font-bold animate-pulse sticky top-16 z-[60] shadow-lg">

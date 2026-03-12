@@ -3,14 +3,17 @@ import React, { useState, useEffect } from 'react';
 import { Organization, PlanType, Plan, PromoCode, User, UserRole } from '../types';
 import { db, supabase } from '../lib/supabase';
 import { STORAGE_KEYS } from '../constants';
-import { Users, Building2, CreditCard, Activity, ShieldCheck, Search, RefreshCw, ExternalLink, Settings2, X, Check, Plus, LayoutGrid, Zap, Briefcase, Save, Camera, Moon, BarChart3, Megaphone, Ticket, Trash2, Database, AlertCircle, PlayCircle, Bell } from 'lucide-react';
+import { Users, Building2, CreditCard, Activity, ShieldCheck, Search, RefreshCw, ExternalLink, Settings2, X, Check, Plus, LayoutGrid, Zap, Briefcase, Save, Camera, Moon, BarChart3, Megaphone, Ticket, Trash2, Database, AlertCircle, PlayCircle, Bell, MessageSquare } from 'lucide-react';
+import { SupportChat } from './employer/SupportChat';
 
 interface SuperAdminViewProps {
   onLogout: () => void;
   onUpdateSystemConfig?: (config: any) => void;
+  unreadSupportMessages?: number;
+  onResetUnread?: () => void;
 }
 
-const SuperAdminView: React.FC<SuperAdminViewProps> = ({ onLogout, onUpdateSystemConfig }) => {
+const SuperAdminView: React.FC<SuperAdminViewProps> = ({ onLogout, onUpdateSystemConfig, unreadSupportMessages = 0, onResetUnread }) => {
   const [organizations, setOrganizations] = useState<Organization[]>([]);
   const [stats, setStats] = useState<Record<string, number>>({});
   const [loading, setLoading] = useState(true);
@@ -19,7 +22,7 @@ const SuperAdminView: React.FC<SuperAdminViewProps> = ({ onLogout, onUpdateSyste
   const [editingOrg, setEditingOrg] = useState<Organization | null>(null);
   const [editingAdmin, setEditingAdmin] = useState<User | null>(null);
   const [isCreating, setIsCreating] = useState(false);
-  const [activeTab, setActiveTab] = useState<'orgs' | 'plans' | 'marketing' | 'diagnostics' | 'app_diagnostics'>('orgs');
+  const [activeTab, setActiveTab] = useState<'orgs' | 'plans' | 'marketing' | 'diagnostics' | 'app_diagnostics' | 'support'>('orgs');
   const [viewingUsersOrg, setViewingUsersOrg] = useState<{ id: string; name: string } | null>(null);
   const [orgUsers, setOrgUsers] = useState<User[]>([]);
   const [loadingUsers, setLoadingUsers] = useState(false);
@@ -48,6 +51,13 @@ const SuperAdminView: React.FC<SuperAdminViewProps> = ({ onLogout, onUpdateSyste
   const [systemConfig, setSystemConfig] = useState<any>(null);
   const [newSuperAdminPin, setNewSuperAdminPin] = useState('');
   const [newGlobalAdminPin, setNewGlobalAdminPin] = useState('');
+
+  // Reset unread count when entering support view
+  useEffect(() => {
+    if (activeTab === 'support' && onResetUnread) {
+      onResetUnread();
+    }
+  }, [activeTab, onResetUnread]);
 
   const runDiagnostics = async () => {
     setCheckingDiagnostics(true);
@@ -541,91 +551,87 @@ const SuperAdminView: React.FC<SuperAdminViewProps> = ({ onLogout, onUpdateSyste
 
   const totalUsers = Object.values(stats).reduce((acc, curr) => acc + curr, 0);
 
+  const [isSidebarCollapsed, setIsSidebarCollapsed] = useState(false);
+
+  const menuItems = [
+    { id: 'orgs', name: 'Организации', icon: Building2 },
+    { id: 'plans', name: 'Конструктор тарифов', icon: CreditCard },
+    { id: 'marketing', name: 'Маркетинг', icon: Megaphone },
+    { id: 'diagnostics', name: 'База данных', icon: Database },
+    { id: 'app_diagnostics', name: 'Функции', icon: Activity },
+    { id: 'system', name: 'Система', icon: ShieldCheck },
+    { id: 'support', name: 'Поддержка', icon: MessageSquare, badge: unreadSupportMessages },
+  ] as const;
+
   return (
-    <div className="min-h-screen bg-slate-50">
-      {/* Header */}
-      <header className="bg-slate-900 text-white sticky top-0 z-10 shadow-lg">
-        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
-          <div className="flex justify-between items-center h-16">
-            <div className="flex items-center gap-3">
-              <div className="bg-indigo-600 p-2 rounded-lg">
-                <ShieldCheck className="w-6 h-6" />
-              </div>
-              <div>
-                <h1 className="text-xl font-bold tracking-tight">SaaS Back-office</h1>
-                <p className="text-xs text-indigo-300 font-medium uppercase tracking-wider">Super Admin Panel</p>
-              </div>
-            </div>
-            <button 
-              onClick={onLogout}
-              className="text-sm bg-slate-800 hover:bg-slate-700 px-4 py-2 rounded-lg transition-colors border border-slate-700"
-            >
-              Выйти
-            </button>
+    <div className="flex h-screen bg-slate-50">
+      <aside className={`bg-slate-900 text-white transition-all duration-300 flex flex-col ${isSidebarCollapsed ? 'w-20' : 'w-64'}`}>
+        <div className="p-6 flex items-center gap-3">
+          <div className="bg-indigo-600 p-2 rounded-lg">
+            <ShieldCheck className="w-6 h-6" />
           </div>
-        </div>
-      </header>
-
-      <main className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
-        {/* Tabs */}
-        <div className="flex gap-1 p-1 bg-slate-200 rounded-2xl w-fit mb-8">
-          <button 
-            onClick={() => setActiveTab('orgs')}
-            className={`px-6 py-2.5 rounded-xl text-sm font-bold transition-all flex items-center gap-2 ${
-              activeTab === 'orgs' ? 'bg-white text-indigo-600 shadow-sm' : 'text-slate-600 hover:text-slate-900'
-            }`}
-          >
-            <Building2 className="w-4 h-4" />
-            Организации
-          </button>
-          <button 
-            onClick={() => setActiveTab('plans')}
-            className={`px-6 py-2.5 rounded-xl text-sm font-bold transition-all flex items-center gap-2 ${
-              activeTab === 'plans' ? 'bg-white text-indigo-600 shadow-sm' : 'text-slate-600 hover:text-slate-900'
-            }`}
-          >
-            <CreditCard className="w-4 h-4" />
-            Конструктор тарифов
-          </button>
-          <button 
-            onClick={() => setActiveTab('marketing')}
-            className={`px-6 py-2.5 rounded-xl text-sm font-bold transition-all flex items-center gap-2 ${
-              activeTab === 'marketing' ? 'bg-white text-indigo-600 shadow-sm' : 'text-slate-600 hover:text-slate-900'
-            }`}
-          >
-            <Megaphone className="w-4 h-4" />
-            Маркетинг
-          </button>
-          <button 
-            onClick={() => setActiveTab('diagnostics')}
-            className={`px-6 py-2.5 rounded-xl text-sm font-bold transition-all flex items-center gap-2 ${
-              activeTab === 'diagnostics' ? 'bg-white text-indigo-600 shadow-sm' : 'text-slate-600 hover:text-slate-900'
-            }`}
-          >
-            <Database className="w-4 h-4" />
-            База данных
-          </button>
-          <button 
-            onClick={() => setActiveTab('app_diagnostics')}
-            className={`px-6 py-2.5 rounded-xl text-sm font-bold transition-all flex items-center gap-2 ${
-              activeTab === 'app_diagnostics' ? 'bg-white text-indigo-600 shadow-sm' : 'text-slate-600 hover:text-slate-900'
-            }`}
-          >
-            <Activity className="w-4 h-4" />
-            Функции
-          </button>
-          <button 
-            onClick={() => setActiveTab('system' as any)}
-            className={`px-6 py-2.5 rounded-xl text-sm font-bold transition-all flex items-center gap-2 ${
-              activeTab === ('system' as any) ? 'bg-white text-indigo-600 shadow-sm' : 'text-slate-600 hover:text-slate-900'
-            }`}
-          >
-            <ShieldCheck className="w-4 h-4" />
-            Система
-          </button>
+          {!isSidebarCollapsed && (
+            <div>
+              <h1 className="text-lg font-bold tracking-tight">SaaS Back-office</h1>
+              <p className="text-[10px] text-indigo-300 font-medium uppercase tracking-wider">Super Admin</p>
+            </div>
+          )}
         </div>
 
-        {activeTab === 'orgs' ? (
+        <nav className="flex-1 px-4 py-6 space-y-2">
+          {menuItems.map((item) => {
+            const Icon = item.icon;
+            return (
+              <button
+                key={item.id}
+                onClick={() => setActiveTab(item.id as any)}
+                className={`w-full flex items-center gap-3 px-4 py-3 rounded-xl transition-all relative ${
+                  activeTab === item.id ? 'bg-indigo-600 text-white' : 'text-slate-400 hover:bg-slate-800 hover:text-white'
+                }`}
+                title={isSidebarCollapsed ? item.name : undefined}
+              >
+                <Icon className="w-5 h-5 shrink-0" />
+                {!isSidebarCollapsed && <span className="font-medium text-sm">{item.name}</span>}
+                
+                {item.id === 'support' && unreadSupportMessages > 0 && (
+                  <span className={`absolute ${isSidebarCollapsed ? 'top-2 right-2' : 'top-3 right-4'} flex h-5 w-5 items-center justify-center rounded-full bg-rose-500 text-[10px] font-bold text-white ring-2 ring-slate-900`}>
+                    {unreadSupportMessages > 9 ? '9+' : unreadSupportMessages}
+                  </span>
+                )}
+              </button>
+            );
+          })}
+        </nav>
+
+        <div className="p-4 border-t border-slate-800">
+          <button
+            onClick={() => setIsSidebarCollapsed(!isSidebarCollapsed)}
+            className="w-full flex items-center justify-center p-3 text-slate-400 hover:text-white hover:bg-slate-800 rounded-xl transition-all"
+          >
+            {isSidebarCollapsed ? <LayoutGrid className="w-5 h-5" /> : <div className="flex items-center gap-2"><LayoutGrid className="w-5 h-5" /><span>Свернуть</span></div>}
+          </button>
+          <button 
+            onClick={onLogout}
+            className="w-full flex items-center gap-3 px-4 py-3 text-rose-400 hover:bg-rose-900/20 rounded-xl transition-all mt-2"
+          >
+            <X className="w-5 h-5" />
+            {!isSidebarCollapsed && <span className="font-medium text-sm">Выйти</span>}
+          </button>
+        </div>
+      </aside>
+
+      {/* Main Content */}
+      <main className="flex-1 overflow-y-auto">
+        <header className="bg-white border-b border-slate-200 sticky top-0 z-10 shadow-sm">
+          <div className="max-w-7xl mx-auto px-8 h-16 flex items-center justify-between">
+            <h2 className="text-lg font-bold text-slate-900 uppercase tracking-tight">
+              {menuItems.find(i => i.id === activeTab)?.name}
+            </h2>
+          </div>
+        </header>
+
+        <div className="max-w-7xl mx-auto px-8 py-8">
+          {activeTab === 'orgs' ? (
           <>
             {/* Stats Grid */}
             <div className="grid grid-cols-1 md:grid-cols-3 gap-6 mb-8">
@@ -706,6 +712,7 @@ const SuperAdminView: React.FC<SuperAdminViewProps> = ({ onLogout, onUpdateSyste
                       <th className="px-6 py-4 text-xs font-bold text-slate-500 uppercase tracking-wider">Тариф</th>
                       <th className="px-6 py-4 text-xs font-bold text-slate-500 uppercase tracking-wider">Статус</th>
                       <th className="px-6 py-4 text-xs font-bold text-slate-500 uppercase tracking-wider">Пользователи</th>
+                      <th className="px-6 py-4 text-xs font-bold text-slate-500 uppercase tracking-wider">Создан</th>
                       <th className="px-6 py-4 text-xs font-bold text-slate-500 uppercase tracking-wider">ID</th>
                       <th className="px-6 py-4 text-xs font-bold text-slate-500 uppercase tracking-wider text-right">Действия</th>
                     </tr>
@@ -762,6 +769,11 @@ const SuperAdminView: React.FC<SuperAdminViewProps> = ({ onLogout, onUpdateSyste
                             <div className="flex items-center gap-2">
                               <Users className="w-4 h-4 text-slate-400" />
                               <span className="text-sm font-bold text-slate-900">{stats[org.id] || 0}</span>
+                            </div>
+                          </td>
+                          <td className="px-6 py-4">
+                            <div className="text-xs text-slate-500 font-medium">
+                              {org.createdAt ? new Date(org.createdAt).toLocaleDateString() : '—'}
                             </div>
                           </td>
                           <td className="px-6 py-4">
@@ -832,6 +844,10 @@ const SuperAdminView: React.FC<SuperAdminViewProps> = ({ onLogout, onUpdateSyste
               </button>
             </div>
           </>
+        ) : activeTab === 'support' ? (
+          <div className="max-w-2xl mx-auto animate-fadeIn">
+            <SupportChat currentUser={{ id: 'admin', name: 'Супер-Админ', role: UserRole.SUPER_ADMIN } as any} orgId="all" />
+          </div>
         ) : activeTab === ('system' as any) ? (
           <div className="max-w-2xl mx-auto space-y-8 animate-fadeIn">
             <div className="bg-white rounded-[2.5rem] shadow-sm border border-slate-200 overflow-hidden">
@@ -1498,7 +1514,8 @@ const SuperAdminView: React.FC<SuperAdminViewProps> = ({ onLogout, onUpdateSyste
             </div>
           </div>
         )}
-      </main>
+      </div>
+    </main>
 
       {/* Edit Plan Modal */}
       {editingPlan && (

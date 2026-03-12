@@ -102,6 +102,7 @@ export interface Organization {
   maxShiftDuration?: number; // Global max shift duration in minutes (default 720 = 12h)
   roundShiftMinutes?: boolean; // 15-minute rounding rule
   nightShiftBonus?: number; // Global night shift bonus in minutes
+  createdAt?: string; // ISO timestamp
 }
 
 export const FIXED_POSITION_TURNER = 'Токарь';
@@ -236,6 +237,15 @@ export interface PayrollSnapshot {
   rateType: 'hourly' | 'fixed' | 'shift' | 'piecework';
   calculatedAt: string; // ISO timestamp
   details: any; // Store the full calculation details as JSON
+}
+
+export interface SupportMessage {
+  id: string;
+  senderId: string;
+  senderName: string;
+  organizationId: string;
+  message: string;
+  createdAt: string;
 }
 
 export enum PaymentType {
