@@ -1,4 +1,4 @@
-import React, { useEffect, useMemo, useState, Suspense } from 'react';
+import React, { useEffect, useMemo, useState, Suspense, useCallback } from 'react';
 import { UserRole, PlanType, PositionConfig, User, WorkLog } from './types';
 import { STORAGE_KEYS, DEFAULT_PERMISSIONS, PLAN_LIMITS } from './constants';
 import { sendNotification, calculateMinutes, sendTelegramNotification } from './utils';
@@ -322,6 +322,19 @@ const App: React.FC = () => {
     return { ...dbUser, role: auth.currentUser.role };
   }, [auth.currentUser, appData.users]);
 
+  const handleResetUnread = useCallback((orgId?: string) => {
+    if (orgId) {
+      setUnreadByOrg(prev => {
+        if (!prev[orgId]) return prev;
+        const next = { ...prev };
+        delete next[orgId];
+        return next;
+      });
+    } else {
+      setUnreadByOrg(prev => Object.keys(prev).length === 0 ? prev : {});
+    }
+  }, []);
+
   if (!appData.isInitialized) {
     return <LoadingScreen />;
   }
@@ -334,18 +347,7 @@ const App: React.FC = () => {
           unreadSupportMessages={totalUnread}
           unreadByOrg={unreadByOrg}
           onTabChange={setSuperAdminTab}
-          onResetUnread={(orgId) => {
-            if (orgId) {
-              setUnreadByOrg(prev => {
-                if (!prev[orgId]) return prev;
-                const next = { ...prev };
-                delete next[orgId];
-                return next;
-              });
-            } else {
-              setUnreadByOrg({});
-            }
-          }}
+          onResetUnread={handleResetUnread}
         />
       </Suspense>
     );
