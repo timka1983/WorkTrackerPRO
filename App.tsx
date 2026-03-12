@@ -51,20 +51,26 @@ const App: React.FC = () => {
     if (!isSuperAdmin && !orgId) return;
 
     const channel = supabase
-      .channel('support_notifications')
-      .on('postgres_changes', { event: 'INSERT', schema: 'public', table: 'support_messages' }, (payload) => {
-        const newMessage = payload.new;
-        
-        // Only notify if message is NOT from current user
-        if (newMessage.sender_id === auth.currentUser?.id) return;
+      .channel(`support_notifications_${auth.currentUser?.id}_${Date.now()}`)
+      .on('postgres_changes', { 
+        event: '*', 
+        schema: 'public', 
+        table: 'support_messages' 
+      }, (payload) => {
+        if (payload.eventType === 'INSERT') {
+          const newMessage = payload.new;
+          
+          // Only notify if message is NOT from current user
+          if (newMessage.sender_id === auth.currentUser?.id) return;
 
-        // Check if message belongs to this org or if user is super admin
-        if (isSuperAdmin || newMessage.organization_id === orgId) {
-          if (employerViewMode !== 'support') {
-            setUnreadSupportMessages(prev => prev + 1);
-            
-            // Optional: browser notification
-            sendNotification('Новое сообщение в техподдержке', newMessage.message);
+          // Check if message belongs to this org or if user is super admin
+          if (isSuperAdmin || newMessage.organization_id === orgId) {
+            if (employerViewMode !== 'support') {
+              setUnreadSupportMessages(prev => prev + 1);
+              
+              // Optional: browser notification
+              sendNotification('Новое сообщение в техподдержке', newMessage.message);
+            }
           }
         }
       })

@@ -62,28 +62,28 @@ export const SupportChat: React.FC<SupportChatProps> = ({ currentUser, orgId }) 
     fetchMessages();
 
     const channel = supabase
-      .channel('support_messages_realtime')
+      .channel(`support_chat_${orgId || 'admin'}_${Date.now()}`)
       .on('postgres_changes', { 
-        event: 'INSERT', 
+        event: '*', 
         schema: 'public', 
         table: 'support_messages' 
       }, (payload) => {
-        console.log('📩 New support message received:', payload.new);
-        const newMessage = payload.new;
-        if (isSuperAdmin || newMessage.organization_id === orgId) {
-          setMessages(prev => {
-            // Prevent duplicates
-            if (prev.some(m => m.id === newMessage.id)) return prev;
-            
-            return [...prev, {
-              id: newMessage.id,
-              senderId: newMessage.sender_id,
-              senderName: newMessage.sender_name,
-              organizationId: newMessage.organization_id,
-              message: newMessage.message,
-              createdAt: newMessage.created_at
-            }];
-          });
+        if (payload.eventType === 'INSERT') {
+          console.log('📩 New support message received:', payload.new);
+          const newMessage = payload.new;
+          if (isSuperAdmin || newMessage.organization_id === orgId) {
+            setMessages(prev => {
+              if (prev.some(m => m.id === newMessage.id)) return prev;
+              return [...prev, {
+                id: newMessage.id,
+                senderId: newMessage.sender_id,
+                senderName: newMessage.sender_name,
+                organizationId: newMessage.organization_id,
+                message: newMessage.message,
+                createdAt: newMessage.created_at
+              }];
+            });
+          }
         }
       })
       .subscribe((status) => {
@@ -141,7 +141,7 @@ export const SupportChat: React.FC<SupportChatProps> = ({ currentUser, orgId }) 
     <div className="bg-white rounded-3xl border border-slate-200 shadow-sm flex flex-col h-[600px]">
       <div className="p-6 border-b border-slate-100 flex items-center justify-between">
         <div className="flex items-center gap-3">
-          <MessageSquare className="text-blue-600" />
+          <MessageSquare className="text-indigo-600" />
           <h3 className="font-bold text-slate-900 uppercase text-xs tracking-widest">Чат с техподдержкой</h3>
         </div>
         {isSuperAdmin && (
@@ -178,11 +178,9 @@ export const SupportChat: React.FC<SupportChatProps> = ({ currentUser, orgId }) 
                 }
               }}
               className={`p-3 rounded-2xl max-w-[80%] cursor-pointer transition-all ${
-                m.senderId === currentUser?.id 
-                  ? 'bg-blue-600 text-white shadow-sm' 
-                  : m.senderName === 'Техподдержка' 
-                    ? 'bg-indigo-50 text-indigo-700 border border-indigo-100' 
-                    : 'bg-slate-100 text-slate-900 hover:bg-slate-200'
+                m.senderName === 'Техподдержка' || m.senderId === currentUser?.id
+                  ? 'bg-indigo-600 text-white shadow-md' 
+                  : 'bg-slate-100 text-slate-900 hover:bg-slate-200'
               }`}
             >
               {m.message}
@@ -203,11 +201,11 @@ export const SupportChat: React.FC<SupportChatProps> = ({ currentUser, orgId }) 
             "Ваше сообщение..."
           }
           disabled={!currentUser || (isSuperAdmin && selectedOrgId === 'all') || (!isSuperAdmin && !orgId)}
-          className="flex-1 border-2 border-slate-100 rounded-2xl px-4 py-3 text-sm outline-none focus:border-blue-500 disabled:bg-slate-50"
+          className="flex-1 border-2 border-slate-100 rounded-2xl px-4 py-3 text-sm outline-none focus:border-indigo-500 disabled:bg-slate-50"
         />
         <button 
           type="submit" 
-          className="p-3 bg-blue-600 text-white rounded-2xl hover:bg-blue-700 disabled:opacity-50 transition-all active:scale-95" 
+          className="p-3 bg-indigo-600 text-white rounded-2xl hover:bg-indigo-700 disabled:opacity-50 transition-all active:scale-95" 
           disabled={!currentUser || (isSuperAdmin && selectedOrgId === 'all') || (!isSuperAdmin && !orgId)}
         >
           <Send size={20} />
