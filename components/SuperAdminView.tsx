@@ -867,6 +867,7 @@ const SuperAdminView: React.FC<SuperAdminViewProps> = ({
               currentUser={{ id: 'admin', name: 'Супер-Админ', role: UserRole.SUPER_ADMIN } as any} 
               orgId="all" 
               onOrgSelect={(orgId) => onResetUnread && onResetUnread(orgId)}
+              unreadByOrg={unreadByOrg}
             />
           </div>
         ) : activeTab === ('system' as any) ? (

@@ -45,10 +45,68 @@ const App: React.FC = () => {
 
   // Reset unread count when entering support view
   useEffect(() => {
-    if (employerViewMode === 'support') {
+    if (employerViewMode === 'support' && auth.currentUser) {
       setUnreadSupportMessages(0);
+      const orgId = auth.currentUser.organizationId;
+      if (orgId) {
+        localStorage.setItem(`last_read_support_${orgId}`, new Date().toISOString());
+      }
     }
-  }, [employerViewMode]);
+  }, [employerViewMode, auth.currentUser]);
+
+  // Fetch initial unread count
+  useEffect(() => {
+    const fetchInitialUnread = async () => {
+      if (!auth.currentUser) return;
+      const orgId = auth.currentUser.organizationId;
+      const isSuperAdmin = auth.currentUser.role === UserRole.SUPER_ADMIN;
+
+      if (isSuperAdmin) {
+        const lastReadMapStr = localStorage.getItem('last_read_support_superadmin');
+        const lastReadMap = lastReadMapStr ? JSON.parse(lastReadMapStr) : {};
+        
+        // Fetch all messages not from super admin
+        const { data, error } = await supabase
+          .from('support_messages')
+          .select('organization_id, created_at')
+          .neq('sender_id', auth.currentUser.id);
+          
+        if (!error && data) {
+          const unreadCounts: Record<string, number> = {};
+          data.forEach(msg => {
+            const org = msg.organization_id;
+            const lastRead = lastReadMap[org];
+            if (!lastRead || new Date(msg.created_at) > new Date(lastRead)) {
+              unreadCounts[org] = (unreadCounts[org] || 0) + 1;
+            }
+          });
+          setUnreadByOrg(unreadCounts);
+        }
+        return;
+      }
+
+      if (!orgId) return;
+
+      const lastRead = localStorage.getItem(`last_read_support_${orgId}`);
+      
+      let query = supabase
+        .from('support_messages')
+        .select('id', { count: 'exact', head: true })
+        .eq('organization_id', orgId)
+        .neq('sender_id', auth.currentUser.id);
+
+      if (lastRead) {
+        query = query.gt('created_at', lastRead);
+      }
+
+      const { count, error } = await query;
+      if (!error && count !== null) {
+        setUnreadSupportMessages(count);
+      }
+    };
+
+    fetchInitialUnread();
+  }, [auth.currentUser]);
 
   // Support Messages Realtime Subscription for Notifications
   useEffect(() => {
@@ -59,12 +117,18 @@ const App: React.FC = () => {
 
     if (!isSuperAdmin && !orgId) return;
 
+    let filter = undefined;
+    if (!isSuperAdmin) {
+      filter = `organization_id=eq.${orgId}`;
+    }
+
     const channel = supabase
       .channel(`support_notifications_${auth.currentUser?.id}_${Date.now()}`)
       .on('postgres_changes', { 
-        event: '*', 
+        event: 'INSERT', 
         schema: 'public', 
-        table: 'support_messages' 
+        table: 'support_messages',
+        filter: filter
       }, (payload) => {
         if (payload.eventType === 'INSERT') {
           const newMessage = payload.new;
@@ -323,7 +387,14 @@ const App: React.FC = () => {
   }, [auth.currentUser, appData.users]);
 
   const handleResetUnread = useCallback((orgId?: string) => {
+    const now = new Date().toISOString();
+    const lastReadMapStr = localStorage.getItem('last_read_support_superadmin');
+    const lastReadMap = lastReadMapStr ? JSON.parse(lastReadMapStr) : {};
+
     if (orgId) {
+      lastReadMap[orgId] = now;
+      localStorage.setItem('last_read_support_superadmin', JSON.stringify(lastReadMap));
+
       setUnreadByOrg(prev => {
         if (!prev[orgId]) return prev;
         const next = { ...prev };
@@ -331,6 +402,8 @@ const App: React.FC = () => {
         return next;
       });
     } else {
+      // If no orgId is provided, we might not want to reset all orgs' timestamps,
+      // but if we do, we'd need to know all orgs. For now, just clear the state.
       setUnreadByOrg(prev => Object.keys(prev).length === 0 ? prev : {});
     }
   }, []);
