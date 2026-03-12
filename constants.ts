@@ -9,9 +9,11 @@ export const PLAN_LIMITS: Record<PlanType, PlanLimits> = {
       photoCapture: false,
       nightShift: false,
       advancedAnalytics: false,
-      payroll: true,
+      payroll: false,
       shiftMonitoring: false,
-      payments: true
+      payments: true,
+      multipleBranches: false,
+      auditLog: false
     }
   },
   [PlanType.PRO]: {
@@ -23,7 +25,9 @@ export const PLAN_LIMITS: Record<PlanType, PlanLimits> = {
       advancedAnalytics: true,
       payroll: true,
       shiftMonitoring: true,
-      payments: true
+      payments: true,
+      multipleBranches: true,
+      auditLog: true
     }
   },
   [PlanType.BUSINESS]: {
@@ -35,7 +39,9 @@ export const PLAN_LIMITS: Record<PlanType, PlanLimits> = {
       advancedAnalytics: true,
       payroll: true,
       shiftMonitoring: true,
-      payments: true
+      payments: true,
+      multipleBranches: true,
+      auditLog: true
     }
   }
 };
@@ -117,7 +123,8 @@ export const STORAGE_KEYS = {
   ORG_ID: 'timesheet_org_id',
   ORG_DATA: 'timesheet_org_data',
   PROMO_CODES: 'timesheet_promo_codes',
-  OFFLINE_QUEUE: 'timesheet_offline_queue'
+  OFFLINE_QUEUE: 'timesheet_offline_queue',
+  AUDIT_LOGS: 'timesheet_audit_logs'
 };
 
 const savedLogs = localStorage.getItem(STORAGE_KEYS.WORK_LOGS);

@@ -112,7 +112,13 @@ export const SettingsView: React.FC<SettingsViewProps> = ({
          
          <div className="flex justify-end mb-6">
             <button 
-              onClick={() => setEditingBranch({ id: crypto.randomUUID(), organizationId: currentOrg?.id || '', name: '' })}
+              onClick={() => {
+                if (!planLimits.features.multipleBranches && branches.length >= 1) {
+                  alert('В вашем тарифе доступен только 1 филиал. Перейдите на тариф PRO или BUSINESS для добавления новых филиалов.');
+                  return;
+                }
+                setEditingBranch({ id: crypto.randomUUID(), organizationId: currentOrg?.id || '', name: '' });
+              }}
               className="px-6 py-3 bg-blue-600 text-white rounded-2xl font-black text-sm uppercase hover:bg-blue-700 transition-all shadow-xl shadow-blue-200"
             >
               Добавить филиал

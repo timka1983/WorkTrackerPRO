@@ -3,7 +3,7 @@ import React, { useState, useEffect } from 'react';
 import { Organization, PlanType, Plan, PromoCode, User, UserRole } from '../types';
 import { db, supabase } from '../lib/supabase';
 import { STORAGE_KEYS } from '../constants';
-import { Users, Building2, CreditCard, Activity, ShieldCheck, Search, RefreshCw, ExternalLink, Settings2, X, Check, Plus, LayoutGrid, Zap, Briefcase, Save, Camera, Moon, BarChart3, Megaphone, Ticket, Trash2, Database, AlertCircle, PlayCircle, Bell, MessageSquare } from 'lucide-react';
+import { Users, Building2, CreditCard, Activity, ShieldCheck, Search, RefreshCw, ExternalLink, Settings2, X, Check, Plus, LayoutGrid, Zap, Briefcase, Save, Camera, Moon, BarChart3, Megaphone, Ticket, Trash2, Database, AlertCircle, PlayCircle, Bell, MessageSquare, History } from 'lucide-react';
 import { SupportChat } from './employer/SupportChat';
 
 interface SuperAdminViewProps {
@@ -275,19 +275,19 @@ const SuperAdminView: React.FC<SuperAdminViewProps> = ({
             type: PlanType.FREE,
             name: 'Бесплатный',
             price: 0,
-            limits: { maxUsers: 3, maxMachines: 2, features: { photoCapture: false, nightShift: false, advancedAnalytics: false, payroll: false, shiftMonitoring: false, payments: false } }
+            limits: { maxUsers: 3, maxMachines: 2, features: { photoCapture: false, nightShift: false, advancedAnalytics: false, payroll: false, shiftMonitoring: false, payments: false, multipleBranches: false, auditLog: false } }
           },
           {
             type: PlanType.PRO,
             name: 'Профессиональный',
             price: 2900,
-            limits: { maxUsers: 20, maxMachines: 10, features: { photoCapture: true, nightShift: true, advancedAnalytics: true, payroll: false, shiftMonitoring: true, payments: false } }
+            limits: { maxUsers: 20, maxMachines: 10, features: { photoCapture: true, nightShift: true, advancedAnalytics: true, payroll: true, shiftMonitoring: true, payments: true, multipleBranches: true, auditLog: true } }
           },
           {
             type: PlanType.BUSINESS,
             name: 'Бизнес',
             price: 9900,
-            limits: { maxUsers: 1000, maxMachines: 1000, features: { photoCapture: true, nightShift: true, advancedAnalytics: true, payroll: true, shiftMonitoring: true, payments: true } }
+            limits: { maxUsers: 1000, maxMachines: 1000, features: { photoCapture: true, nightShift: true, advancedAnalytics: true, payroll: true, shiftMonitoring: true, payments: true, multipleBranches: true, auditLog: true } }
           }
         ];
         setPlans(defaultPlans);
@@ -989,6 +989,18 @@ const SuperAdminView: React.FC<SuperAdminViewProps> = ({
                           <Bell className="w-4 h-4" />
                         </div>
                         <span className={plan.limits.features.shiftMonitoring ? 'text-slate-700 font-medium' : 'text-slate-400'}>Мониторинг смен</span>
+                      </div>
+                      <div className="flex items-center gap-3 text-sm">
+                        <div className={`p-1 rounded-md ${plan.limits.features.multipleBranches ? 'bg-emerald-100 text-emerald-600' : 'bg-slate-100 text-slate-400'}`}>
+                          <Building2 className="w-4 h-4" />
+                        </div>
+                        <span className={plan.limits.features.multipleBranches ? 'text-slate-700 font-medium' : 'text-slate-400'}>Филиалы</span>
+                      </div>
+                      <div className="flex items-center gap-3 text-sm">
+                        <div className={`p-1 rounded-md ${plan.limits.features.auditLog ? 'bg-emerald-100 text-emerald-600' : 'bg-slate-100 text-slate-400'}`}>
+                          <History className="w-4 h-4" />
+                        </div>
+                        <span className={plan.limits.features.auditLog ? 'text-slate-700 font-medium' : 'text-slate-400'}>Журнал аудита</span>
                       </div>
                     </div>
 
@@ -1707,6 +1719,50 @@ const SuperAdminView: React.FC<SuperAdminViewProps> = ({
                         limits: {
                           ...editingPlan.limits,
                           features: { ...editingPlan.limits.features, shiftMonitoring: e.target.checked }
+                        }
+                      })}
+                      className="w-5 h-5 rounded border-slate-300 text-indigo-600 focus:ring-indigo-500"
+                    />
+                  </label>
+
+                  <label className="flex items-center justify-between p-4 bg-slate-50 rounded-2xl border border-slate-200 cursor-pointer hover:bg-slate-100 transition-all">
+                    <div className="flex items-center gap-3">
+                      <Building2 className="w-5 h-5 text-indigo-600" />
+                      <div>
+                        <p className="text-sm font-bold text-slate-900">Филиалы</p>
+                        <p className="text-xs text-slate-500">Поддержка нескольких локаций</p>
+                      </div>
+                    </div>
+                    <input 
+                      type="checkbox"
+                      checked={editingPlan.limits.features.multipleBranches}
+                      onChange={(e) => setEditingPlan({
+                        ...editingPlan,
+                        limits: {
+                          ...editingPlan.limits,
+                          features: { ...editingPlan.limits.features, multipleBranches: e.target.checked }
+                        }
+                      })}
+                      className="w-5 h-5 rounded border-slate-300 text-indigo-600 focus:ring-indigo-500"
+                    />
+                  </label>
+
+                  <label className="flex items-center justify-between p-4 bg-slate-50 rounded-2xl border border-slate-200 cursor-pointer hover:bg-slate-100 transition-all">
+                    <div className="flex items-center gap-3">
+                      <History className="w-5 h-5 text-indigo-600" />
+                      <div>
+                        <p className="text-sm font-bold text-slate-900">Журнал аудита</p>
+                        <p className="text-xs text-slate-500">Фиксация действий администраторов</p>
+                      </div>
+                    </div>
+                    <input 
+                      type="checkbox"
+                      checked={editingPlan.limits.features.auditLog}
+                      onChange={(e) => setEditingPlan({
+                        ...editingPlan,
+                        limits: {
+                          ...editingPlan.limits,
+                          features: { ...editingPlan.limits.features, auditLog: e.target.checked }
                         }
                       })}
                       className="w-5 h-5 rounded border-slate-300 text-indigo-600 focus:ring-indigo-500"

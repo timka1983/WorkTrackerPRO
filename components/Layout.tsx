@@ -13,8 +13,8 @@ interface LayoutProps {
   onRefresh?: () => void;
   version: string;
   isSyncing?: boolean;
-  employerViewMode?: 'matrix' | 'team' | 'analytics' | 'settings' | 'billing' | 'payroll' | 'support';
-  setEmployerViewMode?: (mode: 'matrix' | 'team' | 'analytics' | 'settings' | 'billing' | 'payroll' | 'support') => void;
+  employerViewMode?: 'matrix' | 'team' | 'analytics' | 'settings' | 'billing' | 'payroll' | 'support' | 'audit';
+  setEmployerViewMode?: (mode: 'matrix' | 'team' | 'analytics' | 'settings' | 'billing' | 'payroll' | 'support' | 'audit') => void;
   employeeViewMode?: 'control' | 'matrix';
   setEmployeeViewMode?: (mode: 'control' | 'matrix') => void;
   canUsePayroll?: boolean;
@@ -70,7 +70,8 @@ const Layout: React.FC<LayoutProps> = ({
       { id: 'team', label: 'Команда', icon: Users },
       { id: 'billing', label: 'Биллинг', icon: CreditCard },
       { id: 'settings', label: 'Настройки', icon: Settings },
-      { id: 'support', label: 'Поддержка', icon: MessageSquare }
+      { id: 'support', label: 'Поддержка', icon: MessageSquare },
+      { id: 'audit', label: 'Журнал аудита', icon: LayoutDashboard }
     ].filter(t => !t.hidden);
 
     if (!userPerms) return [];
@@ -262,7 +263,7 @@ const Layout: React.FC<LayoutProps> = ({
                 {user && (
                   <button 
                     className="sm:hidden p-2 -ml-2 text-slate-500 hover:text-slate-900 rounded-lg hover:bg-slate-50"
-                    onClick={() => setIsMobileMenuOpen(true)}
+                    onClick={() => setIsMobileMenuOpen(!isMobileMenuOpen)}
                   >
                     <Menu className="w-6 h-6" />
                   </button>

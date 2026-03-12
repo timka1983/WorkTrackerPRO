@@ -28,6 +28,8 @@ export interface PlanLimits {
     payroll: boolean;
     shiftMonitoring: boolean;
     payments: boolean;
+    multipleBranches: boolean;
+    auditLog: boolean;
   };
 }
 

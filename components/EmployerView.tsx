@@ -10,6 +10,7 @@ import { DEFAULT_PERMISSIONS, STORAGE_KEYS, PLAN_LIMITS, DEFAULT_PAYROLL_CONFIG 
 import { db } from '../lib/supabase';
 import { SettingsView } from './employer/SettingsView';
 import { BillingView } from './employer/BillingView';
+import { AuditLogView } from './employer/AuditLogView';
 import { PayrollView } from './employer/PayrollView';
 import { AnalyticsView } from './employer/AnalyticsView';
 import { TeamView } from './employer/TeamView';
@@ -19,6 +20,7 @@ import { EmployeeEditModal } from './employer/EmployeeEditModal';
 import { LogEditModal } from './employer/LogEditModal';
 import { PhotoPreviewModal } from './employer/PhotoPreviewModal';
 import { SupportChat } from './employer/SupportChat';
+import { logAuditAction } from '../lib/audit';
 import { MessageSquare } from 'lucide-react';
 
 interface EmployerViewProps {
@@ -61,8 +63,8 @@ interface EmployerViewProps {
   getArchivedUsers: () => Promise<User[] | null>;
   getArchivedMachines: () => Promise<Machine[] | null>;
   getNow: () => Date;
-  viewMode: 'matrix' | 'team' | 'analytics' | 'settings' | 'billing' | 'payroll' | 'support';
-  setViewMode: (mode: 'matrix' | 'team' | 'analytics' | 'settings' | 'billing' | 'payroll' | 'support') => void;
+  viewMode: 'matrix' | 'team' | 'analytics' | 'settings' | 'billing' | 'payroll' | 'support' | 'audit';
+  setViewMode: (mode: 'matrix' | 'team' | 'analytics' | 'settings' | 'billing' | 'payroll' | 'support' | 'audit') => void;
   unreadSupportMessages?: number;
 }
 
@@ -520,12 +522,36 @@ const EmployerView: React.FC<EmployerViewProps> = ({
       forcePinChange: false
     };
     onAddUser(user);
+    if (currentOrg && currentUser) {
+      logAuditAction(
+        currentOrg.id,
+        currentUser.id,
+        currentUser.name,
+        'add_user',
+        `Добавлен новый сотрудник ${user.name} (${user.position})`,
+        user.id,
+        user.name
+      );
+    }
     setNewUser({ name: '', position: positions[0]?.name || '', department: '', pin: '0000', requirePhoto: false, branchId: '' });
   };
 
   const deleteLogItem = (logId: string) => {
     if (confirm('Удалить эту запись безвозвратно?')) {
+      const log = logs.find(l => l.id === logId);
       onDeleteLog(logId);
+      if (currentOrg && currentUser && log) {
+        const targetUser = users.find(u => u.id === log.userId);
+        logAuditAction(
+          currentOrg.id,
+          currentUser.id,
+          currentUser.name,
+          'delete_shift',
+          `Удалена смена/запись за ${format(new Date(log.date), 'dd.MM.yyyy')}`,
+          targetUser?.id,
+          targetUser?.name
+        );
+      }
     }
   };
 
@@ -545,10 +571,50 @@ const EmployerView: React.FC<EmployerViewProps> = ({
       itemsProduced: itemsProduced !== undefined ? itemsProduced : log.itemsProduced
     };
     
+    if (currentOrg && currentUser) {
+      const targetUser = users.find(u => u.id === log.userId);
+      logAuditAction(
+        currentOrg.id,
+        currentUser.id,
+        currentUser.name,
+        'edit_shift',
+        `Изменена смена за ${format(new Date(log.date), 'dd.MM.yyyy')}: ${val} мин, штраф: ${fine || 0}, премия: ${bonus || 0}`,
+        targetUser?.id,
+        targetUser?.name
+      );
+    }
+    
     onLogsUpsert([updatedLog]);
   };
 
-  const handleUpdateMachinesList = (newMachines: Machine[], deletedMachineInfo?: { id: string, reason: string }[]) => onUpdateMachines(newMachines, deletedMachineInfo);
+  const handleUpdateMachinesList = (newMachines: Machine[], deletedMachineInfo?: { id: string, reason: string }[]) => {
+    onUpdateMachines(newMachines, deletedMachineInfo);
+    if (currentOrg && currentUser) {
+      logAuditAction(
+        currentOrg.id,
+        currentUser.id,
+        currentUser.name,
+        'edit_machines',
+        `Изменен список оборудования${deletedMachineInfo && deletedMachineInfo.length > 0 ? ` (удалено: ${deletedMachineInfo.map(d => d.id).join(', ')})` : ''}`
+      );
+    }
+  };
+
+  const handleDeleteUser = (userId: string, reason?: string) => {
+    const targetUser = users.find(u => u.id === userId);
+    onDeleteUser(userId, reason);
+    if (currentOrg && currentUser && targetUser) {
+      logAuditAction(
+        currentOrg.id,
+        currentUser.id,
+        currentUser.name,
+        'delete_user',
+        `Удален сотрудник ${targetUser.name}${reason ? ` (Причина: ${reason})` : ''}`,
+        targetUser.id,
+        targetUser.name
+      );
+    }
+  };
   
   const handlePermissionToggle = (key: keyof PositionPermissions) => {
     if (!configuringPosition) return;
@@ -573,6 +639,15 @@ const EmployerView: React.FC<EmployerViewProps> = ({
     setConfiguringPosition(updated);
     const newPositions = positions.map(p => p.name === updated.name ? updated : p);
     onUpdatePositions(newPositions);
+    if (currentOrg && currentUser) {
+      logAuditAction(
+        currentOrg.id,
+        currentUser.id,
+        currentUser.name,
+        'edit_permissions',
+        `Изменено разрешение "${key}" на ${!configuringPosition.permissions[key]} для должности "${updated.name}"`
+      );
+    }
   };
 
   const handleUpdatePayrollConfig = (key: keyof PayrollConfig, value: any) => {
@@ -588,6 +663,15 @@ const EmployerView: React.FC<EmployerViewProps> = ({
     setConfiguringPosition(updated);
     const newPositions = positions.map(p => p.name === updated.name ? updated : p);
     onUpdatePositions(newPositions);
+    if (currentOrg && currentUser) {
+      logAuditAction(
+        currentOrg.id,
+        currentUser.id,
+        currentUser.name,
+        'edit_payroll_config',
+        `Изменена настройка зарплаты "${key}" на "${value}" для должности "${updated.name}"`
+      );
+    }
   };
 
   const handleAddGeneralBonus = (userIds: string[], amount: number, date: string, note: string) => {
@@ -604,6 +688,15 @@ const EmployerView: React.FC<EmployerViewProps> = ({
       correctionTimestamp: nowStr
     }));
     onLogsUpsert(newLogs);
+    if (currentOrg && currentUser) {
+      logAuditAction(
+        currentOrg.id,
+        currentUser.id,
+        currentUser.name,
+        'add_bonus',
+        `Добавлена премия ${amount} для ${userIds.length} сотрудников за ${date}. Примечание: ${note || 'Общая премия'}`
+      );
+    }
   };
 
   const handleRecalculateAll = async () => {
@@ -709,13 +802,27 @@ const EmployerView: React.FC<EmployerViewProps> = ({
                         positions.find(p => p.name === editingEmployee.position)?.payroll || 
                         DEFAULT_PAYROLL_CONFIG;
                         
+    const newPayroll = {
+      ...basePayroll,
+      [key]: value
+    };
+
     setEditingEmployee({
       ...editingEmployee,
-      payroll: {
-        ...basePayroll,
-        [key]: value
-      }
+      payroll: newPayroll
     });
+    
+    if (currentOrg && currentUser) {
+      logAuditAction(
+        currentOrg.id,
+        currentUser.id,
+        currentUser.name,
+        'edit_user_payroll',
+        `Изменена настройка зарплаты "${key}" на "${value}" для сотрудника ${editingEmployee.name}`,
+        editingEmployee.id,
+        editingEmployee.name
+      );
+    }
   };
 
   const handleExportAll = () => {
@@ -735,6 +842,15 @@ const EmployerView: React.FC<EmployerViewProps> = ({
       const content = ev.target?.result as string;
       if (confirm('Внимание! Это действие заменит текущую базу данных. Продолжить?')) {
         onImportData(content);
+        if (currentOrg && currentUser) {
+          logAuditAction(
+            currentOrg.id,
+            currentUser.id,
+            currentUser.name,
+            'import_data',
+            'Импорт данных из файла'
+          );
+        }
       }
     };
     reader.readAsText(file);
@@ -744,6 +860,17 @@ const EmployerView: React.FC<EmployerViewProps> = ({
     e.preventDefault();
     if (editingEmployee) {
       onUpdateUser(editingEmployee);
+      if (currentOrg && currentUser) {
+        logAuditAction(
+          currentOrg.id,
+          currentUser.id,
+          currentUser.name,
+          'edit_user',
+          `Изменены данные сотрудника ${editingEmployee.name}`,
+          editingEmployee.id,
+          editingEmployee.name
+        );
+      }
       setEditingEmployee(null);
     }
   };
@@ -766,6 +893,15 @@ const EmployerView: React.FC<EmployerViewProps> = ({
         onUpdateUser({ ...u, position: editValue });
       }
     });
+    if (currentOrg && currentUser) {
+      logAuditAction(
+        currentOrg.id,
+        currentUser.id,
+        currentUser.name,
+        'edit_position',
+        `Изменено название должности с "${oldName}" на "${editValue}"`
+      );
+    }
     setEditingPositionName(null);
     setEditValue('');
   };
@@ -776,6 +912,7 @@ const EmployerView: React.FC<EmployerViewProps> = ({
       { id: 'matrix', label: 'Табель' },
       { id: 'payroll', label: 'Зарплата' },
       { id: 'team', label: 'Команда' },
+      { id: 'audit', label: 'Аудит' },
       { id: 'billing', label: 'Биллинг' },
       { id: 'settings', label: 'Настройки' },
       { id: 'support', label: 'Поддержка' }
@@ -786,6 +923,9 @@ const EmployerView: React.FC<EmployerViewProps> = ({
     // Filter by plan features
     if (!canUsePayroll) {
       filteredTabs = filteredTabs.filter(t => t.id !== 'payroll');
+    }
+    if (!planLimits.features.auditLog) {
+      filteredTabs = filteredTabs.filter(t => t.id !== 'audit');
     }
 
     if (userPerms.isFullAdmin) return filteredTabs;
@@ -1076,9 +1216,16 @@ const EmployerView: React.FC<EmployerViewProps> = ({
           userPerms={userPerms}
           handleForceFinish={handleForceFinish}
           setEditingEmployee={setEditingEmployee}
-          onDeleteUser={onDeleteUser}
+          onDeleteUser={handleDeleteUser}
           branches={branches}
           getArchivedUsers={getArchivedUsers}
+        />
+      )}
+
+      {viewMode === 'audit' && planLimits.features.auditLog && (
+        <AuditLogView
+          currentOrg={currentOrg}
+          users={users}
         />
       )}
 
