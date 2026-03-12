@@ -110,18 +110,18 @@ const Layout: React.FC<LayoutProps> = ({
           <aside className={`
             fixed sm:sticky top-0 left-0 h-screen z-50 bg-white border-r border-slate-200 
             flex flex-col py-4 shadow-sm transition-all duration-300 ease-in-out
-            w-64 sm:w-20 ${isSidebarCollapsed ? 'lg:w-20' : 'lg:w-64'}
+            w-64 sm:w-20 ${isSidebarCollapsed ? 'sm:w-20' : 'sm:w-64'}
             ${isMobileMenuOpen ? 'translate-x-0' : '-translate-x-full sm:translate-x-0'}
             no-print
           `}>
             <div className="flex items-center justify-between px-4 sm:px-0 lg:px-4 mb-6 sm:mb-8">
-              <div className={`flex items-center gap-3 sm:justify-center ${isSidebarCollapsed ? 'lg:justify-center' : 'lg:justify-start'} w-full`}>
+              <div className={`flex items-center gap-3 sm:justify-center ${isSidebarCollapsed ? 'sm:justify-center' : 'sm:justify-start'} w-full`}>
                 <div className="bg-blue-600 text-white p-2 rounded-xl shadow-md shrink-0">
                   <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                     <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2.5} d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z" />
                   </svg>
                 </div>
-                <span className={`font-bold text-slate-900 sm:hidden ${isSidebarCollapsed ? 'lg:hidden' : 'lg:block'}`}>WorkTracker</span>
+                <span className={`font-bold text-slate-900 sm:hidden ${isSidebarCollapsed ? 'sm:hidden' : 'sm:block'}`}>WorkTracker</span>
               </div>
               <button 
                 className="sm:hidden p-2 text-slate-400 hover:text-slate-600"
@@ -143,7 +143,7 @@ const Layout: React.FC<LayoutProps> = ({
                         setEmployerViewMode(tab.id as any);
                         setIsMobileMenuOpen(false);
                       }}
-                      className={`flex items-center sm:justify-center ${isSidebarCollapsed ? 'lg:justify-center' : 'lg:justify-start'} gap-3 p-3 rounded-xl transition-all group relative ${
+                      className={`flex items-center sm:justify-center ${isSidebarCollapsed ? 'sm:justify-center' : 'sm:justify-start'} gap-3 p-3 rounded-xl transition-all group relative ${
                         isActive 
                           ? 'bg-blue-50 text-blue-600 shadow-sm border border-blue-100' 
                           : 'text-slate-500 hover:bg-slate-50 hover:text-slate-900'
@@ -151,7 +151,7 @@ const Layout: React.FC<LayoutProps> = ({
                       title={tab.label}
                     >
                       <Icon className={`w-5 h-5 shrink-0 ${isActive ? 'stroke-[2.5px]' : 'stroke-2 group-hover:scale-110 transition-transform'}`} />
-                      <span className={`font-medium sm:hidden ${isSidebarCollapsed ? 'lg:hidden' : 'lg:block'} ${isActive ? 'font-semibold' : ''}`}>{tab.label}</span>
+                      <span className={`font-medium sm:hidden ${isSidebarCollapsed ? 'sm:hidden' : 'sm:block'} ${isActive ? 'font-semibold' : ''}`}>{tab.label}</span>
                       
                       {tab.id === 'support' && unreadSupportMessages > 0 && (
                         <span className="absolute top-2 right-2 sm:top-1 sm:right-1 flex h-5 w-5 items-center justify-center rounded-full bg-rose-500 text-[10px] font-bold text-white ring-2 ring-white">
@@ -168,7 +168,7 @@ const Layout: React.FC<LayoutProps> = ({
                       setEmployeeViewMode?.('control');
                       setIsMobileMenuOpen(false);
                     }}
-                    className={`flex items-center sm:justify-center ${isSidebarCollapsed ? 'lg:justify-center' : 'lg:justify-start'} gap-3 p-3 rounded-xl transition-all group ${
+                    className={`flex items-center sm:justify-center ${isSidebarCollapsed ? 'sm:justify-center' : 'sm:justify-start'} gap-3 p-3 rounded-xl transition-all group ${
                       employeeViewMode === 'control' 
                         ? 'bg-blue-50 text-blue-600 shadow-sm border border-blue-100' 
                         : 'text-slate-500 hover:bg-slate-50 hover:text-slate-900'
@@ -176,7 +176,7 @@ const Layout: React.FC<LayoutProps> = ({
                     title="Управление"
                   >
                     <LayoutDashboard className={`w-5 h-5 shrink-0 ${employeeViewMode === 'control' ? 'stroke-[2.5px]' : 'stroke-2 group-hover:scale-110 transition-transform'}`} />
-                    <span className={`font-medium sm:hidden ${isSidebarCollapsed ? 'lg:hidden' : 'lg:block'} ${employeeViewMode === 'control' ? 'font-semibold' : ''}`}>Управление</span>
+                    <span className={`font-medium sm:hidden ${isSidebarCollapsed ? 'sm:hidden' : 'sm:block'} ${employeeViewMode === 'control' ? 'font-semibold' : ''}`}>Управление</span>
                   </button>
                   
                   <button
@@ -184,7 +184,7 @@ const Layout: React.FC<LayoutProps> = ({
                       setEmployeeViewMode?.('matrix');
                       setIsMobileMenuOpen(false);
                     }}
-                    className={`flex items-center sm:justify-center ${isSidebarCollapsed ? 'lg:justify-center' : 'lg:justify-start'} gap-3 p-3 rounded-xl transition-all group ${
+                    className={`flex items-center sm:justify-center ${isSidebarCollapsed ? 'sm:justify-center' : 'sm:justify-start'} gap-3 p-3 rounded-xl transition-all group ${
                       employeeViewMode === 'matrix'
                         ? 'bg-blue-50 text-blue-600 shadow-sm border border-blue-100' 
                         : 'text-slate-500 hover:bg-slate-50 hover:text-slate-900'
@@ -192,7 +192,7 @@ const Layout: React.FC<LayoutProps> = ({
                     title="Мой Табель"
                   >
                     <CalendarDays className={`w-5 h-5 shrink-0 ${employeeViewMode === 'matrix' ? 'stroke-[2.5px]' : 'stroke-2 group-hover:scale-110 transition-transform'}`} />
-                    <span className={`font-medium sm:hidden ${isSidebarCollapsed ? 'lg:hidden' : 'lg:block'} ${employeeViewMode === 'matrix' ? 'font-semibold' : ''}`}>Мой Табель</span>
+                    <span className={`font-medium sm:hidden ${isSidebarCollapsed ? 'sm:hidden' : 'sm:block'} ${employeeViewMode === 'matrix' ? 'font-semibold' : ''}`}>Мой Табель</span>
                   </button>
 
                   <button
@@ -200,11 +200,11 @@ const Layout: React.FC<LayoutProps> = ({
                       window.dispatchEvent(new CustomEvent('open-pin-change'));
                       setIsMobileMenuOpen(false);
                     }}
-                    className={`flex items-center sm:justify-center ${isSidebarCollapsed ? 'lg:justify-center' : 'lg:justify-start'} gap-3 p-3 rounded-xl transition-all group text-slate-500 hover:bg-slate-50 hover:text-slate-900`}
+                    className={`flex items-center sm:justify-center ${isSidebarCollapsed ? 'sm:justify-center' : 'sm:justify-start'} gap-3 p-3 rounded-xl transition-all group text-slate-500 hover:bg-slate-50 hover:text-slate-900`}
                     title="Сменить PIN"
                   >
                     <svg className="w-5 h-5 shrink-0 stroke-2 group-hover:scale-110 transition-transform" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 7a2 2 0 012 2m4 0a6 6 0 01-7.743 5.743L11 17H9v2H7v2H4a1 1 0 01-1-1v-2.586a1 1 0 01.293-.707l5.964-5.964A6 6 0 1121 9z" /></svg>
-                    <span className={`font-medium sm:hidden ${isSidebarCollapsed ? 'lg:hidden' : 'lg:block'}`}>Сменить PIN</span>
+                    <span className={`font-medium sm:hidden ${isSidebarCollapsed ? 'sm:hidden' : 'sm:block'}`}>Сменить PIN</span>
                   </button>
                 </>
               )}
@@ -213,7 +213,7 @@ const Layout: React.FC<LayoutProps> = ({
             <div className="mt-auto flex flex-col gap-2 px-3 sm:px-2 lg:px-3 pt-4 border-t border-slate-100">
               <button
                 onClick={toggleSidebar}
-                className={`hidden lg:flex items-center sm:justify-center ${isSidebarCollapsed ? 'lg:justify-center' : 'lg:justify-start'} gap-3 p-3 rounded-xl text-slate-500 hover:bg-slate-50 hover:text-slate-900 transition-all group`}
+                className={`hidden sm:flex items-center sm:justify-center ${isSidebarCollapsed ? 'sm:justify-center' : 'sm:justify-start'} gap-3 p-3 rounded-xl text-slate-500 hover:bg-slate-50 hover:text-slate-900 transition-all group`}
                 title={isSidebarCollapsed ? 'Развернуть меню' : 'Свернуть меню'}
               >
                 {isSidebarCollapsed ? (
@@ -221,7 +221,7 @@ const Layout: React.FC<LayoutProps> = ({
                 ) : (
                   <PanelLeftClose className="w-5 h-5 shrink-0 stroke-2 group-hover:scale-110 transition-transform" />
                 )}
-                <span className={`font-medium sm:hidden ${isSidebarCollapsed ? 'lg:hidden' : 'lg:block'}`}>
+                <span className={`font-medium sm:hidden ${isSidebarCollapsed ? 'sm:hidden' : 'sm:block'}`}>
                   Свернуть меню
                 </span>
               </button>
@@ -232,22 +232,22 @@ const Layout: React.FC<LayoutProps> = ({
                     onSwitchRole(user.role === UserRole.EMPLOYER ? UserRole.EMPLOYEE : UserRole.EMPLOYER);
                     setIsMobileMenuOpen(false);
                   }}
-                  className={`flex items-center sm:justify-center ${isSidebarCollapsed ? 'lg:justify-center' : 'lg:justify-start'} gap-3 p-3 rounded-xl text-slate-500 hover:bg-slate-50 hover:text-slate-900 transition-all group`}
+                  className={`flex items-center sm:justify-center ${isSidebarCollapsed ? 'sm:justify-center' : 'sm:justify-start'} gap-3 p-3 rounded-xl text-slate-500 hover:bg-slate-50 hover:text-slate-900 transition-all group`}
                   title={user.role === UserRole.EMPLOYER ? 'В режим сотрудника' : 'В режим админа'}
                 >
                   <ArrowLeftRight className="w-5 h-5 shrink-0 stroke-2 group-hover:scale-110 transition-transform" />
-                  <span className={`font-medium sm:hidden ${isSidebarCollapsed ? 'lg:hidden' : 'lg:block'}`}>
+                  <span className={`font-medium sm:hidden ${isSidebarCollapsed ? 'sm:hidden' : 'sm:block'}`}>
                     {user.role === UserRole.EMPLOYER ? 'Режим сотрудника' : 'Режим админа'}
                   </span>
                 </button>
               )}
               <button
                 onClick={onLogout}
-                className={`flex items-center sm:justify-center ${isSidebarCollapsed ? 'lg:justify-center' : 'lg:justify-start'} gap-3 p-3 rounded-xl text-slate-500 hover:bg-rose-50 hover:text-rose-600 transition-all group`}
+                className={`flex items-center sm:justify-center ${isSidebarCollapsed ? 'sm:justify-center' : 'sm:justify-start'} gap-3 p-3 rounded-xl text-slate-500 hover:bg-rose-50 hover:text-rose-600 transition-all group`}
                 title="Выйти"
               >
                 <LogOut className="w-5 h-5 shrink-0 stroke-2 group-hover:scale-110 transition-transform" />
-                <span className={`font-medium sm:hidden ${isSidebarCollapsed ? 'lg:hidden' : 'lg:block'}`}>Выйти</span>
+                <span className={`font-medium sm:hidden ${isSidebarCollapsed ? 'sm:hidden' : 'sm:block'}`}>Выйти</span>
               </button>
             </div>
           </aside>
