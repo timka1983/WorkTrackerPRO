@@ -10,10 +10,19 @@ interface SuperAdminViewProps {
   onLogout: () => void;
   onUpdateSystemConfig?: (config: any) => void;
   unreadSupportMessages?: number;
-  onResetUnread?: () => void;
+  unreadByOrg?: Record<string, number>;
+  onResetUnread?: (orgId?: string) => void;
+  onTabChange?: (tab: string) => void;
 }
 
-const SuperAdminView: React.FC<SuperAdminViewProps> = ({ onLogout, onUpdateSystemConfig, unreadSupportMessages = 0, onResetUnread }) => {
+const SuperAdminView: React.FC<SuperAdminViewProps> = ({ 
+  onLogout, 
+  onUpdateSystemConfig, 
+  unreadSupportMessages = 0, 
+  unreadByOrg = {},
+  onResetUnread,
+  onTabChange
+}) => {
   const [organizations, setOrganizations] = useState<Organization[]>([]);
   const [stats, setStats] = useState<Record<string, number>>({});
   const [loading, setLoading] = useState(true);
@@ -52,12 +61,13 @@ const SuperAdminView: React.FC<SuperAdminViewProps> = ({ onLogout, onUpdateSyste
   const [newSuperAdminPin, setNewSuperAdminPin] = useState('');
   const [newGlobalAdminPin, setNewGlobalAdminPin] = useState('');
 
-  // Reset unread count when entering support view
+  // Reset unread count when entering support view or changing selected org
   useEffect(() => {
+    if (onTabChange) onTabChange(activeTab);
     if (activeTab === 'support' && onResetUnread) {
       onResetUnread();
     }
-  }, [activeTab, onResetUnread]);
+  }, [activeTab, onResetUnread, onTabChange]);
 
   const runDiagnostics = async () => {
     setCheckingDiagnostics(true);
@@ -741,7 +751,14 @@ const SuperAdminView: React.FC<SuperAdminViewProps> = ({ onLogout, onUpdateSyste
                                 {org.name.charAt(0)}
                               </div>
                               <div>
-                                <div className="font-bold text-slate-900">{org.name}</div>
+                                <div className="flex items-center gap-2">
+                                  <div className="font-bold text-slate-900">{org.name}</div>
+                                  {unreadByOrg[org.id] > 0 && (
+                                    <span className="flex h-5 w-5 items-center justify-center rounded-full bg-rose-500 text-[10px] font-bold text-white">
+                                      {unreadByOrg[org.id] > 9 ? '9+' : unreadByOrg[org.id]}
+                                    </span>
+                                  )}
+                                </div>
                                 <div className="text-xs text-slate-500">Владелец: {org.ownerId}</div>
                               </div>
                             </div>
@@ -846,7 +863,11 @@ const SuperAdminView: React.FC<SuperAdminViewProps> = ({ onLogout, onUpdateSyste
           </>
         ) : activeTab === 'support' ? (
           <div className="max-w-2xl mx-auto animate-fadeIn">
-            <SupportChat currentUser={{ id: 'admin', name: 'Супер-Админ', role: UserRole.SUPER_ADMIN } as any} orgId="all" />
+            <SupportChat 
+              currentUser={{ id: 'admin', name: 'Супер-Админ', role: UserRole.SUPER_ADMIN } as any} 
+              orgId="all" 
+              onOrgSelect={(orgId) => onResetUnread && onResetUnread(orgId)}
+            />
           </div>
         ) : activeTab === ('system' as any) ? (
           <div className="max-w-2xl mx-auto space-y-8 animate-fadeIn">

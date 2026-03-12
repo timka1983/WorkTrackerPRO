@@ -6,9 +6,10 @@ import { SupportMessage, User, UserRole } from '../../types';
 interface SupportChatProps {
   currentUser: User | null;
   orgId: string;
+  onOrgSelect?: (orgId: string) => void;
 }
 
-export const SupportChat: React.FC<SupportChatProps> = ({ currentUser, orgId }) => {
+export const SupportChat: React.FC<SupportChatProps> = ({ currentUser, orgId, onOrgSelect }) => {
   const [messages, setMessages] = useState<SupportMessage[]>([]);
   const [newMessage, setNewMessage] = useState('');
   const [selectedOrgId, setSelectedOrgId] = useState<string>('all');
@@ -104,6 +105,12 @@ export const SupportChat: React.FC<SupportChatProps> = ({ currentUser, orgId }) 
     if (!isSuperAdmin || selectedOrgId === 'all') return messages;
     return messages.filter(m => m.organizationId === selectedOrgId);
   }, [messages, selectedOrgId, isSuperAdmin]);
+
+  useEffect(() => {
+    if (onOrgSelect && selectedOrgId !== 'all') {
+      onOrgSelect(selectedOrgId);
+    }
+  }, [selectedOrgId, onOrgSelect]);
 
   const uniqueOrgs = useMemo(() => {
     const orgs = Array.from(new Set(messages.map(m => m.organizationId)));

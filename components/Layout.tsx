@@ -324,6 +324,20 @@ const Layout: React.FC<LayoutProps> = ({
 
               {user && (
                 <div className="flex items-center gap-3 sm:gap-6">
+                  {user.role === UserRole.EMPLOYER && (
+                    <button 
+                      onClick={() => setEmployerViewMode?.('support')}
+                      className="relative p-2 text-slate-400 hover:text-indigo-600 hover:bg-indigo-50 rounded-xl transition-all"
+                      title="Поддержка"
+                    >
+                      <MessageSquare className="w-6 h-6" />
+                      {unreadSupportMessages > 0 && (
+                        <span className="absolute -top-0.5 -right-0.5 flex h-5 w-5 items-center justify-center rounded-full bg-rose-500 text-[10px] font-bold text-white ring-2 ring-white">
+                          {unreadSupportMessages > 9 ? '9+' : unreadSupportMessages}
+                        </span>
+                      )}
+                    </button>
+                  )}
                   <div className="flex items-center gap-3">
                     <div className="text-right hidden sm:block">
                       <p className="text-sm font-semibold text-slate-900">{user.name}</p>

@@ -33,6 +33,15 @@ const App: React.FC = () => {
   const [employerViewMode, setEmployerViewMode] = useState<'matrix' | 'team' | 'analytics' | 'settings' | 'billing' | 'payroll' | 'support'>('analytics');
   const [employeeViewMode, setEmployeeViewMode] = useState<'control' | 'matrix'>('control');
   const [unreadSupportMessages, setUnreadSupportMessages] = useState(0);
+  const [unreadByOrg, setUnreadByOrg] = useState<Record<string, number>>({});
+  const [superAdminTab, setSuperAdminTab] = useState<string>('orgs');
+
+  const totalUnread = useMemo(() => {
+    if (auth.currentUser?.role === UserRole.SUPER_ADMIN) {
+      return Object.values(unreadByOrg).reduce((a, b) => a + b, 0);
+    }
+    return unreadSupportMessages;
+  }, [unreadSupportMessages, unreadByOrg, auth.currentUser]);
 
   // Reset unread count when entering support view
   useEffect(() => {
@@ -65,9 +74,20 @@ const App: React.FC = () => {
 
           // Check if message belongs to this org or if user is super admin
           if (isSuperAdmin || newMessage.organization_id === orgId) {
-            if (employerViewMode !== 'support') {
+            // For super admin, we always track per-org unread messages 
+            // unless they are currently viewing that specific org in support
+            if (isSuperAdmin && newMessage.organization_id) {
+              if (superAdminTab !== 'support') {
+                setUnreadByOrg(prev => ({
+                  ...prev,
+                  [newMessage.organization_id]: (prev[newMessage.organization_id] || 0) + 1
+                }));
+              }
+            } else if (employerViewMode !== 'support') {
               setUnreadSupportMessages(prev => prev + 1);
-              
+            }
+
+            if (employerViewMode !== 'support' && (!isSuperAdmin || superAdminTab !== 'support')) {
               // Optional: browser notification
               sendNotification('Новое сообщение в техподдержке', newMessage.message);
             }
@@ -311,8 +331,21 @@ const App: React.FC = () => {
       <Suspense fallback={<LoadingScreen />}>
         <SuperAdminView 
           onLogout={auth.handleLogout} 
-          unreadSupportMessages={unreadSupportMessages}
-          onResetUnread={() => setUnreadSupportMessages(0)}
+          unreadSupportMessages={totalUnread}
+          unreadByOrg={unreadByOrg}
+          onTabChange={setSuperAdminTab}
+          onResetUnread={(orgId) => {
+            if (orgId) {
+              setUnreadByOrg(prev => {
+                if (!prev[orgId]) return prev;
+                const next = { ...prev };
+                delete next[orgId];
+                return next;
+              });
+            } else {
+              setUnreadByOrg({});
+            }
+          }}
         />
       </Suspense>
     );
@@ -370,7 +403,7 @@ const App: React.FC = () => {
           const dynamicPlan = appData.plans.find(p => p.type.toUpperCase() === currentPlanType);
           return dynamicPlan?.limits?.features?.payroll ?? baseLimits.features.payroll;
         })() : false}
-        unreadSupportMessages={unreadSupportMessages}
+        unreadSupportMessages={totalUnread}
       >
         {appData.dbError && (
           <div className="bg-rose-600 text-white px-4 py-2 text-center text-xs font-bold animate-pulse sticky top-16 z-[60] shadow-lg">
@@ -471,6 +504,7 @@ const App: React.FC = () => {
                 getNow={getNow}
                 viewMode={employerViewMode}
                 setViewMode={setEmployerViewMode}
+                unreadSupportMessages={totalUnread}
               />
             ) : (
               <div className="text-center py-20">

@@ -19,6 +19,7 @@ import { EmployeeEditModal } from './employer/EmployeeEditModal';
 import { LogEditModal } from './employer/LogEditModal';
 import { PhotoPreviewModal } from './employer/PhotoPreviewModal';
 import { SupportChat } from './employer/SupportChat';
+import { MessageSquare } from 'lucide-react';
 
 interface EmployerViewProps {
   logs: WorkLog[];
@@ -62,12 +63,13 @@ interface EmployerViewProps {
   getNow: () => Date;
   viewMode: 'matrix' | 'team' | 'analytics' | 'settings' | 'billing' | 'payroll' | 'support';
   setViewMode: (mode: 'matrix' | 'team' | 'analytics' | 'settings' | 'billing' | 'payroll' | 'support') => void;
+  unreadSupportMessages?: number;
 }
 
 const EmployerView: React.FC<EmployerViewProps> = ({ 
   logs, logsLookup = {}, users, onAddUser, onUpdateUser, onDeleteUser, 
   machines, onUpdateMachines, positions, onUpdatePositions, branches, onUpdateBranches, onDeleteBranch, onImportData, onLogsUpsert, activeShiftsMap = {}, onActiveShiftsUpdate, onDeleteLog,
-  onRefresh, forceCleanAll, onCleanupDatabase, onRemoveBase64Photos, onRunDiagnostics, onMergeDuplicates, onFixDbStructure, isSyncing = false, nightShiftBonusMinutes, onUpdateNightBonus, currentOrg, plans, onUpdateOrg, currentUser: propCurrentUser, onMonthChange, payments, onSavePayment, onDeletePayment, getArchivedUsers, getArchivedMachines, getNow, viewMode, setViewMode
+  onRefresh, forceCleanAll, onCleanupDatabase, onRemoveBase64Photos, onRunDiagnostics, onMergeDuplicates, onFixDbStructure, isSyncing = false, nightShiftBonusMinutes, onUpdateNightBonus, currentOrg, plans, onUpdateOrg, currentUser: propCurrentUser, onMonthChange, payments, onSavePayment, onDeletePayment, getArchivedUsers, getArchivedMachines, getNow, viewMode, setViewMode, unreadSupportMessages = 0
 }) => {
   const [filterMonth, setFilterMonth] = useState(format(getNow(), 'yyyy-MM'));
   const [selectedBranchId, setSelectedBranchId] = useState<string | null>(null);
@@ -1009,14 +1011,35 @@ const EmployerView: React.FC<EmployerViewProps> = ({
       </div>
 
       {viewMode === 'analytics' && (
-        <AnalyticsView
-          dashboardStats={dashboardStats}
-          users={filteredUsers}
-          machines={filteredMachines}
-          userPerms={userPerms}
-          handleForceFinish={handleForceFinish}
-          branches={branches}
-        />
+        <>
+          {unreadSupportMessages > 0 && (
+            <div 
+              onClick={() => setViewMode('support')}
+              className="mb-6 bg-indigo-600 text-white p-4 rounded-2xl shadow-lg shadow-indigo-100 flex items-center justify-between cursor-pointer hover:bg-indigo-700 transition-all animate-pulse"
+            >
+              <div className="flex items-center gap-3">
+                <div className="p-2 bg-white/20 rounded-lg">
+                  <MessageSquare className="w-5 h-5" />
+                </div>
+                <div>
+                  <p className="font-bold text-sm">У вас есть новые сообщения в техподдержке!</p>
+                  <p className="text-xs text-indigo-100">Нажмите, чтобы прочитать</p>
+                </div>
+              </div>
+              <div className="bg-white text-indigo-600 px-3 py-1 rounded-full font-black text-xs">
+                +{unreadSupportMessages}
+              </div>
+            </div>
+          )}
+          <AnalyticsView
+            dashboardStats={dashboardStats}
+            users={filteredUsers}
+            machines={filteredMachines}
+            userPerms={userPerms}
+            handleForceFinish={handleForceFinish}
+            branches={branches}
+          />
+        </>
       )}
 
       {viewMode === 'matrix' && (
