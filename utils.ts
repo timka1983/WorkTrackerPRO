@@ -108,12 +108,14 @@ export const sendNotification = (title: string, body: string) => {
   }
 };
 
-export const sendTelegramNotification = async (
-  botToken: string,
-  chatId: string,
-  message: string
-) => {
-  if (!botToken || !chatId) return;
+const telegramQueue: { botToken: string, chatId: string, message: string }[] = [];
+let isProcessing = false;
+
+const processQueue = async () => {
+  if (isProcessing || telegramQueue.length === 0) return;
+  isProcessing = true;
+  
+  const { botToken, chatId, message } = telegramQueue.shift()!;
   
   try {
     await fetch(`https://api.telegram.org/bot${botToken}/sendMessage`, {
@@ -127,7 +129,21 @@ export const sendTelegramNotification = async (
     });
   } catch (e) {
     console.error('Failed to send Telegram notification:', e);
+  } finally {
+    isProcessing = false;
+    // Small delay to prevent hitting API limits too quickly
+    setTimeout(processQueue, 500);
   }
+};
+
+export const sendTelegramNotification = async (
+  botToken: string,
+  chatId: string,
+  message: string
+) => {
+  if (!botToken || !chatId) return;
+  telegramQueue.push({ botToken, chatId, message });
+  processQueue();
 };
 
 export const getEffectivePayrollConfig = (user: User, positions: PositionConfig[]) => {

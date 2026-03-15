@@ -64,10 +64,7 @@ const SuperAdminView: React.FC<SuperAdminViewProps> = ({
   // Reset unread count when entering support view or changing selected org
   useEffect(() => {
     if (onTabChange) onTabChange(activeTab);
-    if (activeTab === 'support' && onResetUnread) {
-      onResetUnread();
-    }
-  }, [activeTab, onResetUnread, onTabChange]);
+  }, [activeTab, onTabChange]);
 
   const runDiagnostics = async () => {
     setCheckingDiagnostics(true);

@@ -1,7 +1,8 @@
-import React from 'react';
+import React, { useState, useEffect } from 'react';
 import { PlanType, Plan, Organization, PlanLimits, User, Machine } from '../../types';
 import { format } from 'date-fns';
 import { PLAN_LIMITS } from '../../constants';
+import { db } from '../../lib/supabase';
 
 interface BillingViewProps {
   currentOrg: Organization | null;
@@ -28,6 +29,46 @@ export const BillingView: React.FC<BillingViewProps> = ({
   handleApplyPromo,
   promoMessage
 }) => {
+  const [isProcessingPayment, setIsProcessingPayment] = useState<string | null>(null);
+  const [paymentHistory, setPaymentHistory] = useState<any[]>([]);
+
+  useEffect(() => {
+    if (currentOrg) {
+      db.getSubscriptionHistory(currentOrg.id).then(history => {
+        if (history) setPaymentHistory(history);
+      });
+    }
+  }, [currentOrg]);
+
+  const handleSelectPlan = async (planType: PlanType) => {
+    if (!currentOrg) return;
+    setIsProcessingPayment(planType);
+    
+    try {
+      const response = await fetch('/api/payments/create-session', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          orgId: currentOrg.id,
+          planType: planType,
+          amount: planType === PlanType.PRO ? 1500 : 5000 // Example prices
+        })
+      });
+
+      if (!response.ok) throw new Error('Failed to create payment session');
+      
+      const { url } = await response.json();
+      // In a real app, you would redirect to the payment provider
+      // For this demo, we'll open the URL in a new tab or redirect
+      window.location.href = url;
+    } catch (error) {
+      console.error('Payment error:', error);
+      alert('Ошибка при создании платежа. Попробуйте позже.');
+    } finally {
+      setIsProcessingPayment(null);
+    }
+  };
+
   return (
     <div className="space-y-8 no-print animate-fadeIn">
       <section className="bg-white p-8 rounded-[2.5rem] border border-slate-200 shadow-sm overflow-hidden relative">
@@ -192,15 +233,60 @@ export const BillingView: React.FC<BillingViewProps> = ({
               </div>
               
               <button 
-                disabled={isCurrent}
+                disabled={isCurrent || isProcessingPayment === planType}
+                onClick={() => handleSelectPlan(planType as PlanType)}
                 className={`w-full py-4 rounded-2xl font-black uppercase tracking-widest text-xs transition-all ${isCurrent ? 'bg-slate-100 text-slate-400 cursor-default' : 'bg-slate-900 text-white hover:bg-blue-600 shadow-lg shadow-slate-100 hover:shadow-blue-100 active:scale-95'}`}
               >
-                {isCurrent ? 'Ваш тариф' : 'Выбрать тариф'}
+                {isCurrent ? 'Ваш тариф' : isProcessingPayment === planType ? 'Загрузка...' : 'Выбрать тариф'}
               </button>
             </div>
           );
         })}
       </div>
+
+      {paymentHistory.length > 0 && (
+        <section className="bg-white p-8 rounded-[2.5rem] border border-slate-200 shadow-sm mt-8">
+          <h3 className="font-black text-slate-900 mb-6 uppercase text-xs tracking-widest underline decoration-blue-500 decoration-4 underline-offset-8">История платежей</h3>
+          <div className="overflow-x-auto">
+            <table className="w-full text-left">
+              <thead>
+                <tr className="border-b border-slate-100">
+                  <th className="pb-4 text-[10px] font-black text-slate-400 uppercase tracking-widest">Дата</th>
+                  <th className="pb-4 text-[10px] font-black text-slate-400 uppercase tracking-widest">Тариф</th>
+                  <th className="pb-4 text-[10px] font-black text-slate-400 uppercase tracking-widest">Сумма</th>
+                  <th className="pb-4 text-[10px] font-black text-slate-400 uppercase tracking-widest">Статус</th>
+                </tr>
+              </thead>
+              <tbody className="divide-y divide-slate-50">
+                {paymentHistory.map((payment, idx) => (
+                  <tr key={idx} className="group hover:bg-slate-50 transition-colors">
+                    <td className="py-4 text-xs font-bold text-slate-600">
+                      {format(new Date(payment.created_at), 'dd.MM.yyyy HH:mm')}
+                    </td>
+                    <td className="py-4">
+                      <span className="text-[10px] font-black text-blue-600 bg-blue-50 px-2 py-1 rounded-lg uppercase tracking-widest border border-blue-100">
+                        {payment.plan_type}
+                      </span>
+                    </td>
+                    <td className="py-4 text-xs font-black text-slate-900">
+                      {payment.amount} {payment.currency || 'RUB'}
+                    </td>
+                    <td className="py-4">
+                      <span className={`text-[10px] font-black px-2 py-1 rounded-lg uppercase tracking-widest border ${
+                        payment.status === 'completed' 
+                          ? 'text-green-600 bg-green-50 border-green-100' 
+                          : 'text-yellow-600 bg-yellow-50 border-yellow-100'
+                      }`}>
+                        {payment.status === 'completed' ? 'Успешно' : 'В обработке'}
+                      </span>
+                    </td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+        </section>
+      )}
     </div>
   );
 };

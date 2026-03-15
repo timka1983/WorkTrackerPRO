@@ -140,10 +140,14 @@ export const SupportChat: React.FC<SupportChatProps> = ({ currentUser, orgId, on
   }, [orgNames, orgSearchTerm, isSuperAdmin, unreadByOrg]);
 
   useEffect(() => {
-    if (onOrgSelect && selectedOrgId !== 'all') {
-      onOrgSelect(selectedOrgId);
+    if (onOrgSelect) {
+      if (isSuperAdmin && selectedOrgId !== 'all') {
+        onOrgSelect(selectedOrgId);
+      } else if (!isSuperAdmin && orgId) {
+        onOrgSelect(orgId);
+      }
     }
-  }, [selectedOrgId, onOrgSelect]);
+  }, [selectedOrgId, orgId, isSuperAdmin, onOrgSelect, messages.length]);
 
   const handleSendMessage = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -239,22 +243,31 @@ export const SupportChat: React.FC<SupportChatProps> = ({ currentUser, orgId, on
       ) : (
         <>
           <div className="flex-1 overflow-y-auto p-6 space-y-4">
-            {filteredMessages.map(m => (
-              <div key={m.id} className={`flex flex-col ${m.senderId === currentUser?.id ? 'items-end' : 'items-start'}`}>
-                <span className="text-[10px] font-bold text-slate-400 mb-1">
-                  {m.senderName} {isSuperAdmin && `(${orgNames[m.organizationId] || m.organizationId})`}
-                </span>
-                <div 
-                  className={`p-3 rounded-2xl max-w-[80%] transition-all ${
-                    m.senderName === 'Техподдержка' || m.senderId === currentUser?.id
-                      ? 'bg-indigo-600 text-white shadow-md' 
-                      : 'bg-slate-100 text-slate-900'
-                  }`}
-                >
-                  {m.message}
+            {filteredMessages.map(m => {
+              const isOwnMessage = m.senderId === currentUser?.id;
+              const isSupportMessage = m.senderName === 'Техподдержка' || m.senderId === 'admin';
+              
+              return (
+                <div key={m.id} className={`flex flex-col ${isOwnMessage ? 'items-end' : 'items-start'}`}>
+                  <span className="text-[10px] font-bold text-slate-400 mb-1">
+                    {m.senderName} {isSuperAdmin && `(${orgNames[m.organizationId] || m.organizationId})`}
+                  </span>
+                  <div 
+                    className={`p-3 rounded-2xl max-w-[80%] transition-all ${
+                      isOwnMessage
+                        ? 'bg-indigo-600 text-white shadow-md' 
+                        : isSupportMessage
+                          ? 'bg-emerald-500 text-white shadow-md'
+                          : isSuperAdmin
+                            ? 'bg-blue-50 text-blue-900 border border-blue-100'
+                            : 'bg-slate-100 text-slate-900'
+                    }`}
+                  >
+                    {m.message}
+                  </div>
                 </div>
-              </div>
-            ))}
+              );
+            })}
             <div ref={messagesEndRef} />
           </div>
           <form onSubmit={handleSendMessage} className="p-4 border-t border-slate-100 flex gap-2">

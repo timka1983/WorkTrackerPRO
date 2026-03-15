@@ -38,7 +38,7 @@ const isConfigured = () => {
 
 // Кэшируем результат конфигурации
 let _isConfigured: boolean | null = null;
-const checkConfig = () => {
+export const checkConfig = () => {
   if (_isConfigured === null) _isConfigured = isConfigured();
   return _isConfigured;
 };
@@ -65,6 +65,49 @@ export const db = {
     } catch (e) {
       return false;
     }
+  },
+  getAuditLogs: async (orgId: string) => {
+    if (!checkConfig()) return null;
+    const { data, error } = await supabase
+      .from('audit_logs')
+      .select('*')
+      .eq('organization_id', orgId)
+      .order('timestamp', { ascending: false })
+      .limit(1000);
+    
+    if (error) {
+      console.error('Error fetching audit logs:', error);
+      return null;
+    }
+    
+    return (data || []).map(l => ({
+      id: l.id,
+      orgId: l.organization_id,
+      timestamp: l.timestamp,
+      adminId: l.admin_id,
+      adminName: l.admin_name,
+      action: l.action,
+      details: l.details,
+      changes: l.changes,
+      targetUserId: l.target_user_id,
+      targetUserName: l.target_user_name
+    }));
+  },
+  saveAuditLog: async (log: any) => {
+    if (!isConfigured()) return { error: 'Not configured' };
+    const { error } = await supabase.from('audit_logs').insert({
+      id: log.id,
+      organization_id: log.orgId,
+      timestamp: log.timestamp,
+      admin_id: log.adminId,
+      admin_name: log.adminName,
+      action: log.action,
+      details: log.details,
+      changes: log.changes,
+      target_user_id: log.targetUserId,
+      target_user_name: log.targetUserName
+    });
+    return { error };
   },
   getOrganization: async (orgId: string) => {
     if (!checkConfig()) {
@@ -1579,7 +1622,58 @@ DROP POLICY IF EXISTS "Allow public update" ON payroll_periods;
 CREATE POLICY "Allow public update" ON payroll_periods FOR UPDATE USING (true);
 DROP POLICY IF EXISTS "Allow public delete" ON payroll_periods;
 CREATE POLICY "Allow public delete" ON payroll_periods FOR DELETE USING (true);
+
+-- 14. Audit Logs
+CREATE TABLE IF NOT EXISTS audit_logs (
+  id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+  organization_id TEXT NOT NULL,
+  timestamp TIMESTAMPTZ DEFAULT now(),
+  admin_id TEXT NOT NULL,
+  admin_name TEXT NOT NULL,
+  action TEXT NOT NULL,
+  details TEXT NOT NULL,
+  changes TEXT,
+  target_user_id TEXT,
+  target_user_name TEXT
+);
+ALTER TABLE audit_logs ENABLE ROW LEVEL SECURITY;
+DROP POLICY IF EXISTS "Allow public read" ON audit_logs;
+CREATE POLICY "Allow public read" ON audit_logs FOR SELECT USING (true);
+DROP POLICY IF EXISTS "Allow public insert" ON audit_logs;
+CREATE POLICY "Allow public insert" ON audit_logs FOR INSERT WITH CHECK (true);
+-- 15. Payment History
+CREATE TABLE IF NOT EXISTS payment_history (
+  id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+  organization_id TEXT NOT NULL,
+  amount NUMERIC NOT NULL,
+  currency TEXT NOT NULL DEFAULT 'RUB',
+  plan_type TEXT NOT NULL,
+  status TEXT NOT NULL,
+  payment_id TEXT,
+  created_at TIMESTAMPTZ DEFAULT now()
+);
+ALTER TABLE payment_history ENABLE ROW LEVEL SECURITY;
+DROP POLICY IF EXISTS "Allow public read" ON payment_history;
+CREATE POLICY "Allow public read" ON payment_history FOR SELECT USING (true);
+DROP POLICY IF EXISTS "Allow public insert" ON payment_history;
+CREATE POLICY "Allow public insert" ON payment_history FOR INSERT WITH CHECK (true);
     `;
+  },
+  saveSubscriptionPayment: async (payment: any) => {
+    if (!isConfigured()) return { error: 'Not configured' };
+    const { error } = await supabase
+      .from('payment_history')
+      .insert(payment);
+    return { error };
+  },
+  getSubscriptionHistory: async (orgId: string) => {
+    if (!checkConfig()) return null;
+    const { data, error } = await supabase
+      .from('payment_history')
+      .select('*')
+      .eq('organization_id', orgId)
+      .order('created_at', { ascending: false });
+    return data;
   },
   getDiagnostics: async () => {
     const results: Record<string, any> = {
@@ -1597,7 +1691,7 @@ CREATE POLICY "Allow public delete" ON payroll_periods FOR DELETE USING (true);
     }
 
     try {
-      const tablesToCheck = ['organizations', 'users', 'work_logs', 'machines', 'positions', 'plans', 'promo_codes', 'active_shifts', 'system_config', 'payroll_snapshots', 'payroll_payments', 'payroll_periods'];
+      const tablesToCheck = ['organizations', 'users', 'work_logs', 'machines', 'positions', 'plans', 'promo_codes', 'active_shifts', 'system_config', 'payroll_snapshots', 'payroll_payments', 'payroll_periods', 'payment_history', 'support_messages'];
       results.storage = {};
       
       try {

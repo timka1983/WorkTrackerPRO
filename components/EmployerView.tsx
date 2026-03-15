@@ -66,12 +66,13 @@ interface EmployerViewProps {
   viewMode: 'matrix' | 'team' | 'analytics' | 'settings' | 'billing' | 'payroll' | 'support' | 'audit';
   setViewMode: (mode: 'matrix' | 'team' | 'analytics' | 'settings' | 'billing' | 'payroll' | 'support' | 'audit') => void;
   unreadSupportMessages?: number;
+  onResetUnread?: (orgId?: string) => void;
 }
 
 const EmployerView: React.FC<EmployerViewProps> = ({ 
   logs, logsLookup = {}, users, onAddUser, onUpdateUser, onDeleteUser, 
   machines, onUpdateMachines, positions, onUpdatePositions, branches, onUpdateBranches, onDeleteBranch, onImportData, onLogsUpsert, activeShiftsMap = {}, onActiveShiftsUpdate, onDeleteLog,
-  onRefresh, forceCleanAll, onCleanupDatabase, onRemoveBase64Photos, onRunDiagnostics, onMergeDuplicates, onFixDbStructure, isSyncing = false, nightShiftBonusMinutes, onUpdateNightBonus, currentOrg, plans, onUpdateOrg, currentUser: propCurrentUser, onMonthChange, payments, onSavePayment, onDeletePayment, getArchivedUsers, getArchivedMachines, getNow, viewMode, setViewMode, unreadSupportMessages = 0
+  onRefresh, forceCleanAll, onCleanupDatabase, onRemoveBase64Photos, onRunDiagnostics, onMergeDuplicates, onFixDbStructure, isSyncing = false, nightShiftBonusMinutes, onUpdateNightBonus, currentOrg, plans, onUpdateOrg, currentUser: propCurrentUser, onMonthChange, payments, onSavePayment, onDeletePayment, getArchivedUsers, getArchivedMachines, getNow, viewMode, setViewMode, unreadSupportMessages = 0, onResetUnread
 }) => {
   const [filterMonth, setFilterMonth] = useState(format(getNow(), 'yyyy-MM'));
   const [selectedBranchId, setSelectedBranchId] = useState<string | null>(null);
@@ -530,7 +531,8 @@ const EmployerView: React.FC<EmployerViewProps> = ({
         'add_user',
         `Добавлен новый сотрудник ${user.name} (${user.position})`,
         user.id,
-        user.name
+        user.name,
+        `Имя: ${user.name}, Должность: ${user.position}, Отдел: ${user.department || 'Нет'}, PIN: ${user.pin}, Фотофиксация: ${user.requirePhoto}`
       );
     }
     setNewUser({ name: '', position: positions[0]?.name || '', department: '', pin: '0000', requirePhoto: false, branchId: '' });
@@ -580,7 +582,8 @@ const EmployerView: React.FC<EmployerViewProps> = ({
         'edit_shift',
         `Изменена смена за ${format(new Date(log.date), 'dd.MM.yyyy')}: ${val} мин, штраф: ${fine || 0}, премия: ${bonus || 0}`,
         targetUser?.id,
-        targetUser?.name
+        targetUser?.name,
+        `Длительность: ${log.durationMinutes} -> ${val}, штраф: ${log.fine || 0} -> ${fine || 0}, премия: ${log.bonus || 0} -> ${bonus || 0}, произведено: ${log.itemsProduced || 0} -> ${itemsProduced || 0}`
       );
     }
     
@@ -588,14 +591,39 @@ const EmployerView: React.FC<EmployerViewProps> = ({
   };
 
   const handleUpdateMachinesList = (newMachines: Machine[], deletedMachineInfo?: { id: string, reason: string }[]) => {
+    const oldMachines = machines;
     onUpdateMachines(newMachines, deletedMachineInfo);
     if (currentOrg && currentUser) {
+      let changes = '';
+      const added = newMachines.filter(nm => !oldMachines.some(om => om.id === nm.id));
+      const updated = newMachines.filter(nm => {
+        const om = oldMachines.find(o => o.id === nm.id);
+        return om && (om.name !== nm.name || om.branchId !== nm.branchId);
+      });
+
+      if (added.length > 0) changes += `Добавлено: ${added.map(m => m.name).join(', ')}. `;
+      if (updated.length > 0) {
+        changes += `Изменено: ${updated.map(nm => {
+          const om = oldMachines.find(o => o.id === nm.id);
+          return `${om?.name} -> ${nm.name}`;
+        }).join(', ')}. `;
+      }
+      if (deletedMachineInfo && deletedMachineInfo.length > 0) {
+        changes += `Удалено: ${deletedMachineInfo.map(d => {
+          const m = oldMachines.find(om => om.id === d.id);
+          return `${m?.name || d.id} (Причина: ${d.reason})`;
+        }).join(', ')}. `;
+      }
+
       logAuditAction(
         currentOrg.id,
         currentUser.id,
         currentUser.name,
         'edit_machines',
-        `Изменен список оборудования${deletedMachineInfo && deletedMachineInfo.length > 0 ? ` (удалено: ${deletedMachineInfo.map(d => d.id).join(', ')})` : ''}`
+        `Изменен список оборудования`,
+        undefined,
+        undefined,
+        changes.trim()
       );
     }
   };
@@ -645,7 +673,10 @@ const EmployerView: React.FC<EmployerViewProps> = ({
         currentUser.id,
         currentUser.name,
         'edit_permissions',
-        `Изменено разрешение "${key}" на ${!configuringPosition.permissions[key]} для должности "${updated.name}"`
+        `Изменено разрешение "${key}" на ${!configuringPosition.permissions[key]} для должности "${updated.name}"`,
+        undefined,
+        undefined,
+        `Разрешение: ${key}, Старое значение: ${configuringPosition.permissions[key]}, Новое значение: ${!configuringPosition.permissions[key]}`
       );
     }
   };
@@ -669,7 +700,10 @@ const EmployerView: React.FC<EmployerViewProps> = ({
         currentUser.id,
         currentUser.name,
         'edit_payroll_config',
-        `Изменена настройка зарплаты "${key}" на "${value}" для должности "${updated.name}"`
+        `Изменена настройка зарплаты "${key}" на "${value}" для должности "${updated.name}"`,
+        undefined,
+        undefined,
+        `Настройка: ${key}, Старое значение: ${currentPayroll[key]}, Новое значение: ${value}`
       );
     }
   };
@@ -848,7 +882,10 @@ const EmployerView: React.FC<EmployerViewProps> = ({
             currentUser.id,
             currentUser.name,
             'import_data',
-            'Импорт данных из файла'
+            'Импорт данных из файла',
+            undefined,
+            undefined,
+            `Размер файла: ${content.length} символов`
           );
         }
       }
@@ -859,8 +896,21 @@ const EmployerView: React.FC<EmployerViewProps> = ({
   const saveEmployeeEdit = (e: React.FormEvent) => {
     e.preventDefault();
     if (editingEmployee) {
+      const oldUser = users.find(u => u.id === editingEmployee.id);
       onUpdateUser(editingEmployee);
-      if (currentOrg && currentUser) {
+      if (currentOrg && currentUser && oldUser) {
+        const changes: string[] = [];
+        if (oldUser.name !== editingEmployee.name) changes.push(`Имя: ${oldUser.name} -> ${editingEmployee.name}`);
+        if (oldUser.position !== editingEmployee.position) changes.push(`Должность: ${oldUser.position} -> ${editingEmployee.position}`);
+        if (oldUser.department !== editingEmployee.department) changes.push(`Отдел: ${oldUser.department} -> ${editingEmployee.department}`);
+        if (oldUser.pin !== editingEmployee.pin) changes.push(`PIN изменен`);
+        if (oldUser.requirePhoto !== editingEmployee.requirePhoto) changes.push(`Фотофиксация: ${oldUser.requirePhoto} -> ${editingEmployee.requirePhoto}`);
+        if (oldUser.branchId !== editingEmployee.branchId) {
+          const oldBranch = branches.find(b => b.id === oldUser.branchId)?.name || 'Нет';
+          const newBranch = branches.find(b => b.id === editingEmployee.branchId)?.name || 'Нет';
+          changes.push(`Филиал: ${oldBranch} -> ${newBranch}`);
+        }
+
         logAuditAction(
           currentOrg.id,
           currentUser.id,
@@ -868,7 +918,8 @@ const EmployerView: React.FC<EmployerViewProps> = ({
           'edit_user',
           `Изменены данные сотрудника ${editingEmployee.name}`,
           editingEmployee.id,
-          editingEmployee.name
+          editingEmployee.name,
+          changes.join(', ')
         );
       }
       setEditingEmployee(null);
@@ -899,7 +950,10 @@ const EmployerView: React.FC<EmployerViewProps> = ({
         currentUser.id,
         currentUser.name,
         'edit_position',
-        `Изменено название должности с "${oldName}" на "${editValue}"`
+        `Изменено название должности с "${oldName}" на "${editValue}"`,
+        undefined,
+        undefined,
+        `Старое название: ${oldName}, Новое название: ${editValue}`
       );
     }
     setEditingPositionName(null);
@@ -1306,7 +1360,12 @@ const EmployerView: React.FC<EmployerViewProps> = ({
         />
       )}
       {viewMode === 'support' && (
-        <SupportChat key={currentOrg?.id} currentUser={currentUser || null} orgId={currentOrg?.id || ''} />
+        <SupportChat 
+          key={currentOrg?.id} 
+          currentUser={currentUser || null} 
+          orgId={currentOrg?.id || ''} 
+          onOrgSelect={onResetUnread}
+        />
       )}
       {/* Debug Info (Only for admins) */}
       {currentUser?.isAdmin && (

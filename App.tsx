@@ -12,6 +12,7 @@ import { useAppData } from './hooks/useAppData';
 import { useAuth } from './hooks/useAuth';
 
 import { useTimeSync } from './hooks/useTimeSync';
+import { PaymentSuccess } from './components/PaymentSuccess';
 
 // Lazy load heavy components
 const EmployeeView = React.lazy(() => import('./components/EmployeeView'));
@@ -36,6 +37,34 @@ const App: React.FC = () => {
   const [unreadByOrg, setUnreadByOrg] = useState<Record<string, number>>({});
   const [superAdminTab, setSuperAdminTab] = useState<string>('orgs');
 
+  const handleResetUnread = useCallback((orgId?: string) => {
+    const now = new Date().toISOString();
+    const isSuperAdmin = auth.currentUser?.role === UserRole.SUPER_ADMIN;
+
+    if (isSuperAdmin) {
+      const lastReadMapStr = localStorage.getItem('last_read_support_superadmin');
+      const lastReadMap = lastReadMapStr ? JSON.parse(lastReadMapStr) : {};
+
+      if (orgId && orgId !== 'all') {
+        lastReadMap[orgId] = now;
+        localStorage.setItem('last_read_support_superadmin', JSON.stringify(lastReadMap));
+
+        setUnreadByOrg(prev => {
+          if (!prev[orgId]) return prev;
+          const next = { ...prev };
+          delete next[orgId];
+          return next;
+        });
+      }
+    } else {
+      const currentOrgId = orgId || auth.currentUser?.organizationId;
+      if (currentOrgId) {
+        setUnreadSupportMessages(0);
+        localStorage.setItem(`last_read_support_${currentOrgId}`, now);
+      }
+    }
+  }, [auth.currentUser]);
+
   const totalUnread = useMemo(() => {
     if (auth.currentUser?.role === UserRole.SUPER_ADMIN) {
       return Object.values(unreadByOrg).reduce((a, b) => a + b, 0);
@@ -46,13 +75,9 @@ const App: React.FC = () => {
   // Reset unread count when entering support view
   useEffect(() => {
     if (employerViewMode === 'support' && auth.currentUser) {
-      setUnreadSupportMessages(0);
-      const orgId = auth.currentUser.organizationId;
-      if (orgId) {
-        localStorage.setItem(`last_read_support_${orgId}`, new Date().toISOString());
-      }
+      handleResetUnread();
     }
-  }, [employerViewMode, auth.currentUser]);
+  }, [employerViewMode, auth.currentUser, handleResetUnread]);
 
   // Fetch initial unread count
   useEffect(() => {
@@ -117,13 +142,10 @@ const App: React.FC = () => {
 
     if (!isSuperAdmin && !orgId) return;
 
-    let filter = undefined;
-    if (!isSuperAdmin) {
-      filter = `organization_id=eq.${orgId}`;
-    }
+    const filter = isSuperAdmin ? undefined : `organization_id=eq.${orgId}`;
 
     const channel = supabase
-      .channel(`support_notifications_${auth.currentUser?.id}_${Date.now()}`)
+      .channel(`support_notifications_${auth.currentUser?.id}_${orgId || 'admin'}`)
       .on('postgres_changes', { 
         event: 'INSERT', 
         schema: 'public', 
@@ -163,7 +185,7 @@ const App: React.FC = () => {
     return () => {
       supabase.removeChannel(channel);
     };
-  }, [auth.currentUser, employerViewMode]);
+  }, [auth.currentUser, employerViewMode, superAdminTab]);
 
   const userPermissions = useMemo(() => {
     if (!auth.currentUser) return DEFAULT_PERMISSIONS;
@@ -386,28 +408,6 @@ const App: React.FC = () => {
     return { ...dbUser, role: auth.currentUser.role };
   }, [auth.currentUser, appData.users]);
 
-  const handleResetUnread = useCallback((orgId?: string) => {
-    const now = new Date().toISOString();
-    const lastReadMapStr = localStorage.getItem('last_read_support_superadmin');
-    const lastReadMap = lastReadMapStr ? JSON.parse(lastReadMapStr) : {};
-
-    if (orgId) {
-      lastReadMap[orgId] = now;
-      localStorage.setItem('last_read_support_superadmin', JSON.stringify(lastReadMap));
-
-      setUnreadByOrg(prev => {
-        if (!prev[orgId]) return prev;
-        const next = { ...prev };
-        delete next[orgId];
-        return next;
-      });
-    } else {
-      // If no orgId is provided, we might not want to reset all orgs' timestamps,
-      // but if we do, we'd need to know all orgs. For now, just clear the state.
-      setUnreadByOrg(prev => Object.keys(prev).length === 0 ? prev : {});
-    }
-  }, []);
-
   if (!appData.isInitialized) {
     return <LoadingScreen />;
   }
@@ -455,6 +455,10 @@ const App: React.FC = () => {
         />
       </Suspense>
     );
+  }
+
+  if (window.location.pathname.includes('/payment-success')) {
+    return <PaymentSuccess />;
   }
 
   return (
@@ -580,6 +584,7 @@ const App: React.FC = () => {
                 viewMode={employerViewMode}
                 setViewMode={setEmployerViewMode}
                 unreadSupportMessages={totalUnread}
+                onResetUnread={handleResetUnread}
               />
             ) : (
               <div className="text-center py-20">

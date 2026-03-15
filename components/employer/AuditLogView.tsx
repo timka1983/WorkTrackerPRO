@@ -1,4 +1,4 @@
-import React, { useState, useMemo } from 'react';
+import React, { useState, useMemo, useEffect } from 'react';
 import { History, Search, Filter, User as UserIcon, Calendar, Clock, ArrowRight } from 'lucide-react';
 import { getAuditLogs, AuditLogEntry } from '../../lib/audit';
 import { User, Organization } from '../../types';
@@ -13,10 +13,18 @@ interface AuditLogViewProps {
 export const AuditLogView: React.FC<AuditLogViewProps> = ({ currentOrg, users }) => {
   const [searchTerm, setSearchTerm] = useState('');
   const [filterAction, setFilterAction] = useState<string>('all');
+  const [logs, setLogs] = useState<AuditLogEntry[]>([]);
+  const [isLoading, setIsLoading] = useState(true);
   
-  const logs = useMemo(() => {
-    if (!currentOrg) return [];
-    return getAuditLogs(currentOrg.id);
+  useEffect(() => {
+    const fetchLogs = async () => {
+      if (!currentOrg) return;
+      setIsLoading(true);
+      const data = await getAuditLogs(currentOrg.id);
+      setLogs(data);
+      setIsLoading(false);
+    };
+    fetchLogs();
   }, [currentOrg]);
 
   const filteredLogs = useMemo(() => {
@@ -102,7 +110,12 @@ export const AuditLogView: React.FC<AuditLogViewProps> = ({ currentOrg, users })
         </div>
 
         <div className="space-y-3">
-          {filteredLogs.length === 0 ? (
+          {isLoading ? (
+            <div className="text-center py-12 bg-slate-50 rounded-2xl border border-dashed border-slate-200">
+              <div className="w-12 h-12 border-4 border-indigo-500 border-t-transparent rounded-full animate-spin mx-auto mb-3" />
+              <p className="text-slate-500 font-medium">Загрузка журнала...</p>
+            </div>
+          ) : filteredLogs.length === 0 ? (
             <div className="text-center py-12 bg-slate-50 rounded-2xl border border-dashed border-slate-200">
               <History className="w-12 h-12 text-slate-300 mx-auto mb-3" />
               <p className="text-slate-500 font-medium">Записи не найдены</p>
@@ -140,6 +153,11 @@ export const AuditLogView: React.FC<AuditLogViewProps> = ({ currentOrg, users })
                   <p className="text-sm text-slate-600 mt-2 leading-relaxed">
                     {log.details}
                   </p>
+                  {log.changes && (
+                    <p className="text-xs text-slate-500 mt-2 bg-slate-50 p-2 rounded-lg font-mono">
+                      <span className="font-bold text-slate-700">Изменения:</span> {log.changes}
+                    </p>
+                  )}
                 </div>
               </div>
             ))
