@@ -37,7 +37,7 @@ const App: React.FC = () => {
   const [unreadByOrg, setUnreadByOrg] = useState<Record<string, number>>({});
   const [superAdminTab, setSuperAdminTab] = useState<string>('orgs');
 
-  const handleResetUnread = useCallback((orgId?: string) => {
+  const handleResetUnread = useCallback(async (orgId?: string) => {
     const now = new Date().toISOString();
     const isSuperAdmin = auth.currentUser?.role === UserRole.SUPER_ADMIN;
 
@@ -55,12 +55,33 @@ const App: React.FC = () => {
           delete next[orgId];
           return next;
         });
+
+        // Sync to DB for super admin
+        try {
+          await supabase.from('users').upsert({
+            id: 'super-admin-meta',
+            name: 'Super Admin Meta',
+            organization_id: 'admin',
+            telegram_settings: { lastReadMap }
+          });
+        } catch (e) {
+          console.error('Error syncing super admin read status:', e);
+        }
       }
     } else {
       const currentOrgId = orgId || auth.currentUser?.organizationId;
-      if (currentOrgId) {
+      if (currentOrgId && auth.currentUser) {
         setUnreadSupportMessages(0);
         localStorage.setItem(`last_read_support_${currentOrgId}`, now);
+        
+        // Sync to DB for employer
+        try {
+          await supabase.from('users').update({
+            telegram_settings: { ...(auth.currentUser.telegramSettings || {}), lastSupportReadAt: now }
+          }).eq('id', auth.currentUser.id);
+        } catch (e) {
+          console.error('Error syncing employer read status:', e);
+        }
       }
     }
   }, [auth.currentUser]);
@@ -74,10 +95,23 @@ const App: React.FC = () => {
 
   // Reset unread count when entering support view
   useEffect(() => {
-    if (employerViewMode === 'support' && auth.currentUser) {
+    const isSuperAdmin = auth.currentUser?.role === UserRole.SUPER_ADMIN;
+    if (isSuperAdmin) {
+      // For super admin, we don't reset everything at once, 
+      // but we might want to reset a specific org if it's being viewed
+      // This is handled by SupportChat calling handleResetUnread(orgId)
+    } else if (employerViewMode === 'support' && auth.currentUser) {
       handleResetUnread();
     }
   }, [employerViewMode, auth.currentUser, handleResetUnread]);
+
+  // Handle super admin tab changes to sync unread counts
+  useEffect(() => {
+    if (auth.currentUser?.role === UserRole.SUPER_ADMIN && superAdminTab === 'support') {
+      // When entering support tab, we might want to refresh unread counts
+      // but not necessarily reset them until an org is selected
+    }
+  }, [superAdminTab, auth.currentUser]);
 
   // Fetch initial unread count
   useEffect(() => {
@@ -87,8 +121,21 @@ const App: React.FC = () => {
       const isSuperAdmin = auth.currentUser.role === UserRole.SUPER_ADMIN;
 
       if (isSuperAdmin) {
-        const lastReadMapStr = localStorage.getItem('last_read_support_superadmin');
-        const lastReadMap = lastReadMapStr ? JSON.parse(lastReadMapStr) : {};
+        // Try to fetch from DB first
+        let lastReadMap = {};
+        try {
+          const { data: metaUser } = await supabase.from('users').select('telegram_settings').eq('id', 'super-admin-meta').maybeSingle();
+          if (metaUser?.telegram_settings?.lastReadMap) {
+            lastReadMap = metaUser.telegram_settings.lastReadMap;
+            localStorage.setItem('last_read_support_superadmin', JSON.stringify(lastReadMap));
+          } else {
+            const lastReadMapStr = localStorage.getItem('last_read_support_superadmin');
+            lastReadMap = lastReadMapStr ? JSON.parse(lastReadMapStr) : {};
+          }
+        } catch (e) {
+          const lastReadMapStr = localStorage.getItem('last_read_support_superadmin');
+          lastReadMap = lastReadMapStr ? JSON.parse(lastReadMapStr) : {};
+        }
         
         // Fetch all messages not from super admin
         const { data, error } = await supabase
@@ -100,7 +147,7 @@ const App: React.FC = () => {
           const unreadCounts: Record<string, number> = {};
           data.forEach(msg => {
             const org = msg.organization_id;
-            const lastRead = lastReadMap[org];
+            const lastRead = (lastReadMap as any)[org];
             if (!lastRead || new Date(msg.created_at) > new Date(lastRead)) {
               unreadCounts[org] = (unreadCounts[org] || 0) + 1;
             }
@@ -112,7 +159,15 @@ const App: React.FC = () => {
 
       if (!orgId) return;
 
-      const lastRead = localStorage.getItem(`last_read_support_${orgId}`);
+      // Try to fetch from DB first
+      let lastRead = localStorage.getItem(`last_read_support_${orgId}`);
+      try {
+        const { data: dbUser } = await supabase.from('users').select('telegram_settings').eq('id', auth.currentUser.id).maybeSingle();
+        if (dbUser?.telegram_settings?.lastSupportReadAt) {
+          lastRead = dbUser.telegram_settings.lastSupportReadAt;
+          localStorage.setItem(`last_read_support_${orgId}`, lastRead!);
+        }
+      } catch (e) {}
       
       let query = supabase
         .from('support_messages')

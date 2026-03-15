@@ -245,23 +245,36 @@ export const SupportChat: React.FC<SupportChatProps> = ({ currentUser, orgId, on
           <div className="flex-1 overflow-y-auto p-6 space-y-4">
             {filteredMessages.map(m => {
               const isOwnMessage = m.senderId === currentUser?.id;
-              const isSupportMessage = m.senderName === 'Техподдержка' || m.senderId === 'admin';
+              // Support messages are those from 'Техподдержка' or sent by any admin/super-admin
+              const isSupportMessage = 
+                m.senderName === 'Техподдержка' || 
+                m.senderId === 'admin' || 
+                m.senderId === 'super-admin' ||
+                (isSuperAdmin && isOwnMessage); // For super admin, their own messages are support messages
               
+              // For a regular employer, support messages should be Emerald
+              // For a super admin, their own messages are Indigo, and client messages are Blue/Slate
+              const bgColor = isOwnMessage 
+                ? '#4f46e5' // Indigo for own
+                : (isSupportMessage ? '#10b981' : (isSuperAdmin ? '#dbeafe' : '#f1f5f9'));
+              
+              const textColor = (isOwnMessage || (isSupportMessage && !isSuperAdmin)) 
+                ? '#ffffff' 
+                : (isSuperAdmin && !isOwnMessage ? '#1e3a8a' : '#0f172a');
+
               return (
                 <div key={m.id} className={`flex flex-col ${isOwnMessage ? 'items-end' : 'items-start'}`}>
                   <span className="text-[10px] font-bold text-slate-400 mb-1">
                     {m.senderName} {isSuperAdmin && `(${orgNames[m.organizationId] || m.organizationId})`}
                   </span>
                   <div 
-                    className={`p-3 rounded-2xl max-w-[80%] transition-all ${
-                      isOwnMessage
-                        ? 'bg-indigo-600 text-white shadow-md' 
-                        : isSupportMessage
-                          ? 'bg-emerald-500 text-white shadow-md'
-                          : isSuperAdmin
-                            ? 'bg-blue-50 text-blue-900 border border-blue-100'
-                            : 'bg-slate-100 text-slate-900'
-                    }`}
+                    className="p-3 rounded-2xl max-w-[80%] transition-all shadow-sm border"
+                    style={{ 
+                      wordBreak: 'break-word',
+                      backgroundColor: bgColor,
+                      color: textColor,
+                      borderColor: isOwnMessage ? '#4338ca' : (isSupportMessage ? '#059669' : '#e2e8f0')
+                    }}
                   >
                     {m.message}
                   </div>
