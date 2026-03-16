@@ -1,11 +1,12 @@
 import React, { memo } from 'react';
 
 interface CameraModalProps {
-  showCamera: { slot: number; type: 'start' | 'stop' } | null;
-  setShowCamera: (val: null) => void;
+  showCamera: { slot: number; type: 'start' | 'stop'; location?: any } | null;
+  setShowCamera: (val: any) => void;
   videoRef: React.RefObject<HTMLVideoElement | null>;
   isUploadingPhoto: boolean;
   onCapture: () => void;
+  onCancel?: () => void;
 }
 
 export const CameraModal = memo<CameraModalProps>(({
@@ -13,9 +14,15 @@ export const CameraModal = memo<CameraModalProps>(({
   setShowCamera,
   videoRef,
   isUploadingPhoto,
-  onCapture
+  onCapture,
+  onCancel
 }) => {
   if (!showCamera) return null;
+
+  const handleCancel = () => {
+    if (onCancel) onCancel();
+    else setShowCamera(null);
+  };
 
   return (
     <div className="fixed inset-0 z-[100] bg-slate-900/95 flex flex-col items-center justify-center p-6 backdrop-blur-sm">
@@ -28,7 +35,7 @@ export const CameraModal = memo<CameraModalProps>(({
        </p>
        <div className="flex gap-4">
           <button 
-            onClick={() => setShowCamera(null)}
+            onClick={handleCancel}
             className="px-8 py-4 bg-white/10 text-white rounded-2xl font-black uppercase text-xs tracking-widest border border-white/20"
           >
             Отмена

@@ -15,7 +15,8 @@ import { sendNotification } from '../utils';
 import { useTimeSync } from './useTimeSync';
 import { 
   cleanupDatabase, removeBase64Photos, mergeDuplicateUsersByName,
-  checkDuplicatePositions, fixDuplicatePositions, checkDuplicateActiveShifts, fixDuplicateActiveShifts
+  checkDuplicatePositions, fixDuplicatePositions, checkDuplicateActiveShifts, fixDuplicateActiveShifts,
+  checkDuplicateMachines, fixDuplicateMachines
 } from '../services/cleanupService';
 
 const DEFAULT_ORG_ID = 'default_org';
@@ -383,7 +384,9 @@ export const useAppData = (currentUser: User | null) => {
       setActiveShiftsMap(map);
       localStorage.setItem(STORAGE_KEYS.ACTIVE_SHIFTS, JSON.stringify(map));
       return map;
-    }
+    },
+    refetchInterval: 10000,
+    enabled: !!orgId,
   });
 
   useEffect(() => {
@@ -497,6 +500,72 @@ export const useAppData = (currentUser: User | null) => {
     },
     refetchOnWindowFocus: false,
     retry: 2
+  });
+
+  // 9. Recent Logs (Polling for real-time updates if subscriptions fail)
+  useQuery({
+    queryKey: ['recentLogs', orgId],
+    queryFn: async () => {
+      try {
+        const recent = await db.getRecentLogs(orgId, 2); // Fetch last 2 days
+        if (recent && recent.length > 0) {
+          setLogs(prevLogs => {
+            const offlineLogs = offlineQueue.flat();
+            const offlineIds = new Set(offlineLogs.map(l => l.id));
+            
+            // Create a map of existing logs for quick lookup
+            const prevMap = new Map(prevLogs.map(l => [l.id, l]));
+            
+            // Update or add recent logs
+            recent.forEach(log => {
+              if (!offlineIds.has(log.id)) {
+                prevMap.set(log.id, log);
+              }
+            });
+            
+            const merged = Array.from(prevMap.values());
+            
+            const sorted = merged.sort((a, b) => {
+              const dateCompare = b.date.localeCompare(a.date);
+              if (dateCompare !== 0) return dateCompare;
+              return (b.checkIn || '').localeCompare(a.checkIn || '');
+            });
+            
+            return sorted;
+          });
+          
+          // Also sync Active Shifts Map with these recent logs
+          setActiveShiftsMap(prevMap => {
+            const newMap = { ...prevMap };
+            let changed = false;
+            
+            Object.keys(newMap).forEach(userId => {
+              const userShifts = newMap[userId];
+              if (userShifts && typeof userShifts === 'object') {
+                Object.keys(userShifts).forEach(slot => {
+                  const shift = userShifts[slot];
+                  if (shift && shift.id) {
+                    const log = recent.find(l => l.id === shift.id);
+                    if (log && log.checkOut) {
+                      userShifts[slot] = null;
+                      changed = true;
+                    }
+                  }
+                });
+              }
+            });
+            
+            return changed ? newMap : prevMap;
+          });
+        }
+        return recent;
+      } catch (e) {
+        console.error('Failed to fetch recent logs:', e);
+        return null;
+      }
+    },
+    refetchInterval: 10000, // Poll every 10 seconds
+    enabled: !!orgId,
   });
 
   // --- Real-time Subscriptions ---
@@ -885,23 +954,22 @@ export const useAppData = (currentUser: User | null) => {
     }
   });
 
-  const handleLogsUpsert = useCallback((logsToUpsert: WorkLog[]) => {
-    upsertLogsMutation.mutate(logsToUpsert);
+  const handleLogsUpsert = useCallback(async (logsToUpsert: WorkLog[]) => {
+    return upsertLogsMutation.mutateAsync(logsToUpsert);
   }, [upsertLogsMutation]);
 
-  const handleActiveShiftsUpdate = useCallback((userId: string, shifts: any) => {
+  const handleActiveShiftsUpdate = useCallback(async (userId: string, shifts: any) => {
     if (!currentOrg) return;
     setActiveShiftsMap(prev => {
       const updated = { ...prev, [userId]: shifts };
       localStorage.setItem(STORAGE_KEYS.ACTIVE_SHIFTS, JSON.stringify(updated));
       return updated;
     });
-    db.saveActiveShifts(userId, shifts, currentOrg.id).then(res => {
-      if (res && res.error) {
-        setSyncError(`Ошибка статуса: ${res.error.message || res.error}`);
-        setTimeout(() => setSyncError(null), 5000);
-      }
-    });
+    const res = await db.saveActiveShifts(userId, shifts, currentOrg.id);
+    if (res && res.error) {
+      setSyncError(`Ошибка статуса: ${res.error.message || res.error}`);
+      setTimeout(() => setSyncError(null), 5000);
+    }
   }, [currentOrg]);
 
   const handleDeleteLog = (logId: string) => {
@@ -1211,6 +1279,7 @@ export const useAppData = (currentUser: User | null) => {
     
     // 2. Check for duplicates
     const duplicates = await db.getDuplicateUsers(currentOrg.id);
+    const machineDuplicates = await checkDuplicateMachines(currentOrg.id);
     
     // 3. Check for orphaned logs
     const orphaned = await db.getOrphanedLogs(currentOrg.id);
@@ -1223,9 +1292,18 @@ export const useAppData = (currentUser: User | null) => {
       duplicates.forEach(d => {
         message += `- ${d.name}: ID [${d.users.map((u: any) => u.id).join(', ')}]\n`;
       });
-      message += '\nРешение: Удалите лишних сотрудников вручную через "Сотрудники", предварительно перенеся их смены (если нужно).\n';
     } else {
       message += `\nДубликатов сотрудников по имени не найдено.\n`;
+    }
+
+    if (machineDuplicates.length > 0) {
+      message += `\nНАЙДЕНЫ ДУБЛИКАТЫ СТАНКОВ (${machineDuplicates.length}):\n`;
+      machineDuplicates.forEach(d => {
+        message += `- ${d.name}: ${d.count} шт.\n`;
+      });
+      message += '\nРешение: Используйте кнопку "Объединить дубликаты" для исправления.\n';
+    } else {
+      message += `\nДубликатов станков по имени не найдено.\n`;
     }
     
     if (orphaned.length > 0) {
@@ -1241,12 +1319,14 @@ export const useAppData = (currentUser: User | null) => {
 
   const handleMergeDuplicates = async () => {
     if (!currentOrg) return;
-    if (confirm('ВНИМАНИЕ: Это действие объединит всех сотрудников с одинаковыми именами в одного. Логи будут перенесены на "основного" сотрудника (с наибольшим количеством записей), остальные дубликаты будут удалены. Это действие необратимо. Продолжить?')) {
-      const res = await mergeDuplicateUsersByName(currentOrg.id);
-      if (res.errors.length > 0) {
-        alert('Возникли ошибки: ' + res.errors.join(', '));
+    if (confirm('ВНИМАНИЕ: Это действие объединит всех сотрудников и СТАНКИ с одинаковыми именами. Логи будут перенесены на "основные" записи, остальные дубликаты будут удалены. Это действие необратимо. Продолжить?')) {
+      const resUsers = await mergeDuplicateUsersByName(currentOrg.id);
+      const fixedMachines = await fixDuplicateMachines(currentOrg.id);
+      
+      if (resUsers.errors.length > 0) {
+        alert('Возникли ошибки при объединении сотрудников: ' + resUsers.errors.join(', '));
       } else {
-        alert(`Объединено групп: ${res.mergedGroups}. Удалено дубликатов: ${res.usersDeleted}. Страница будет перезагружена.`);
+        alert(`Объединение завершено.\nСотрудники: объединено групп ${resUsers.mergedGroups}, удалено ${resUsers.usersDeleted}.\nСтанки: удалено дубликатов ${fixedMachines}.\nСтраница будет перезагружена.`);
         window.location.reload();
       }
     }

@@ -15,6 +15,7 @@ interface ShiftControlProps {
   machines: Machine[];
   busyMachineIds: string[];
   processAction: (slot: number, type: 'start' | 'stop') => void;
+  isProcessingAction?: boolean;
   getMachineName: (id?: string) => string;
   isAnyShiftActiveInLogs: boolean;
   isPaid?: boolean;
@@ -33,6 +34,7 @@ export const ShiftControl = memo<ShiftControlProps>(({
   machines,
   busyMachineIds,
   processAction,
+  isProcessingAction,
   getMachineName,
   isAnyShiftActiveInLogs,
   isPaid
@@ -70,13 +72,19 @@ export const ShiftControl = memo<ShiftControlProps>(({
                 </p>
               )}
             </div>
-            <button onClick={() => {
-              if (isPaid) {
-                alert('Финансовый период закрыт. Изменение данных заблокировано.');
-                return;
-              }
-              processAction(slot, 'stop');
-            }} className="w-full py-4 bg-red-500 hover:bg-red-600 text-white rounded-2xl font-black text-sm shadow-lg shadow-red-100 transition-all active:scale-95 uppercase">Завершить</button>
+              <button 
+                disabled={isProcessingAction}
+                onClick={() => {
+                  if (isPaid) {
+                    alert('Финансовый период закрыт. Изменение данных заблокировано.');
+                    return;
+                  }
+                  processAction(slot, 'stop');
+                }} 
+                className="w-full py-4 bg-red-500 hover:bg-red-600 text-white rounded-2xl font-black text-sm shadow-lg shadow-red-100 transition-all active:scale-95 uppercase disabled:opacity-50 disabled:cursor-not-allowed"
+              >
+                {isProcessingAction ? 'Обработка...' : 'Завершить'}
+              </button>
           </div>
         ) : (
           <div className="w-full space-y-4">
@@ -125,7 +133,7 @@ export const ShiftControl = memo<ShiftControlProps>(({
             )}
 
             <button 
-              disabled={isAbsentToday || isAnyShiftActiveInLogs || (perms.useMachines && busyMachineIds.includes(slotMachineIds[slot])) || isPaid}
+              disabled={isAbsentToday || isAnyShiftActiveInLogs || (perms.useMachines && busyMachineIds.includes(slotMachineIds[slot])) || isPaid || isProcessingAction}
               onClick={() => {
                 if (isPaid) {
                   alert('Финансовый период закрыт. Изменение данных заблокировано.');
@@ -133,9 +141,9 @@ export const ShiftControl = memo<ShiftControlProps>(({
                 }
                 processAction(slot, 'start');
               }} 
-              className="w-full py-4 bg-blue-600 hover:bg-blue-700 text-white rounded-2xl font-black text-sm shadow-lg shadow-blue-100 transition-all active:scale-95 uppercase disabled:bg-slate-300 disabled:shadow-none"
+              className="w-full py-4 bg-blue-600 hover:bg-blue-700 text-white rounded-2xl font-black text-sm shadow-lg shadow-blue-100 transition-all active:scale-95 uppercase disabled:bg-slate-300 disabled:shadow-none disabled:cursor-not-allowed"
             >
-              Начать {isNightModeGlobal && perms.canUseNightShift ? 'ночную' : ''} смену
+              {isProcessingAction ? 'Загрузка...' : `Начать ${isNightModeGlobal && perms.canUseNightShift ? 'ночную' : ''} смену`}
             </button>
           </div>
         )}

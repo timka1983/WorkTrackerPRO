@@ -399,6 +399,20 @@ const App: React.FC = () => {
         Object.entries(userShifts).forEach(([slot, shift]) => {
           if (!shift || !shift.checkIn) return;
 
+          if (shift.checkOut) {
+            nextUserShifts[slot] = null;
+            userChanged = true;
+            return;
+          }
+
+          // Double-check if the shift is already closed in the logs
+          const log = appData.logs.find((l: any) => l.id === shift.id);
+          if (log && log.checkOut) {
+            nextUserShifts[slot] = null;
+            userChanged = true;
+            return;
+          }
+
           const duration = calculateMinutes(shift.checkIn, now.toISOString());
           
           if (duration > threshold) {
@@ -442,10 +456,13 @@ const App: React.FC = () => {
 
       if (updates.length > 0) {
         appData.handleLogsUpsert(updates);
+        console.log(`Lazy Cleanup: Closed ${updates.length} zombie shifts.`);
+      }
+      
+      if (Object.keys(shiftUpdates).length > 0) {
         Object.entries(shiftUpdates).forEach(([uid, s]) => {
           appData.handleActiveShiftsUpdate(uid, s);
         });
-        console.log(`Lazy Cleanup: Closed ${updates.length} zombie shifts.`);
       }
     };
 

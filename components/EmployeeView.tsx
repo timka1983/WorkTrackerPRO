@@ -153,6 +153,7 @@ const EmployeeView: React.FC<EmployeeViewProps> = ({
 
   const [showCamera, setShowCamera] = useState<{ slot: number; type: 'start' | 'stop'; location?: any } | null>(null);
   const [isUploadingPhoto, setIsUploadingPhoto] = useState(false);
+  const [isProcessingAction, setIsProcessingAction] = useState(false);
   const [showPieceworkModal, setShowPieceworkModal] = useState<{ slot: number; photo?: string } | null>(null);
   const [itemsProduced, setItemsProduced] = useState<string>('');
   
@@ -235,86 +236,149 @@ const EmployeeView: React.FC<EmployeeViewProps> = ({
   const capturePhoto = (): string => {
     if (!videoRef.current) return '';
     const canvas = document.createElement('canvas');
-    canvas.width = videoRef.current.videoWidth;
-    canvas.height = videoRef.current.videoHeight;
+    const video = videoRef.current;
+    
+    // Оптимизация размера: ограничиваем максимальное измерение до 800px
+    const MAX_DIMENSION = 800;
+    let width = video.videoWidth;
+    let height = video.videoHeight;
+
+    if (width > height) {
+      if (width > MAX_DIMENSION) {
+        height *= MAX_DIMENSION / width;
+        width = MAX_DIMENSION;
+      }
+    } else {
+      if (height > MAX_DIMENSION) {
+        width *= MAX_DIMENSION / height;
+        height = MAX_DIMENSION;
+      }
+    }
+
+    canvas.width = width;
+    canvas.height = height;
     const ctx = canvas.getContext('2d');
-    ctx?.drawImage(videoRef.current, 0, 0);
+    ctx?.drawImage(video, 0, 0, width, height);
+    
+    // Качество 0.5 достаточно для фотофиксации и значительно уменьшает размер файла
     return canvas.toDataURL('image/jpeg', 0.5);
   };
 
   const processAction = async (slot: number, type: 'start' | 'stop') => {
+    if (isProcessingAction) return;
+    
     if (type === 'start') {
-      if ('Notification' in window && Notification.permission === 'default') {
-        await Notification.requestPermission();
+      if (activeShifts[slot]) {
+        console.warn('Shift already active in slot', slot);
+        return;
       }
 
-      // Location Check
-      let locationData = undefined;
-      if (currentOrg?.locationSettings?.enabled) {
-         try {
-             const position = await new Promise<GeolocationPosition>((resolve, reject) => {
-                 navigator.geolocation.getCurrentPosition(resolve, reject, { enableHighAccuracy: true, timeout: 10000 });
-             });
-             
-             const dist = calculateDistance(
-                 currentOrg.locationSettings.latitude, 
-                 currentOrg.locationSettings.longitude, 
-                 position.coords.latitude, 
-                 position.coords.longitude
-             );
-             
-             if (dist > currentOrg.locationSettings.radius) {
-                 alert(`Вы находитесь вне рабочей зоны! Расстояние: ${Math.round(dist)}м. (Макс: ${currentOrg.locationSettings.radius}м)`);
-                 return;
-             }
-             
-             locationData = {
-                 latitude: position.coords.latitude,
-                 longitude: position.coords.longitude,
-                 accuracy: position.coords.accuracy
-             };
-         } catch (e) {
-             alert('Ошибка геолокации. Разрешите доступ к геопозиции для начала смены.');
-             return;
-         }
-      }
-
-      if (perms.useMachines) {
-        const selectedMachineId = slotMachineIds[slot];
-        if (!selectedMachineId) {
-          alert("Пожалуйста, выберите оборудование перед началом смены!");
-          return;
+      setIsProcessingAction(true);
+      try {
+        if ('Notification' in window && Notification.permission === 'default') {
+          await Notification.requestPermission();
         }
-        if (busyMachineIds.includes(selectedMachineId)) {
-          alert("Это оборудование уже занято другим сотрудником!");
-          return;
-        }
-      }
 
-      const activeCount = Object.values(activeShifts).filter(s => s !== null).length;
-      const requirePhoto = user.requirePhoto || perms.defaultRequirePhoto;
-      
-      if (requirePhoto) {
-          if (activeCount === 0) setShowCamera({ slot, type, location: locationData });
-          else handleStartWork(slot, undefined, locationData);
-      } else {
-          handleStartWork(slot, undefined, locationData);
+        // Location Check
+        let locationData = undefined;
+        if (currentOrg?.locationSettings?.enabled) {
+           try {
+               const position = await new Promise<GeolocationPosition>((resolve, reject) => {
+                   navigator.geolocation.getCurrentPosition(resolve, reject, { enableHighAccuracy: true, timeout: 10000 });
+               });
+               
+               const dist = calculateDistance(
+                   currentOrg.locationSettings.latitude, 
+                   currentOrg.locationSettings.longitude, 
+                   position.coords.latitude, 
+                   position.coords.longitude
+               );
+               
+               if (dist > currentOrg.locationSettings.radius) {
+                   alert(`Вы находитесь вне рабочей зоны! Расстояние: ${Math.round(dist)}м. (Макс: ${currentOrg.locationSettings.radius}м)`);
+                   setIsProcessingAction(false);
+                   return;
+               }
+               
+               locationData = {
+                   latitude: position.coords.latitude,
+                   longitude: position.coords.longitude,
+                   accuracy: position.coords.accuracy
+               };
+           } catch (e) {
+               alert('Ошибка геолокации. Разрешите доступ к геопозиции для начала смены.');
+               setIsProcessingAction(false);
+               return;
+           }
+        }
+
+        if (perms.useMachines) {
+          const selectedMachineId = slotMachineIds[slot];
+          if (!selectedMachineId) {
+            alert("Пожалуйста, выберите оборудование перед началом смены!");
+            setIsProcessingAction(false);
+            return;
+          }
+          if (busyMachineIds.includes(selectedMachineId)) {
+            alert("Это оборудование уже занято другим сотрудником!");
+            setIsProcessingAction(false);
+            return;
+          }
+        }
+
+        const activeCount = Object.values(activeShifts).filter(s => s !== null).length;
+        const requirePhoto = user.requirePhoto || perms.defaultRequirePhoto;
+        
+        if (requirePhoto) {
+            if (activeCount === 0) {
+              setShowCamera({ slot, type, location: locationData });
+              // isProcessingAction will be set to false after photo capture or cancel
+            } else {
+              await handleStartWork(slot, undefined, locationData);
+              setIsProcessingAction(false);
+            }
+        } else {
+            await handleStartWork(slot, undefined, locationData);
+            setIsProcessingAction(false);
+        }
+      } catch (e) {
+        console.error('Error processing start action:', e);
+        setIsProcessingAction(false);
       }
     } else {
       // Stop work logic
-      const activeCount = Object.values(activeShifts).filter(s => s !== null).length;
-      const requirePhoto = user.requirePhoto || perms.defaultRequirePhoto;
+      if (!activeShifts[slot]) {
+        console.warn('No active shift in slot to stop', slot);
+        return;
+      }
 
-      if (requirePhoto) {
-        if (activeCount === 1) setShowCamera({ slot, type });
-        else handleStopWork(slot);
-      } else {
-        handleStopWork(slot);
+      setIsProcessingAction(true);
+      try {
+        const activeCount = Object.values(activeShifts).filter(s => s !== null).length;
+        const requirePhoto = user.requirePhoto || perms.defaultRequirePhoto;
+
+        if (requirePhoto) {
+          if (activeCount === 1) {
+            setShowCamera({ slot, type });
+            // isProcessingAction will be set to false after photo capture or cancel
+          } else {
+            await handleStopWork(slot);
+            setIsProcessingAction(false);
+          }
+        } else {
+          await handleStopWork(slot);
+          setIsProcessingAction(false);
+        }
+      } catch (e) {
+        console.error('Error processing stop action:', e);
+        setIsProcessingAction(false);
       }
     }
   };
 
-  const handleStartWork = (slot: number, photo?: string, location?: any) => {
+  const handleStartWork = async (slot: number, photo?: string, location?: any) => {
+    if (activeShifts[slot]) return;
+
     const selectedMachineId = perms.useMachines ? slotMachineIds[slot] : undefined;
     if (selectedMachineId && busyMachineIds.includes(selectedMachineId)) {
        alert("Ошибка: Оборудование уже было занято кем-то другим!");
@@ -339,8 +403,14 @@ const EmployeeView: React.FC<EmployeeViewProps> = ({
     };
     
     const nextShifts = { ...activeShifts, [slot]: newShift };
-    onActiveShiftsUpdate(nextShifts);
-    onLogsUpsert([newShift]);
+    try {
+      await Promise.all([
+        onActiveShiftsUpdate(nextShifts),
+        onLogsUpsert([newShift])
+      ]);
+    } catch (e) {
+      console.error("Failed to sync start work:", e);
+    }
     setShowCamera(null);
 
     // Telegram Notification
@@ -360,7 +430,7 @@ const EmployeeView: React.FC<EmployeeViewProps> = ({
     }
   };
 
-  const handleStopWork = (slot: number, photo?: string, items?: number) => {
+  const handleStopWork = async (slot: number, photo?: string, items?: number) => {
     const currentShift = activeShifts[slot];
     if (!currentShift) return;
     
@@ -390,11 +460,14 @@ const EmployeeView: React.FC<EmployeeViewProps> = ({
     
     // Explicitly update active shifts first
     const nextShifts = { ...activeShifts, [slot]: null };
-    onActiveShiftsUpdate(nextShifts);
-    
-    // Обновляем логи. handleLogsUpsert в App.tsx теперь автоматически очистит 
-    // завершенную смену из карты активных смен.
-    onLogsUpsert([completed]);
+    try {
+      await Promise.all([
+        onActiveShiftsUpdate(nextShifts),
+        onLogsUpsert([completed])
+      ]);
+    } catch (e) {
+      console.error("Failed to sync stop work:", e);
+    }
     setShowCamera(null);
 
     // Telegram Notification
@@ -687,7 +760,7 @@ const EmployeeView: React.FC<EmployeeViewProps> = ({
                 Отмена
               </button>
               <button
-                onClick={() => {
+                onClick={async () => {
                   const items = parseInt(itemsProduced, 10);
                   if (isNaN(items) || items < 0) {
                     alert('Пожалуйста, введите корректное число');
@@ -696,7 +769,12 @@ const EmployeeView: React.FC<EmployeeViewProps> = ({
                   const { slot, photo } = showPieceworkModal;
                   setShowPieceworkModal(null);
                   setItemsProduced('');
-                  handleStopWork(slot, photo, items);
+                  setIsProcessingAction(true);
+                  try {
+                    await handleStopWork(slot, photo, items);
+                  } finally {
+                    setIsProcessingAction(false);
+                  }
                 }}
                 className="flex-1 py-3 rounded-xl font-black bg-blue-600 text-white hover:bg-blue-700 transition-colors shadow-lg shadow-blue-600/20"
               >
@@ -772,12 +850,17 @@ const EmployeeView: React.FC<EmployeeViewProps> = ({
             const photoUrl = await db.uploadPhoto(photoBase64, orgId, user.id);
             if (showCamera) {
               showCamera.type === 'start' 
-                ? handleStartWork(showCamera.slot, photoUrl || undefined) 
-                : handleStopWork(showCamera.slot, photoUrl || undefined);
+                ? await handleStartWork(showCamera.slot, photoUrl || undefined, showCamera.location) 
+                : await handleStopWork(showCamera.slot, photoUrl || undefined);
             }
           } finally {
             setIsUploadingPhoto(false);
+            setIsProcessingAction(false);
           }
+        }}
+        onCancel={() => {
+          setShowCamera(null);
+          setIsProcessingAction(false);
         }}
       />
 
@@ -817,6 +900,7 @@ const EmployeeView: React.FC<EmployeeViewProps> = ({
             machines={machines}
             busyMachineIds={busyMachineIds}
             processAction={processAction}
+            isProcessingAction={isProcessingAction}
             getMachineName={getMachineName}
             isAnyShiftActiveInLogs={isAnyShiftActiveInLogs}
             isPaid={isPaid}

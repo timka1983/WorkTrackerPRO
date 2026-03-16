@@ -372,3 +372,79 @@ export const fixDuplicateActiveShifts = async (orgId: string) => {
   }
   return fixedCount;
 };
+
+export const checkDuplicateMachines = async (orgId: string) => {
+  const { data: machines } = await supabase.from('machines').select('*').eq('organization_id', orgId).eq('is_archived', false);
+  if (!machines) return [];
+  
+  const groups = new Map<string, any[]>();
+  machines.forEach(m => {
+    const key = m.name.trim().toLowerCase();
+    if (!groups.has(key)) groups.set(key, []);
+    groups.get(key)?.push(m);
+  });
+  
+  const duplicates: any[] = [];
+  groups.forEach((group, name) => {
+    if (group.length > 1) {
+      duplicates.push({ name, count: group.length, machines: group });
+    }
+  });
+  return duplicates;
+};
+
+export const fixDuplicateMachines = async (orgId: string) => {
+  const duplicates = await checkDuplicateMachines(orgId);
+  let fixedCount = 0;
+  
+  for (const dup of duplicates) {
+    const machines = dup.machines;
+    
+    // Check log counts for each machine
+    const counts = await Promise.all(machines.map(async (m: any) => {
+      const { count } = await supabase.from('work_logs').select('id', { count: 'exact', head: true }).eq('machine_id', m.id);
+      return { machine: m, count: count || 0 };
+    }));
+    
+    counts.sort((a, b) => b.count - a.count);
+    
+    const master = counts[0].machine;
+    const slaves = counts.slice(1).map(c => c.machine);
+    const slaveIds = slaves.map(m => m.id);
+    
+    // 1. Move logs
+    await supabase.from('work_logs').update({ machine_id: master.id }).in('machine_id', slaveIds);
+    
+    // 2. Update active shifts
+    const { data: activeShifts } = await supabase.from('active_shifts').select('*').eq('organization_id', orgId);
+    if (activeShifts) {
+      for (const shift of activeShifts) {
+        let changed = false;
+        let shiftsObj = shift.shifts_json || shift.shifts || {};
+        if (typeof shiftsObj === 'string') {
+          try { shiftsObj = JSON.parse(shiftsObj); } catch (e) { shiftsObj = {}; }
+        }
+        
+        Object.keys(shiftsObj).forEach(slot => {
+          if (shiftsObj[slot] && slaveIds.includes(shiftsObj[slot].machineId)) {
+            shiftsObj[slot].machineId = master.id;
+            changed = true;
+          }
+        });
+        
+        if (changed) {
+          await supabase.from('active_shifts').update({ 
+            shifts_json: shiftsObj,
+            shifts: shiftsObj 
+          }).eq('id', shift.id);
+        }
+      }
+    }
+    
+    // 3. Delete slaves
+    await supabase.from('machines').delete().in('id', slaveIds);
+    
+    fixedCount += slaves.length;
+  }
+  return fixedCount;
+};

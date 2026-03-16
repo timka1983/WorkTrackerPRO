@@ -231,6 +231,62 @@ export const db = {
       return null;
     }
   },
+  getRecentLogs: async (orgId: string, days: number = 2) => {
+    if (!checkConfig()) return null;
+    try {
+      const now = new Date();
+      now.setDate(now.getDate() - days);
+      const startDate = now.toISOString().split('T')[0];
+      
+      let query = supabase
+        .from('work_logs')
+        .select('*');
+        
+      if (orgId === 'demo_org') {
+        query = query.or('organization_id.eq.demo_org,organization_id.is.null,organization_id.eq.');
+      } else {
+        query = query.eq('organization_id', orgId);
+      }
+
+      query = query
+        .gte('date', startDate)
+        .order('date', { ascending: false })
+        .order('check_in', { ascending: false });
+
+      const { data, error } = await query;
+
+      if (error) {
+        console.error('Error fetching recent logs:', error);
+        return null;
+      }
+
+      return (data || []).map(l => ({
+        id: cleanValue(l.id),
+        userId: cleanValue(l.user_id),
+        organizationId: cleanValue(l.organization_id),
+        branchId: cleanValue(l.branch_id),
+        date: cleanValue(l.date),
+        entryType: cleanValue(l.entry_type),
+        machineId: cleanValue(l.machine_id),
+        checkIn: cleanValue(l.check_in),
+        checkOut: cleanValue(l.check_out),
+        durationMinutes: l.duration_minutes,
+        photoIn: cleanValue(l.photo_in),
+        photoOut: cleanValue(l.photo_out),
+        isCorrected: l.is_corrected,
+        correctionNote: cleanValue(l.correction_note),
+        correctionTimestamp: cleanValue(l.correction_timestamp),
+        isNightShift: l.is_night_shift,
+        fine: l.fine,
+        bonus: l.bonus,
+        itemsProduced: l.items_produced,
+        location: l.location
+      }));
+    } catch (e) {
+      console.error('Error in getRecentLogs:', e);
+      return null;
+    }
+  },
   upsertLog: async (log: any, orgId: string) => {
     if (!isConfigured()) return;
     
