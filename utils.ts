@@ -1,9 +1,5 @@
 
-import { format, differenceInMinutes, eachDayOfInterval, endOfMonth } from 'date-fns';
-// Using sub-path imports for members that fail to resolve from the main package index
-import { parseISO } from 'date-fns/parseISO';
-import { startOfMonth } from 'date-fns/startOfMonth';
-// Using sub-path for locale to ensure correct resolution of Russian locale
+import { format, differenceInMinutes, eachDayOfInterval, endOfMonth, parseISO, startOfMonth } from 'date-fns';
 import { ru } from 'date-fns/locale/ru';
 import { WorkLog, User, EntryType, PositionConfig, PayrollConfig, Organization } from './types';
 

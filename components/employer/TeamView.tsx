@@ -1,7 +1,9 @@
 import React, { useState } from 'react';
 import { User, PositionConfig, PlanLimits, Organization, Machine, WorkLog, Branch } from '../../types';
-import { Archive } from 'lucide-react';
+import { Archive, Send, QrCode } from 'lucide-react';
 import { ArchiveConfirmModal, ArchiveViewModal } from './ArchiveModals';
+import { QRCodeSVG } from 'qrcode.react';
+import { sendTelegramNotification } from '../../utils';
 
 interface TeamViewProps {
   users: User[];
@@ -46,15 +48,41 @@ export const TeamView: React.FC<TeamViewProps> = ({
     userName: ''
   });
   const [isArchiveViewOpen, setIsArchiveViewOpen] = useState(false);
+  const [isQrModalOpen, setIsQrModalOpen] = useState(false);
+  const [isTelegramQrModalOpen, setIsTelegramQrModalOpen] = useState(false);
+  const [selectedUserForQr, setSelectedUserForQr] = useState<User | null>(null);
 
   const handleConfirmArchive = (reason: string) => {
     onDeleteUser(archiveConfirm.userId, reason);
     setArchiveConfirm({ isOpen: false, userId: '', userName: '' });
   };
 
+  const appUrl = window.location.origin;
+  // NOTE: Replace 'YourBotName' with your actual Telegram bot username
+  const botUsername = 'YourBotName';
+  const telegramBotUrl = `https://t.me/${botUsername}?start=${selectedUserForQr?.id || ''}`;
+
+  const handleSendTelegram = (user: User) => {
+    if (!currentOrg?.telegramSettings?.botToken) {
+      alert('Телеграм бот не настроен в настройках организации.');
+      return;
+    }
+    const chatId = user.telegramChatId || currentOrg.telegramSettings.chatId;
+    if (!chatId) {
+      alert('Не указан Telegram ID сотрудника или общий чат.');
+      return;
+    }
+    sendTelegramNotification(
+      currentOrg.telegramSettings.botToken,
+      chatId,
+      `Привет, ${user.name}! Твой QR-код для входа в WorkTracker PRO: ${appUrl}. Отсканируй его, чтобы быстро перейти к странице входа.`
+    );
+    alert('Ссылка на вход отправлена в Telegram!');
+  };
+
   return (
     <section className="grid grid-cols-1 lg:grid-cols-3 gap-8">
-      <div className="lg:col-span-1">
+      <div className="lg:col-span-1 space-y-8">
         <div className={`bg-white p-6 rounded-3xl border border-slate-200 shadow-sm sticky top-24 ${isUserLimitReached ? 'ring-2 ring-blue-600 ring-offset-2' : ''}`}>
           <div className="flex justify-between items-center mb-6">
             <h3 className="font-bold text-slate-900 uppercase text-xs tracking-widest underline decoration-blue-500 decoration-4 underline-offset-8">Новый сотрудник</h3>
@@ -102,6 +130,14 @@ export const TeamView: React.FC<TeamViewProps> = ({
               <button type="submit" className="w-full py-4 bg-blue-600 text-white rounded-2xl font-black shadow-lg shadow-blue-100 uppercase text-xs tracking-widest">Создать</button>
             </form>
           )}
+        </div>
+
+        <div className="bg-white p-6 rounded-3xl border border-slate-200 shadow-sm cursor-pointer hover:border-blue-300 transition-all" onClick={() => setIsQrModalOpen(true)}>
+          <h3 className="font-bold text-slate-900 uppercase text-xs tracking-widest mb-4 underline decoration-blue-500 decoration-4 underline-offset-8">QR-код для входа</h3>
+          <div className="flex flex-col items-center gap-4">
+            <QRCodeSVG value={appUrl} size={160} />
+            <p className="text-[10px] text-slate-500 text-center font-medium">Нажмите, чтобы увеличить</p>
+          </div>
         </div>
       </div>
       <div className="lg:col-span-2 space-y-4">
@@ -167,6 +203,20 @@ export const TeamView: React.FC<TeamViewProps> = ({
                     </div>
                   )}
                   <button 
+                    onClick={() => { setSelectedUserForQr(u); setIsTelegramQrModalOpen(true); }}
+                    className="p-3 text-slate-300 hover:text-emerald-600 transition-all hover:bg-emerald-50 rounded-2xl"
+                    title="QR-код для Telegram"
+                  >
+                    <QrCode size={20} />
+                  </button>
+                  <button 
+                    onClick={() => handleSendTelegram(u)}
+                    className="p-3 text-slate-300 hover:text-blue-600 transition-all hover:bg-blue-50 rounded-2xl"
+                    title="Отправить QR в Telegram"
+                  >
+                    <Send size={20} />
+                  </button>
+                  <button 
                     onClick={() => setEditingEmployee(u)}
                     className="p-3 text-slate-300 hover:text-blue-600 transition-all hover:bg-blue-50 rounded-2xl"
                     title="Редактировать"
@@ -187,6 +237,28 @@ export const TeamView: React.FC<TeamViewProps> = ({
            );
          })}
       </div>
+
+      {isTelegramQrModalOpen && selectedUserForQr && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 p-4" onClick={() => setIsTelegramQrModalOpen(false)}>
+          <div className="bg-white p-8 rounded-3xl flex flex-col items-center gap-6 shadow-2xl" onClick={e => e.stopPropagation()}>
+            <h3 className="font-bold text-lg text-slate-900">Telegram для {selectedUserForQr.name}</h3>
+            <QRCodeSVG value={telegramBotUrl} size={300} />
+            <p className="text-xs text-slate-500 text-center font-medium max-w-[250px]">Сотрудник должен отсканировать код, чтобы перейти к боту и привязать свой Telegram ID.</p>
+            <button className="w-full py-3 bg-slate-900 text-white rounded-xl font-bold uppercase text-xs tracking-widest" onClick={() => setIsTelegramQrModalOpen(false)}>Закрыть</button>
+          </div>
+        </div>
+      )}
+
+      {isQrModalOpen && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 p-4" onClick={() => setIsQrModalOpen(false)}>
+          <div className="bg-white p-8 rounded-3xl flex flex-col items-center gap-6 shadow-2xl" onClick={e => e.stopPropagation()}>
+            <h3 className="font-bold text-lg text-slate-900">QR-код для входа</h3>
+            <QRCodeSVG value={appUrl} size={300} />
+            <p className="text-xs text-slate-500 text-center font-medium max-w-[250px]">Сотрудники могут отсканировать этот код, чтобы быстро перейти к странице входа.</p>
+            <button className="w-full py-3 bg-slate-900 text-white rounded-xl font-bold uppercase text-xs tracking-widest" onClick={() => setIsQrModalOpen(false)}>Закрыть</button>
+          </div>
+        </div>
+      )}
 
       <ArchiveConfirmModal
         isOpen={archiveConfirm.isOpen}

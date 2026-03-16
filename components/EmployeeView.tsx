@@ -3,10 +3,7 @@ import React, { useState, useEffect, useMemo, useRef, memo } from 'react';
 import { WorkLog, User, EntryType, Machine, PositionConfig, PlanLimits, Organization, PayrollPeriod, PayrollStatus } from '../types';
 import { formatTime, formatDate, formatDuration, calculateMinutes, getDaysInMonthArray, formatDurationShort, sendNotification, calculateDistance, sendTelegramNotification, applyRounding, getEffectivePayrollConfig, calculateMonthlyPayroll } from '../utils';
 import { STORAGE_KEYS, DEFAULT_PERMISSIONS } from '../constants';
-import { format, isAfter, endOfMonth, eachDayOfInterval, getDay, addMonths } from 'date-fns';
-import { startOfDay } from 'date-fns/startOfDay';
-import { startOfMonth } from 'date-fns/startOfMonth';
-import { subMonths } from 'date-fns/subMonths';
+import { format, isAfter, endOfMonth, eachDayOfInterval, getDay, addMonths, startOfDay, startOfMonth, subMonths } from 'date-fns';
 import { ru } from 'date-fns/locale/ru';
 import { db } from '../lib/supabase';
 import { EmployeeHeader } from './employee/EmployeeHeader';
@@ -26,6 +23,7 @@ interface EmployeeViewProps {
   logsLookup?: Record<string, Record<string, WorkLog[]>>;
   onLogsUpsert: (logs: WorkLog[]) => void;
   activeShifts: Record<number, WorkLog | null>;
+  activeShiftsMap?: Record<string, any>;
   onActiveShiftsUpdate: (shifts: Record<number, WorkLog | null>) => void;
   onOvertime?: (user: User, slot: number) => void;
   machines: Machine[];
@@ -42,7 +40,7 @@ interface EmployeeViewProps {
 }
 
 const EmployeeView: React.FC<EmployeeViewProps> = ({ 
-  user, logs, logsLookup = {}, onLogsUpsert, activeShifts, onActiveShiftsUpdate, onOvertime, machines, positions, onUpdateUser, nightShiftBonusMinutes, onRefresh, planLimits, currentOrg, onMonthChange, getNow, viewMode, setViewMode
+  user, logs, logsLookup = {}, onLogsUpsert, activeShifts, activeShiftsMap = {}, onActiveShiftsUpdate, onOvertime, machines, positions, onUpdateUser, nightShiftBonusMinutes, onRefresh, planLimits, currentOrg, onMonthChange, getNow, viewMode, setViewMode
 }) => {
   const orgId = localStorage.getItem(STORAGE_KEYS.ORG_ID) || 'default_org';
 
@@ -182,12 +180,18 @@ const EmployeeView: React.FC<EmployeeViewProps> = ({
   }, [activeShifts]);
 
   const busyMachineIds = useMemo(() => {
-    const dayAgo = new Date(Date.now() - 24 * 60 * 60 * 1000).toISOString();
-    return logs
-      .filter(l => l.entryType === EntryType.WORK && !l.checkOut && l.checkIn && l.checkIn > dayAgo)
-      .map(l => l.machineId)
-      .filter((id): id is string => !!id);
-  }, [logs]);
+    const ids: string[] = [];
+    Object.values(activeShiftsMap || {}).forEach((userShifts) => {
+      if (userShifts) {
+        Object.values(userShifts).forEach((shift: any) => {
+          if (shift && shift.machineId) {
+            ids.push(shift.machineId);
+          }
+        });
+      }
+    });
+    return ids;
+  }, [activeShiftsMap]);
 
   const todayStr = format(getNow(), 'yyyy-MM-dd');
   const isAbsentToday = useMemo(() => {

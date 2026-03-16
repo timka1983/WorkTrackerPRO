@@ -593,6 +593,7 @@ const App: React.FC = () => {
               logsLookup={appData.logsLookup}
               onLogsUpsert={appData.handleLogsUpsert} 
               activeShifts={appData.activeShiftsMap[auth.currentUser.id] || { 1: null, 2: null, 3: null }}
+              activeShiftsMap={appData.activeShiftsMap}
               onActiveShiftsUpdate={(shifts: any) => appData.handleActiveShiftsUpdate(auth.currentUser!.id, shifts)}
               onOvertime={(user: any, slot: any) => {
                 if (appData.currentOrg?.notificationSettings?.onOvertime) {
