@@ -41,6 +41,7 @@ interface SettingsViewProps {
   newMachineBranchId?: string;
   setNewMachineBranchId?: (id: string) => void;
   getArchivedMachines: () => Promise<Machine[] | null>;
+  handleRestoreMachine: (id: string) => Promise<{ error: any }>;
 }
 
 export const SettingsView: React.FC<SettingsViewProps> = ({
@@ -76,7 +77,8 @@ export const SettingsView: React.FC<SettingsViewProps> = ({
   onDeleteBranch,
   newMachineBranchId,
   setNewMachineBranchId,
-  getArchivedMachines
+  getArchivedMachines,
+  handleRestoreMachine
 }) => {
   const [isMapOpen, setIsMapOpen] = useState(false);
   const [editingBranch, setEditingBranch] = useState<Branch | null>(null);
@@ -793,6 +795,7 @@ export const SettingsView: React.FC<SettingsViewProps> = ({
         onClose={() => setIsArchiveViewOpen(false)}
         type="machines"
         getArchivedItems={getArchivedMachines}
+        onRestore={handleRestoreMachine}
       />
     </div>
   );

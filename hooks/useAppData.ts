@@ -259,7 +259,9 @@ export const useAppData = (currentUser: User | null) => {
     },
     initialData: () => {
       const cached = localStorage.getItem(STORAGE_KEYS.MACHINES_LIST);
-      return cached ? JSON.parse(cached) : [];
+      if (!cached) return [];
+      const parsed = JSON.parse(cached);
+      return Array.isArray(parsed) ? parsed.filter((m: Machine) => !m.organizationId || m.organizationId === orgId) : [];
     }
   });
 
@@ -1160,6 +1162,26 @@ export const useAppData = (currentUser: User | null) => {
       deleteBranchMutation.mutate(branchId);
     }
   };
+  
+  const handleRestoreUser = useCallback(async (userId: string) => {
+    if (!currentOrg) return { error: 'No organization selected' };
+    const { error } = await db.restoreUser(userId, currentOrg.id);
+    if (!error) {
+      await queryClient.invalidateQueries({ queryKey: [STORAGE_KEYS.USERS_LIST, currentOrg.id] });
+      await queryClient.invalidateQueries({ queryKey: ['archived_users', currentOrg.id] });
+    }
+    return { error };
+  }, [currentOrg, queryClient]);
+
+  const handleRestoreMachine = useCallback(async (machineId: string) => {
+    if (!currentOrg) return { error: 'No organization selected' };
+    const { error } = await db.restoreMachine(machineId, currentOrg.id);
+    if (!error) {
+      await queryClient.invalidateQueries({ queryKey: [STORAGE_KEYS.MACHINES_LIST, currentOrg.id] });
+      await queryClient.invalidateQueries({ queryKey: ['archived_machines', currentOrg.id] });
+    }
+    return { error };
+  }, [currentOrg, queryClient]);
 
   const handleImportData = async (jsonStr: string) => {
     if (!currentOrg) return;
@@ -1420,6 +1442,8 @@ export const useAppData = (currentUser: User | null) => {
       if (!currentOrg) return null;
       return db.getArchivedMachines(currentOrg.id);
     },
+    handleRestoreUser,
+    handleRestoreMachine,
     handleUpdateUser,
     handleDeleteUser,
     persistMachines,

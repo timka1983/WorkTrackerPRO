@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { motion, AnimatePresence } from 'motion/react';
-import { X, Archive, Trash2, Calendar, MessageSquare, User, Settings } from 'lucide-react';
+import { X, Archive, Trash2, Calendar, MessageSquare, User, Settings, RotateCcw } from 'lucide-react';
 import { User as UserType, Machine } from '../../types';
 
 interface ArchiveConfirmModalProps {
@@ -81,26 +81,45 @@ interface ArchiveViewModalProps {
   onClose: () => void;
   type: 'users' | 'machines';
   getArchivedItems: () => Promise<any[] | null>;
+  onRestore: (id: string) => Promise<{ error: any }>;
 }
 
 export const ArchiveViewModal: React.FC<ArchiveViewModalProps> = ({
   isOpen,
   onClose,
   type,
-  getArchivedItems
+  getArchivedItems,
+  onRestore
 }) => {
   const [items, setItems] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
+  const [restoringId, setRestoringId] = useState<string | null>(null);
+
+  const loadItems = async () => {
+    setLoading(true);
+    const data = await getArchivedItems();
+    setItems(data || []);
+    setLoading(false);
+  };
 
   useEffect(() => {
     if (isOpen) {
-      setLoading(true);
-      getArchivedItems().then(data => {
-        setItems(data || []);
-        setLoading(false);
-      });
+      loadItems();
     }
-  }, [isOpen, getArchivedItems]);
+  }, [isOpen]);
+
+  const handleRestore = async (id: string) => {
+    if (confirm(`Вы уверены, что хотите восстановить этот объект?`)) {
+      setRestoringId(id);
+      const { error } = await onRestore(id);
+      if (error) {
+        alert('Ошибка при восстановлении: ' + (error.message || error));
+      } else {
+        await loadItems();
+      }
+      setRestoringId(null);
+    }
+  };
 
   if (!isOpen) return null;
 
@@ -164,11 +183,21 @@ export const ArchiveViewModal: React.FC<ArchiveViewModalProps> = ({
                         </div>
                       </div>
                     </div>
-                    {type === 'users' && (
-                      <span className="text-[9px] font-black px-2 py-1 bg-white border border-slate-200 rounded-lg text-slate-500 uppercase tracking-tighter">
-                        {item.position}
-                      </span>
-                    )}
+                    <div className="flex items-center gap-2">
+                      {type === 'users' && (
+                        <span className="text-[9px] font-black px-2 py-1 bg-white border border-slate-200 rounded-lg text-slate-500 uppercase tracking-tighter">
+                          {item.position}
+                        </span>
+                      )}
+                      <button
+                        onClick={() => handleRestore(item.id)}
+                        disabled={restoringId === item.id}
+                        className="p-2 bg-emerald-50 text-emerald-600 rounded-xl hover:bg-emerald-100 transition-all disabled:opacity-50"
+                        title="Восстановить"
+                      >
+                        <RotateCcw size={16} className={restoringId === item.id ? 'animate-spin' : ''} />
+                      </button>
+                    </div>
                   </div>
                   
                   <div className="flex items-start gap-2 p-3 bg-white rounded-xl border border-slate-100">

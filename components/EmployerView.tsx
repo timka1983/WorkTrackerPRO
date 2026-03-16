@@ -60,6 +60,8 @@ interface EmployerViewProps {
   onDeletePayment: (id: string) => void;
   getArchivedUsers: () => Promise<User[] | null>;
   getArchivedMachines: () => Promise<Machine[] | null>;
+  onRestoreUser: (id: string) => Promise<{ error: any }>;
+  onRestoreMachine: (id: string) => Promise<{ error: any }>;
   getNow: () => Date;
   viewMode: 'matrix' | 'team' | 'analytics' | 'settings' | 'billing' | 'payroll' | 'support' | 'audit';
   setViewMode: (mode: 'matrix' | 'team' | 'analytics' | 'settings' | 'billing' | 'payroll' | 'support' | 'audit') => void;
@@ -70,7 +72,7 @@ interface EmployerViewProps {
 const EmployerView: React.FC<EmployerViewProps> = ({ 
   logs, logsLookup = {}, users, onAddUser, onUpdateUser, onDeleteUser, 
   machines, onUpdateMachines, positions, onUpdatePositions, branches, onUpdateBranches, onDeleteBranch, onImportData, onLogsUpsert, activeShiftsMap = {}, onActiveShiftsUpdate, onDeleteLog,
-  onRefresh, forceCleanAll, onCleanupDatabase, onRemoveBase64Photos, onRunDiagnostics, onMergeDuplicates, onFixDbStructure, isSyncing = false, nightShiftBonusMinutes, onUpdateNightBonus, currentOrg, plans, onUpdateOrg, currentUser: propCurrentUser, onMonthChange, payments, onSavePayment, onDeletePayment, getArchivedUsers, getArchivedMachines, getNow, viewMode, setViewMode, unreadSupportMessages = 0, onResetUnread
+  onRefresh, forceCleanAll, onCleanupDatabase, onRemoveBase64Photos, onRunDiagnostics, onMergeDuplicates, onFixDbStructure, isSyncing = false, nightShiftBonusMinutes, onUpdateNightBonus, currentOrg, plans, onUpdateOrg, currentUser: propCurrentUser, onMonthChange, payments, onSavePayment, onDeletePayment, getArchivedUsers, getArchivedMachines, onRestoreUser, onRestoreMachine, getNow, viewMode, setViewMode, unreadSupportMessages = 0, onResetUnread
 }) => {
   const [filterMonth, setFilterMonth] = useState(format(getNow(), 'yyyy-MM'));
   const [selectedBranchId, setSelectedBranchId] = useState<string | null>(null);
@@ -1271,6 +1273,7 @@ const EmployerView: React.FC<EmployerViewProps> = ({
           onDeleteUser={handleDeleteUser}
           branches={branches}
           getArchivedUsers={getArchivedUsers}
+          handleRestoreUser={onRestoreUser}
         />
       )}
 
@@ -1355,6 +1358,7 @@ const EmployerView: React.FC<EmployerViewProps> = ({
           newMachineBranchId={newMachineBranchId}
           setNewMachineBranchId={setNewMachineBranchId}
           getArchivedMachines={getArchivedMachines}
+          handleRestoreMachine={onRestoreMachine}
         />
       )}
       {viewMode === 'support' && (

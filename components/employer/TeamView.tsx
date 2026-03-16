@@ -22,6 +22,7 @@ interface TeamViewProps {
   onDeleteUser: (id: string, reason?: string) => void;
   branches: Branch[];
   getArchivedUsers: () => Promise<User[] | null>;
+  handleRestoreUser: (id: string) => Promise<{ error: any }>;
 }
 
 export const TeamView: React.FC<TeamViewProps> = ({
@@ -40,7 +41,8 @@ export const TeamView: React.FC<TeamViewProps> = ({
   setEditingEmployee,
   onDeleteUser,
   branches,
-  getArchivedUsers
+  getArchivedUsers,
+  handleRestoreUser
 }) => {
   const [archiveConfirm, setArchiveConfirm] = useState<{ isOpen: boolean; userId: string; userName: string }>({
     isOpen: false,
@@ -57,7 +59,7 @@ export const TeamView: React.FC<TeamViewProps> = ({
     setArchiveConfirm({ isOpen: false, userId: '', userName: '' });
   };
 
-  const appUrl = window.location.origin;
+  const appUrl = currentOrg ? `${window.location.origin}?orgId=${currentOrg.id}` : window.location.origin;
   // NOTE: Replace 'YourBotName' with your actual Telegram bot username
   const botUsername = 'YourBotName';
   const telegramBotUrl = `https://t.me/${botUsername}?start=${selectedUserForQr?.id || ''}`;
@@ -273,6 +275,7 @@ export const TeamView: React.FC<TeamViewProps> = ({
         onClose={() => setIsArchiveViewOpen(false)}
         type="users"
         getArchivedItems={getArchivedUsers}
+        onRestore={handleRestoreUser}
       />
     </section>
   );

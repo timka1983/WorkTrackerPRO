@@ -29,6 +29,16 @@ const App: React.FC = () => {
   const appData = useAppData(auth.currentUser);
   const { getNow } = useTimeSync();
 
+  useEffect(() => {
+    const params = new URLSearchParams(window.location.search);
+    const orgId = params.get('orgId');
+    if (orgId) {
+      localStorage.setItem(STORAGE_KEYS.ORG_ID, orgId);
+      window.history.replaceState({}, document.title, window.location.pathname);
+      window.location.reload();
+    }
+  }, []);
+
   const [showRegistration, setShowRegistration] = useState(false);
   const [showResetModal, setShowResetModal] = useState(false);
   const [employerViewMode, setEmployerViewMode] = useState<'matrix' | 'team' | 'analytics' | 'settings' | 'billing' | 'payroll' | 'support' | 'audit'>('analytics');
@@ -653,6 +663,8 @@ const App: React.FC = () => {
                 onDeletePayment={appData.handleDeletePayment}
                 getArchivedUsers={appData.getArchivedUsers}
                 getArchivedMachines={appData.getArchivedMachines}
+                onRestoreUser={appData.handleRestoreUser}
+                onRestoreMachine={appData.handleRestoreMachine}
                 getNow={getNow}
                 viewMode={employerViewMode}
                 setViewMode={setEmployerViewMode}

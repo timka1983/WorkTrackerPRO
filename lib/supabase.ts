@@ -707,6 +707,19 @@ export const db = {
       return null;
     }
   },
+  restoreUser: async (id: string, orgId: string) => {
+    if (!checkConfig()) return { error: 'Not configured' };
+    const { error } = await supabase
+      .from('users')
+      .update({
+        is_archived: false,
+        archived_at: null,
+        archive_reason: null
+      })
+      .eq('id', id)
+      .eq('organization_id', orgId);
+    return { error };
+  },
   getMachines: async (orgId: string) => {
     if (!checkConfig()) return null;
     let query = supabase.from('machines').select('*');
@@ -756,6 +769,19 @@ export const db = {
       archivedAt: m.archived_at,
       archiveReason: m.archive_reason
     }));
+  },
+  restoreMachine: async (id: string, orgId: string) => {
+    if (!checkConfig()) return { error: 'Not configured' };
+    const { error } = await supabase
+      .from('machines')
+      .update({
+        is_archived: false,
+        archived_at: null,
+        archive_reason: null
+      })
+      .eq('id', id)
+      .eq('organization_id', orgId);
+    return { error };
   },
   saveMachines: async (machines: any[], orgId: string, deletedMachineInfo?: { id: string, reason: string }[]) => {
     if (!checkConfig()) return { error: 'Not configured' };
