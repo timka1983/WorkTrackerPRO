@@ -3,8 +3,9 @@ import React, { useState, useEffect } from 'react';
 import { Organization, PlanType, Plan, PromoCode, User, UserRole } from '../types';
 import { db, supabase } from '../lib/supabase';
 import { STORAGE_KEYS } from '../constants';
-import { Users, Building2, CreditCard, Activity, ShieldCheck, Search, RefreshCw, ExternalLink, Settings2, X, Check, Plus, LayoutGrid, Zap, Briefcase, Save, Camera, Moon, BarChart3, Megaphone, Ticket, Trash2, Database, AlertCircle, PlayCircle, Bell, MessageSquare, History } from 'lucide-react';
+import { Users, Building2, CreditCard, Activity, ShieldCheck, Search, RefreshCw, ExternalLink, Settings2, X, Check, Plus, LayoutGrid, Zap, Briefcase, Save, Camera, Moon, BarChart3, Megaphone, Ticket, Trash2, Database, AlertCircle, PlayCircle, Bell, MessageSquare, History, HelpCircle } from 'lucide-react';
 import { SupportChat } from './employer/SupportChat';
+import { DocumentationView } from './DocumentationView';
 
 interface SuperAdminViewProps {
   onLogout: () => void;
@@ -31,7 +32,7 @@ const SuperAdminView: React.FC<SuperAdminViewProps> = ({
   const [editingOrg, setEditingOrg] = useState<Organization | null>(null);
   const [editingAdmin, setEditingAdmin] = useState<User | null>(null);
   const [isCreating, setIsCreating] = useState(false);
-  const [activeTab, setActiveTab] = useState<'orgs' | 'plans' | 'marketing' | 'diagnostics' | 'app_diagnostics' | 'support'>('orgs');
+  const [activeTab, setActiveTab] = useState<'orgs' | 'plans' | 'marketing' | 'diagnostics' | 'app_diagnostics' | 'support' | 'instructions'>('orgs');
   const [viewingUsersOrg, setViewingUsersOrg] = useState<{ id: string; name: string } | null>(null);
   const [orgUsers, setOrgUsers] = useState<User[]>([]);
   const [loadingUsers, setLoadingUsers] = useState(false);
@@ -333,7 +334,8 @@ const SuperAdminView: React.FC<SuperAdminViewProps> = ({
         status: editingOrg.status,
         name: editingOrg.name,
         email: editingOrg.email,
-        expiryDate: editingOrg.expiryDate
+        expiryDate: editingOrg.expiryDate,
+        debugEnabled: editingOrg.debugEnabled
       });
       
       if (orgError) {
@@ -568,6 +570,7 @@ const SuperAdminView: React.FC<SuperAdminViewProps> = ({
     { id: 'app_diagnostics', name: 'Функции', icon: Activity },
     { id: 'system', name: 'Система', icon: ShieldCheck },
     { id: 'support', name: 'Поддержка', icon: MessageSquare, badge: unreadSupportMessages },
+    { id: 'instructions', name: 'Инструкция', icon: HelpCircle },
   ] as const;
 
   return (
@@ -858,6 +861,10 @@ const SuperAdminView: React.FC<SuperAdminViewProps> = ({
               </button>
             </div>
           </>
+        ) : activeTab === 'instructions' ? (
+          <div className="h-full animate-fadeIn">
+            <DocumentationView />
+          </div>
         ) : activeTab === 'support' ? (
           <div className="max-w-2xl mx-auto animate-fadeIn">
             <SupportChat 
@@ -1925,6 +1932,29 @@ const SuperAdminView: React.FC<SuperAdminViewProps> = ({
                       <option value="trial">Trial</option>
                       <option value="expired">Expired</option>
                     </select>
+                  </div>
+                </div>
+
+                <div className="p-4 bg-slate-50 rounded-2xl border border-slate-100 space-y-4">
+                  <div className="flex items-center justify-between">
+                    <div className="flex items-center gap-3">
+                      <div className="p-2 bg-amber-100 rounded-lg">
+                        <Activity className="w-5 h-5 text-amber-600" />
+                      </div>
+                      <div>
+                        <p className="text-sm font-bold text-slate-900">Режим отладки (Debug)</p>
+                        <p className="text-[10px] text-slate-500">Показывать техническую информацию работодателю</p>
+                      </div>
+                    </div>
+                    <label className="relative inline-flex items-center cursor-pointer">
+                      <input 
+                        type="checkbox" 
+                        className="sr-only peer"
+                        checked={editingOrg.debugEnabled || false}
+                        onChange={(e) => setEditingOrg({...editingOrg, debugEnabled: e.target.checked})}
+                      />
+                      <div className="w-11 h-6 bg-slate-200 peer-focus:outline-none rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-amber-500"></div>
+                    </label>
                   </div>
                 </div>
 

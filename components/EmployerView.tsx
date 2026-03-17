@@ -18,6 +18,7 @@ import { EmployeeEditModal } from './employer/EmployeeEditModal';
 import { LogEditModal } from './employer/LogEditModal';
 import { PhotoPreviewModal } from './employer/PhotoPreviewModal';
 import { SupportChat } from './employer/SupportChat';
+import { DocumentationView } from './DocumentationView';
 import { logAuditAction } from '../lib/audit';
 import { MessageSquare } from 'lucide-react';
 
@@ -63,8 +64,8 @@ interface EmployerViewProps {
   onRestoreUser: (id: string) => Promise<{ error: any }>;
   onRestoreMachine: (id: string) => Promise<{ error: any }>;
   getNow: () => Date;
-  viewMode: 'matrix' | 'team' | 'analytics' | 'settings' | 'billing' | 'payroll' | 'support' | 'audit';
-  setViewMode: (mode: 'matrix' | 'team' | 'analytics' | 'settings' | 'billing' | 'payroll' | 'support' | 'audit') => void;
+  viewMode: 'matrix' | 'team' | 'analytics' | 'settings' | 'billing' | 'payroll' | 'support' | 'audit' | 'instructions';
+  setViewMode: (mode: 'matrix' | 'team' | 'analytics' | 'settings' | 'billing' | 'payroll' | 'support' | 'audit' | 'instructions') => void;
   unreadSupportMessages?: number;
   onResetUnread?: (orgId?: string) => void;
 }
@@ -1284,6 +1285,12 @@ const EmployerView: React.FC<EmployerViewProps> = ({
         />
       )}
 
+      {viewMode === 'instructions' && (
+        <div className="h-full animate-fadeIn">
+          <DocumentationView />
+        </div>
+      )}
+
       {viewMode === 'billing' && (
         <BillingView
           currentOrg={currentOrg}
@@ -1369,8 +1376,8 @@ const EmployerView: React.FC<EmployerViewProps> = ({
           onOrgSelect={onResetUnread}
         />
       )}
-      {/* Debug Info (Only for admins) */}
-      {currentUser?.isAdmin && (
+      {/* Debug Info (Only for Super Admin or if enabled for Org) */}
+      {(currentUser?.role === UserRole.SUPER_ADMIN || (currentUser?.isAdmin && currentOrg?.debugEnabled)) && (
         <div className="mt-4 p-4 bg-slate-100 rounded-2xl text-[10px] font-mono text-slate-500 space-y-1 select-text">
           <div className="flex justify-between items-start">
             <div id="debug-content" className="space-y-1">

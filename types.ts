@@ -104,6 +104,7 @@ export interface Organization {
   maxShiftDuration?: number; // Global max shift duration in minutes (default 720 = 12h)
   roundShiftMinutes?: boolean; // 15-minute rounding rule
   nightShiftBonus?: number; // Global night shift bonus in minutes
+  debugEnabled?: boolean; // Enable debug info for this organization
   createdAt?: string; // ISO timestamp
 }
 

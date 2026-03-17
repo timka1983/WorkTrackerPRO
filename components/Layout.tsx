@@ -2,7 +2,7 @@
 import React, { useMemo, useState, useEffect } from 'react';
 import { User, UserRole, Organization } from '../types';
 import { STORAGE_KEYS } from '../constants';
-import { LayoutDashboard, CalendarDays, CircleDollarSign, Users, CreditCard, Settings, LogOut, RefreshCw, Trash2, Menu, X, ArrowLeftRight, PanelLeftClose, PanelLeftOpen, MessageSquare } from 'lucide-react';
+import { LayoutDashboard, CalendarDays, CircleDollarSign, Users, CreditCard, Settings, LogOut, RefreshCw, Trash2, Menu, X, ArrowLeftRight, PanelLeftClose, PanelLeftOpen, MessageSquare, HelpCircle } from 'lucide-react';
 
 interface LayoutProps {
   children: React.ReactNode;
@@ -13,8 +13,8 @@ interface LayoutProps {
   onRefresh?: () => void;
   version: string;
   isSyncing?: boolean;
-  employerViewMode?: 'matrix' | 'team' | 'analytics' | 'settings' | 'billing' | 'payroll' | 'support' | 'audit';
-  setEmployerViewMode?: (mode: 'matrix' | 'team' | 'analytics' | 'settings' | 'billing' | 'payroll' | 'support' | 'audit') => void;
+  employerViewMode?: 'matrix' | 'team' | 'analytics' | 'settings' | 'billing' | 'payroll' | 'support' | 'audit' | 'instructions';
+  setEmployerViewMode?: (mode: 'matrix' | 'team' | 'analytics' | 'settings' | 'billing' | 'payroll' | 'support' | 'audit' | 'instructions') => void;
   employeeViewMode?: 'control' | 'matrix';
   setEmployeeViewMode?: (mode: 'control' | 'matrix') => void;
   canUsePayroll?: boolean;
@@ -71,6 +71,7 @@ const Layout: React.FC<LayoutProps> = ({
       { id: 'billing', label: 'Биллинг', icon: CreditCard },
       { id: 'settings', label: 'Настройки', icon: Settings },
       { id: 'support', label: 'Поддержка', icon: MessageSquare },
+      { id: 'instructions', label: 'Инструкция', icon: HelpCircle },
       { id: 'audit', label: 'Журнал аудита', icon: LayoutDashboard }
     ].filter(t => !t.hidden);
 

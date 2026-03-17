@@ -1,11 +1,12 @@
 
 import React, { useState, useEffect, useMemo, useRef, memo } from 'react';
-import { WorkLog, User, EntryType, Machine, PositionConfig, PlanLimits, Organization, PayrollPeriod, PayrollStatus } from '../types';
+import { WorkLog, User, EntryType, Machine, PositionConfig, PlanLimits, Organization, PayrollPeriod, PayrollStatus, PayrollPayment } from '../types';
 import { formatTime, formatDate, formatDuration, calculateMinutes, getDaysInMonthArray, formatDurationShort, sendNotification, calculateDistance, sendTelegramNotification, applyRounding, getEffectivePayrollConfig, calculateMonthlyPayroll } from '../utils';
 import { STORAGE_KEYS, DEFAULT_PERMISSIONS } from '../constants';
 import { format, isAfter, endOfMonth, eachDayOfInterval, getDay, addMonths, startOfDay, startOfMonth, subMonths } from 'date-fns';
 import { ru } from 'date-fns/locale/ru';
 import { db } from '../lib/supabase';
+import { X, CreditCard, History, Info, TrendingUp, TrendingDown } from 'lucide-react';
 import { EmployeeHeader } from './employee/EmployeeHeader';
 import { ShiftControl } from './employee/ShiftControl';
 import { EmployeeStats } from './employee/EmployeeStats';
@@ -37,10 +38,11 @@ interface EmployeeViewProps {
   getNow: () => Date;
   viewMode: 'control' | 'matrix';
   setViewMode: (mode: 'control' | 'matrix') => void;
+  payments?: PayrollPayment[];
 }
 
 const EmployeeView: React.FC<EmployeeViewProps> = ({ 
-  user, logs, logsLookup = {}, onLogsUpsert, activeShifts, activeShiftsMap = {}, onActiveShiftsUpdate, onOvertime, machines, positions, onUpdateUser, nightShiftBonusMinutes, onRefresh, planLimits, currentOrg, onMonthChange, getNow, viewMode, setViewMode
+  user, logs, logsLookup = {}, onLogsUpsert, activeShifts, activeShiftsMap = {}, onActiveShiftsUpdate, onOvertime, machines, positions, onUpdateUser, nightShiftBonusMinutes, onRefresh, planLimits, currentOrg, onMonthChange, getNow, viewMode, setViewMode, payments = []
 }) => {
   const orgId = localStorage.getItem(STORAGE_KEYS.ORG_ID) || 'default_org';
 
@@ -88,6 +90,7 @@ const EmployeeView: React.FC<EmployeeViewProps> = ({
   }, [activeShifts, perms.maxShiftDurationMinutes, overtimeAlerts, planLimits, user, onOvertime, getNow]);
 
   const [slotMachineIds, setSlotMachineIds] = useState<Record<number, string>>({ 1: '', 2: '', 3: '' });
+  const [showPayrollModal, setShowPayrollModal] = useState(false);
 
   // Синхронизируем выбранные ID машин при загрузке списка оборудования
   useEffect(() => {
@@ -634,16 +637,17 @@ const EmployeeView: React.FC<EmployeeViewProps> = ({
      return getEffectivePayrollConfig(user, positions);
   }, [user, positions]);
 
-  const monthEarnings = useMemo(() => {
-    if (!effectivePayroll || !planLimits.features.payroll) return 0;
+  const payrollDetails = useMemo(() => {
+    if (!effectivePayroll || !planLimits.features.payroll) return null;
     
     const closedWorkLogs = filteredLogs.filter(l => 
       l.entryType !== EntryType.WORK || l.checkOut
     );
     
-    const payrollResult = calculateMonthlyPayroll(user, closedWorkLogs, positions, currentOrg || undefined);
-    return payrollResult.totalSalary;
+    return calculateMonthlyPayroll(user, closedWorkLogs, positions, currentOrg || undefined);
   }, [filteredLogs, effectivePayroll, planLimits.features.payroll, user, positions, currentOrg]);
+
+  const monthEarnings = payrollDetails?.totalSalary || 0;
 
   const getMachineName = (id?: string) => machines.find(m => m.id === id)?.name || 'Работа';
 
@@ -879,12 +883,16 @@ const EmployeeView: React.FC<EmployeeViewProps> = ({
       />
 
       {planLimits.features.payroll && effectivePayroll && (
-        <div className="bg-emerald-50 border border-emerald-200 rounded-2xl p-4 flex justify-between items-center no-print">
+        <div 
+          onClick={() => setShowPayrollModal(true)}
+          className="bg-emerald-50 border border-emerald-200 rounded-2xl p-4 flex justify-between items-center no-print cursor-pointer hover:bg-emerald-100 transition-colors active:scale-[0.98]"
+        >
            <div>
               <h3 className="text-emerald-900 font-bold text-lg">Зарплата за месяц</h3>
+              <p className="text-emerald-600 text-xs font-medium">Нажмите для расшифровки</p>
            </div>
            <div className="text-right">
-              <p className="text-3xl font-black text-emerald-600">{Math.floor(monthEarnings)} ₽</p>
+              <p className="text-2xl font-extrabold text-emerald-600">{Math.floor(monthEarnings)} ₽</p>
            </div>
         </div>
       )}
@@ -949,6 +957,182 @@ const EmployeeView: React.FC<EmployeeViewProps> = ({
           />
         </div>
       )}
+
+      {showPayrollModal && (
+        <PayrollBreakdownModal
+          user={user}
+          monthEarnings={monthEarnings}
+          payrollDetails={payrollDetails}
+          payments={payments}
+          filterMonth={filterMonth}
+          onClose={() => setShowPayrollModal(false)}
+        />
+      )}
+    </div>
+  );
+};
+
+interface PayrollBreakdownModalProps {
+  user: User;
+  monthEarnings: number;
+  payrollDetails: any;
+  payments: PayrollPayment[];
+  filterMonth: string;
+  onClose: () => void;
+}
+
+const PayrollBreakdownModal: React.FC<PayrollBreakdownModalProps> = ({
+  user, monthEarnings, payrollDetails, payments, filterMonth, onClose
+}) => {
+  if (!payrollDetails) return null;
+
+  const monthPayments = useMemo(() => {
+    return payments.filter(p => p.userId === user.id && p.date.startsWith(filterMonth));
+  }, [payments, user.id, filterMonth]);
+
+  const totalPaid = useMemo(() => {
+    return monthPayments.reduce((sum, p) => sum + p.amount, 0);
+  }, [monthPayments]);
+
+  const balance = monthEarnings - totalPaid;
+
+  return (
+    <div className="fixed inset-0 z-[100] flex items-center justify-center p-4 bg-slate-900/60 backdrop-blur-sm animate-in fade-in duration-200">
+      <div className="bg-white w-full max-w-lg rounded-3xl shadow-2xl overflow-hidden animate-in zoom-in-95 duration-200">
+        <div className="p-6 border-b border-slate-100 flex justify-between items-center bg-emerald-50/50">
+          <div>
+            <h2 className="text-xl font-black text-slate-900 uppercase tracking-tight">Расшифровка зарплаты</h2>
+            <p className="text-slate-500 text-xs font-bold uppercase mt-0.5">
+              {format(new Date(filterMonth + '-01'), 'LLLL yyyy', { locale: ru })}
+            </p>
+          </div>
+          <button 
+            onClick={onClose}
+            className="p-2 hover:bg-white rounded-xl transition-colors text-slate-400 hover:text-slate-600 shadow-sm"
+          >
+            <X size={20} />
+          </button>
+        </div>
+
+        <div className="p-6 space-y-6 max-h-[70vh] overflow-y-auto custom-scrollbar">
+          {/* Total Summary */}
+          <div className="grid grid-cols-2 gap-4">
+            <div className="bg-emerald-50 p-4 rounded-2xl border border-emerald-100">
+              <p className="text-[10px] font-bold text-emerald-700 uppercase mb-1">Начислено</p>
+              <p className="text-xl font-extrabold text-emerald-600">{Math.floor(monthEarnings)} ₽</p>
+            </div>
+            <div className="bg-blue-50 p-4 rounded-2xl border border-blue-100">
+              <p className="text-[10px] font-bold text-blue-700 uppercase mb-1">Выплачено</p>
+              <p className="text-xl font-extrabold text-blue-600">{Math.floor(totalPaid)} ₽</p>
+            </div>
+          </div>
+
+          {/* Balance */}
+          <div className={`p-4 rounded-2xl border flex justify-between items-center ${balance > 0 ? 'bg-amber-50 border-amber-100' : 'bg-slate-50 border-slate-100'}`}>
+            <div>
+              <p className="text-[10px] font-bold text-slate-500 uppercase">Остаток к выплате</p>
+              <p className={`text-xl font-black ${balance > 0 ? 'text-amber-600' : 'text-slate-400'}`}>
+                {Math.floor(balance)} ₽
+              </p>
+            </div>
+            <div className={`p-2 rounded-xl ${balance > 0 ? 'bg-amber-100 text-amber-600' : 'bg-slate-200 text-slate-400'}`}>
+              <CreditCard size={20} />
+            </div>
+          </div>
+
+          {/* Breakdown */}
+          <div className="space-y-3">
+            <h4 className="text-[10px] font-black text-slate-400 uppercase tracking-wider flex items-center gap-2">
+              <Info size={12} /> Детализация начислений
+            </h4>
+            
+            <div className="space-y-2">
+              {payrollDetails.regularPay > 0 && (
+                <div className="flex justify-between items-center p-3 bg-slate-50 rounded-xl border border-slate-100">
+                  <span className="text-sm font-medium text-slate-600">Основная оплата ({payrollDetails.details.regularHours} ч)</span>
+                  <span className="font-bold text-slate-900">{Math.floor(payrollDetails.regularPay)} ₽</span>
+                </div>
+              )}
+              {payrollDetails.overtimePay > 0 && (
+                <div className="flex justify-between items-center p-3 bg-slate-50 rounded-xl border border-slate-100">
+                  <span className="text-sm font-medium text-slate-600">Сверхурочные ({payrollDetails.details.overtimeHours} ч)</span>
+                  <span className="font-bold text-emerald-600">+{Math.floor(payrollDetails.overtimePay)} ₽</span>
+                </div>
+              )}
+              {payrollDetails.nightShiftPay > 0 && (
+                <div className="flex justify-between items-center p-3 bg-slate-50 rounded-xl border border-slate-100">
+                  <span className="text-sm font-medium text-slate-600">Ночные смены ({payrollDetails.details.nightShiftCount})</span>
+                  <span className="font-bold text-indigo-600">+{Math.floor(payrollDetails.nightShiftPay)} ₽</span>
+                </div>
+              )}
+              {payrollDetails.bonuses > 0 && (
+                <div className="flex justify-between items-center p-3 bg-emerald-50 rounded-xl border border-emerald-100">
+                  <span className="text-sm font-medium text-emerald-700 flex items-center gap-1">
+                    <TrendingUp size={14} /> Премии
+                  </span>
+                  <span className="font-bold text-emerald-600">+{Math.floor(payrollDetails.bonuses)} ₽</span>
+                </div>
+              )}
+              {payrollDetails.fines > 0 && (
+                <div className="flex justify-between items-center p-3 bg-red-50 rounded-xl border border-red-100">
+                  <span className="text-sm font-medium text-red-700 flex items-center gap-1">
+                    <TrendingDown size={14} /> Штрафы
+                  </span>
+                  <span className="font-bold text-red-600">-{Math.floor(payrollDetails.fines)} ₽</span>
+                </div>
+              )}
+              {payrollDetails.sickLeavePay > 0 && (
+                <div className="flex justify-between items-center p-3 bg-slate-50 rounded-xl border border-slate-100">
+                  <span className="text-sm font-medium text-slate-600">Больничные ({payrollDetails.details.sickDays} дн)</span>
+                  <span className="font-bold text-slate-900">{Math.floor(payrollDetails.sickLeavePay)} ₽</span>
+                </div>
+              )}
+            </div>
+          </div>
+
+          {/* Payment History */}
+          <div className="space-y-3">
+            <h4 className="text-[10px] font-black text-slate-400 uppercase tracking-wider flex items-center gap-2">
+              <History size={12} /> История выплат
+            </h4>
+            
+            {monthPayments.length > 0 ? (
+              <div className="space-y-2">
+                {monthPayments.map(payment => (
+                  <div key={payment.id} className="flex justify-between items-center p-3 bg-white rounded-xl border border-slate-100 shadow-sm">
+                    <div>
+                      <p className="text-sm font-bold text-slate-900">
+                        {payment.type === 'advance' ? 'Аванс' : 
+                         payment.type === 'salary' ? 'Зарплата' : 
+                         payment.type === 'bonus' ? 'Премия' : 
+                         payment.type === 'fine' ? 'Штраф' : 'Выплата'}
+                      </p>
+                      <p className="text-[10px] text-slate-400 font-medium uppercase">{format(new Date(payment.date), 'd MMMM', { locale: ru })}</p>
+                    </div>
+                    <div className="text-right">
+                      <p className="font-black text-slate-900">{payment.amount} ₽</p>
+                      {payment.comment && <p className="text-[10px] text-slate-400 italic">{payment.comment}</p>}
+                    </div>
+                  </div>
+                ))}
+              </div>
+            ) : (
+              <div className="text-center py-4 bg-slate-50 rounded-2xl border border-dashed border-slate-200">
+                <p className="text-xs text-slate-400 font-medium italic">Выплат в этом месяце еще не было</p>
+              </div>
+            )}
+          </div>
+        </div>
+
+        <div className="p-6 bg-slate-50 border-t border-slate-100">
+          <button 
+            onClick={onClose}
+            className="w-full py-4 bg-slate-900 text-white rounded-2xl font-black uppercase text-xs tracking-widest hover:bg-slate-800 transition-colors shadow-lg active:scale-[0.98]"
+          >
+            Понятно
+          </button>
+        </div>
+      </div>
     </div>
   );
 };

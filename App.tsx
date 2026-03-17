@@ -41,7 +41,7 @@ const App: React.FC = () => {
 
   const [showRegistration, setShowRegistration] = useState(false);
   const [showResetModal, setShowResetModal] = useState(false);
-  const [employerViewMode, setEmployerViewMode] = useState<'matrix' | 'team' | 'analytics' | 'settings' | 'billing' | 'payroll' | 'support' | 'audit'>('analytics');
+  const [employerViewMode, setEmployerViewMode] = useState<'matrix' | 'team' | 'analytics' | 'settings' | 'billing' | 'payroll' | 'support' | 'audit' | 'instructions'>('analytics');
   const [employeeViewMode, setEmployeeViewMode] = useState<'control' | 'matrix'>('control');
   const [unreadSupportMessages, setUnreadSupportMessages] = useState(0);
   const [unreadByOrg, setUnreadByOrg] = useState<Record<string, number>>({});
@@ -621,6 +621,7 @@ const App: React.FC = () => {
               getNow={getNow}
               viewMode={employeeViewMode}
               setViewMode={setEmployeeViewMode}
+              payments={appData.payments}
             />
           ) : (
             isEmployerAuthorized ? (

@@ -1192,6 +1192,7 @@ export const db = {
       maxShiftDuration: org.max_shift_duration,
       roundShiftMinutes: org.round_shift_minutes,
       nightShiftBonus: org.night_shift_bonus,
+      debugEnabled: org.debug_enabled,
       createdAt: org.created_at
     }));
   },
@@ -1271,6 +1272,10 @@ export const db = {
     if (updates.locationSettings !== undefined) {
       dbUpdates.location_settings = updates.locationSettings;
       delete dbUpdates.locationSettings;
+    }
+    if (updates.debugEnabled !== undefined) {
+      dbUpdates.debug_enabled = updates.debugEnabled;
+      delete dbUpdates.debugEnabled;
     }
     if (updates.telegramSettings !== undefined) {
       dbUpdates.telegram_settings = updates.telegramSettings;

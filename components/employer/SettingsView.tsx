@@ -782,6 +782,45 @@ export const SettingsView: React.FC<SettingsViewProps> = ({
         </div>
       </section>
 
+      <section className="bg-slate-900 p-8 rounded-[2.5rem] text-white overflow-hidden relative">
+        <div className="absolute top-0 right-0 w-64 h-64 bg-blue-600/20 blur-[100px] -mr-32 -mt-32"></div>
+        <h3 className="font-black mb-6 flex items-center gap-2 underline decoration-blue-500 decoration-4 underline-offset-8 uppercase text-xs tracking-widest relative z-10">Инструкция и техподдержка</h3>
+        
+        <div className="space-y-6 relative z-10">
+          <div>
+            <h4 className="text-sm font-bold mb-2 text-blue-400">Блок отладки (Debug Block)</h4>
+            <p className="text-xs text-slate-300 leading-relaxed mb-4">
+              Специальный раздел в нижней части экрана для технического обслуживания. Если он вам не виден, его может включить Глобальный администратор.
+            </p>
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+              <div className="p-4 bg-white/5 rounded-2xl border border-white/10">
+                <p className="text-[10px] font-black uppercase text-blue-400 mb-2">Функции исправления:</p>
+                <ul className="text-[10px] space-y-2 text-slate-300">
+                  <li>• <b className="text-white">Очистить кэш</b>: Полный сброс локальных данных (лечит 90% проблем интерфейса).</li>
+                  <li>• <b className="text-white">Диагностика БД</b>: Проверка целостности данных в облаке.</li>
+                  <li>• <b className="text-white">Объединить дубликаты</b>: Слияние повторных записей сотрудников.</li>
+                  <li>• <b className="text-white">Обновить из БД</b>: Принудительная синхронизация с сервером.</li>
+                </ul>
+              </div>
+              <div className="p-4 bg-white/5 rounded-2xl border border-white/10">
+                <p className="text-[10px] font-black uppercase text-blue-400 mb-2">Когда использовать:</p>
+                <ul className="text-[10px] space-y-2 text-slate-300">
+                  <li>• Если данные "зависли" или не отображаются изменения.</li>
+                  <li>• При расхождениях в зарплатах (используйте "Принудительная очистка $").</li>
+                  <li>• По запросу технической поддержки (используйте кнопку "Copy").</li>
+                </ul>
+              </div>
+            </div>
+          </div>
+
+          <div className="pt-4 border-t border-white/10">
+            <p className="text-[10px] text-slate-400 italic">
+              Для получения полной инструкции по всем разделам приложения, обратитесь к файлу README.md в корне проекта или в чат поддержки.
+            </p>
+          </div>
+        </div>
+      </section>
+
       <ArchiveConfirmModal
         isOpen={archiveConfirm.isOpen}
         onClose={() => setArchiveConfirm({ isOpen: false, machineId: '', machineName: '' })}
