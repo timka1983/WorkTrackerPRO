@@ -76,6 +76,8 @@ export interface TelegramSettings {
   notifyOnShiftStart?: boolean;
   notifyOnShiftEnd?: boolean;
   notifyOnLimitExceeded?: boolean;
+  lastAlertSentAt?: string;
+  lastCleanupAlertSentAt?: string;
 }
 
 export interface AutoShiftCompletionSettings {

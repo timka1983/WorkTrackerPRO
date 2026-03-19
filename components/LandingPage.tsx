@@ -16,63 +16,92 @@ const LandingPage: React.FC<LandingPageProps> = ({ onStart, onRegister, plans })
   const displayPlans = plans.length > 0 ? plans : [
     { 
       type: 'FREE', 
-      name: 'Старт', 
+      name: 'Бесплатный', 
       price: 0, 
       limits: { 
         maxUsers: 3, 
-        maxMachines: 1,
-        features: { photoCapture: false, nightShift: false, advancedAnalytics: false, payroll: false } 
+        maxMachines: 2,
+        features: { 
+          photoCapture: false, 
+          nightShift: false, 
+          advancedAnalytics: false, 
+          payroll: false,
+          shiftMonitoring: false,
+          payments: true,
+          multipleBranches: false,
+          auditLog: false
+        } 
       } 
     },
     { 
       type: 'PRO', 
-      name: 'Профи', 
-      price: 990, 
+      name: 'Профессиональный', 
+      price: 2900, 
       limits: { 
         maxUsers: 20, 
-        maxMachines: 5,
-        features: { photoCapture: true, nightShift: true, advancedAnalytics: true, payroll: true } 
+        maxMachines: 10,
+        features: { 
+          photoCapture: true, 
+          nightShift: true, 
+          advancedAnalytics: true, 
+          payroll: true,
+          shiftMonitoring: true,
+          payments: true,
+          multipleBranches: true,
+          auditLog: true
+        } 
       } 
     },
     { 
       type: 'BUSINESS', 
       name: 'Бизнес', 
-      price: 2990, 
+      price: 9900, 
       limits: { 
-        maxUsers: 100, 
-        maxMachines: 20,
-        features: { photoCapture: true, nightShift: true, advancedAnalytics: true, payroll: true } 
+        maxUsers: 1000, 
+        maxMachines: 1000,
+        features: { 
+          photoCapture: true, 
+          nightShift: true, 
+          advancedAnalytics: true, 
+          payroll: true,
+          shiftMonitoring: true,
+          payments: true,
+          multipleBranches: true,
+          auditLog: true
+        } 
       } 
     }
   ] as any[]; // Cast to any[] to allow flexible rendering logic below
 
   const getFeatures = (plan: any) => {
     const features = [];
-    // Handle maxUsers
-    if (plan.limits?.maxUsers) {
-      features.push(`До ${plan.limits.maxUsers} сотрудников`);
-    } else {
+    
+    // Сотрудники
+    if (plan.limits?.maxUsers >= 1000) {
       features.push('Безлимит сотрудников');
+    } else {
+      features.push(`До ${plan.limits?.maxUsers || 3} сотрудников`);
     }
 
-    // Handle explicit features array (if coming from DB with different schema) or object (from types)
-    if (Array.isArray(plan.limits?.features)) {
-      features.push(...plan.limits.features);
-    } else if (plan.limits?.features) {
-      if (plan.limits.features.photoCapture) features.push('Фотофиксация');
-      if (plan.limits.features.nightShift) features.push('Ночные смены');
-      if (plan.limits.features.advancedAnalytics) features.push('PRO Аналитика');
-      if (plan.limits.features.payroll) features.push('Модуль Зарплата');
-      if (plan.limits.features.shiftMonitoring) features.push('Мониторинг смен');
-      if (plan.type === 'FREE') {
-         features.push('Базовый табель');
-         features.push('Локальное хранение');
-      }
-      if (plan.type === 'BUSINESS') {
-         features.push('Управление ролями');
-         features.push('API доступ');
-      }
+    // Оборудование
+    if (plan.limits?.maxMachines >= 1000) {
+      features.push('Безлимит оборудования');
+    } else {
+      features.push(`До ${plan.limits?.maxMachines || 2} ед. оборудования`);
     }
+
+    if (plan.limits?.features) {
+      const f = plan.limits.features;
+      if (f.photoCapture) features.push('Фотофиксация');
+      if (f.nightShift) features.push('Ночные смены');
+      if (f.advancedAnalytics) features.push('Аналитика');
+      if (f.payroll) features.push('Зарплата');
+      if (f.shiftMonitoring) features.push('Мониторинг смен');
+      if (f.multipleBranches) features.push('Филиалы');
+      if (f.auditLog) features.push('Журнал аудита');
+      if (f.payments) features.push('Выплаты');
+    }
+
     return features;
   };
 

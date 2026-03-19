@@ -524,13 +524,13 @@ export const PayrollView: React.FC<PayrollViewProps> = ({
                   { 
                     label: 'Итого начислено', 
                     value: `${payroll.totalSalary.toLocaleString('ru-RU')} ₽`, 
-                    className: 'font-black text-slate-900 cursor-pointer hover:bg-slate-100 rounded-lg px-2 -mx-2 transition-colors',
+                    className: 'font-black text-slate-900 cursor-pointer hover:bg-slate-100 rounded-lg px-2 -mx-2 transition-colors text-[10px]',
                     onClick: () => {
                       const el = document.getElementById('payment-history-section');
                       if (el) el.scrollIntoView({ behavior: 'smooth' });
                     }
                   },
-                  { label: 'Выплачено', value: `${totalPaid.toLocaleString('ru-RU')} ₽`, className: 'text-indigo-600' },
+                  { label: 'Выплачено', value: `${totalPaid.toLocaleString('ru-RU')} ₽`, className: 'text-indigo-600 text-[10px]' },
                   { label: 'Остаток', value: `${balance.toLocaleString('ru-RU')} ₽`, className: `font-black ${balance > 0 ? 'text-green-600' : 'text-rose-600'}` }
                 ];
 

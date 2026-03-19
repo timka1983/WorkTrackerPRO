@@ -273,7 +273,7 @@ const SuperAdminView: React.FC<SuperAdminViewProps> = ({
             type: PlanType.FREE,
             name: 'Бесплатный',
             price: 0,
-            limits: { maxUsers: 3, maxMachines: 2, features: { photoCapture: false, nightShift: false, advancedAnalytics: false, payroll: false, shiftMonitoring: false, payments: false, multipleBranches: false, auditLog: false } }
+            limits: { maxUsers: 3, maxMachines: 2, features: { photoCapture: false, nightShift: false, advancedAnalytics: false, payroll: false, shiftMonitoring: false, payments: true, multipleBranches: false, auditLog: false } }
           },
           {
             type: PlanType.PRO,
@@ -1005,6 +1005,12 @@ const SuperAdminView: React.FC<SuperAdminViewProps> = ({
                           <History className="w-4 h-4" />
                         </div>
                         <span className={plan.limits.features.auditLog ? 'text-slate-700 font-medium' : 'text-slate-400'}>Журнал аудита</span>
+                      </div>
+                      <div className="flex items-center gap-3 text-sm">
+                        <div className={`p-1 rounded-md ${plan.limits.features.payments ? 'bg-emerald-100 text-emerald-600' : 'bg-slate-100 text-slate-400'}`}>
+                          <CreditCard className="w-4 h-4" />
+                        </div>
+                        <span className={plan.limits.features.payments ? 'text-slate-700 font-medium' : 'text-slate-400'}>Выплаты</span>
                       </div>
                     </div>
 
@@ -1767,6 +1773,28 @@ const SuperAdminView: React.FC<SuperAdminViewProps> = ({
                         limits: {
                           ...editingPlan.limits,
                           features: { ...editingPlan.limits.features, auditLog: e.target.checked }
+                        }
+                      })}
+                      className="w-5 h-5 rounded border-slate-300 text-indigo-600 focus:ring-indigo-500"
+                    />
+                  </label>
+
+                  <label className="flex items-center justify-between p-4 bg-slate-50 rounded-2xl border border-slate-200 cursor-pointer hover:bg-slate-100 transition-all">
+                    <div className="flex items-center gap-3">
+                      <CreditCard className="w-5 h-5 text-indigo-600" />
+                      <div>
+                        <p className="text-sm font-bold text-slate-900">Выплаты</p>
+                        <p className="text-xs text-slate-500">Учет выплат сотрудникам</p>
+                      </div>
+                    </div>
+                    <input 
+                      type="checkbox"
+                      checked={editingPlan.limits.features.payments}
+                      onChange={(e) => setEditingPlan({
+                        ...editingPlan,
+                        limits: {
+                          ...editingPlan.limits,
+                          features: { ...editingPlan.limits.features, payments: e.target.checked }
                         }
                       })}
                       className="w-5 h-5 rounded border-slate-300 text-indigo-600 focus:ring-indigo-500"

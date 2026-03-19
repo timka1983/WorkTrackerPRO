@@ -888,11 +888,11 @@ const EmployeeView: React.FC<EmployeeViewProps> = ({
           className="bg-emerald-50 border border-emerald-200 rounded-2xl p-4 flex justify-between items-center no-print cursor-pointer hover:bg-emerald-100 transition-colors active:scale-[0.98]"
         >
            <div>
-              <h3 className="text-emerald-900 font-bold text-lg">Зарплата за месяц</h3>
-              <p className="text-emerald-600 text-xs font-medium">Нажмите для расшифровки</p>
+              <h3 className="text-emerald-900 font-bold text-base">Зарплата за месяц</h3>
+              <p className="text-emerald-600 text-[10px] font-medium">Нажмите для расшифровки</p>
            </div>
            <div className="text-right">
-              <p className="text-2xl font-extrabold text-emerald-600">{Math.floor(monthEarnings)} ₽</p>
+              <p className="text-xl font-extrabold text-emerald-600">{Math.floor(monthEarnings)} ₽</p>
            </div>
         </div>
       )}
@@ -1019,11 +1019,11 @@ const PayrollBreakdownModal: React.FC<PayrollBreakdownModalProps> = ({
           <div className="grid grid-cols-2 gap-4">
             <div className="bg-emerald-50 p-4 rounded-2xl border border-emerald-100">
               <p className="text-[10px] font-bold text-emerald-700 uppercase mb-1">Начислено</p>
-              <p className="text-xl font-extrabold text-emerald-600">{Math.floor(monthEarnings)} ₽</p>
+              <p className="text-lg font-extrabold text-emerald-600">{Math.floor(monthEarnings)} ₽</p>
             </div>
             <div className="bg-blue-50 p-4 rounded-2xl border border-blue-100">
               <p className="text-[10px] font-bold text-blue-700 uppercase mb-1">Выплачено</p>
-              <p className="text-xl font-extrabold text-blue-600">{Math.floor(totalPaid)} ₽</p>
+              <p className="text-lg font-extrabold text-blue-600">{Math.floor(totalPaid)} ₽</p>
             </div>
           </div>
 
@@ -1031,7 +1031,7 @@ const PayrollBreakdownModal: React.FC<PayrollBreakdownModalProps> = ({
           <div className={`p-4 rounded-2xl border flex justify-between items-center ${balance > 0 ? 'bg-amber-50 border-amber-100' : 'bg-slate-50 border-slate-100'}`}>
             <div>
               <p className="text-[10px] font-bold text-slate-500 uppercase">Остаток к выплате</p>
-              <p className={`text-xl font-black ${balance > 0 ? 'text-amber-600' : 'text-slate-400'}`}>
+              <p className={`text-lg font-black ${balance > 0 ? 'text-amber-600' : 'text-slate-400'}`}>
                 {Math.floor(balance)} ₽
               </p>
             </div>

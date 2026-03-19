@@ -2,7 +2,7 @@ import React, { useEffect, useMemo, useState, Suspense, useCallback } from 'reac
 import { UserRole, PlanType, PositionConfig, User, WorkLog } from './types';
 import { STORAGE_KEYS, DEFAULT_PERMISSIONS, PLAN_LIMITS } from './constants';
 import { sendNotification, calculateMinutes, sendTelegramNotification } from './utils';
-import { supabase } from './lib/supabase';
+import { supabase, db } from './lib/supabase';
 import Layout from './components/Layout';
 import LoadingScreen from './components/LoadingScreen';
 import ResetPinModal from './components/ResetPinModal';
@@ -338,11 +338,10 @@ const App: React.FC = () => {
           const duration = calculateMinutes(shift.checkIn, now.toISOString());
           
           if (duration > alertThreshold && appData.currentOrg?.telegramSettings?.notifyOnLimitExceeded !== false) {
-            const notificationKey = `tg_alert_${shift.id}`;
-            const lastSent = localStorage.getItem(notificationKey);
+            const lastSentAt = appData.currentOrg?.telegramSettings?.lastAlertSentAt;
+            const cooldown = 15 * 60 * 1000; // 15 minutes cooldown
             
-            // Send alert if never sent or sent more than 5 mins ago
-            if (!lastSent || (Date.now() - parseInt(lastSent)) > 5 * 60 * 1000) {
+            if (!lastSentAt || (Date.now() - new Date(lastSentAt).getTime()) > cooldown) {
               
               // 1. Notify Employee
               if (user.telegramChatId && (user.telegramSettings?.notifyOnLimitExceeded ?? true)) {
@@ -356,7 +355,13 @@ const App: React.FC = () => {
                  sendTelegramNotification(botToken, appData.currentOrg.telegramSettings.chatId, msg);
               }
 
-              localStorage.setItem(notificationKey, Date.now().toString());
+              // Update last alert timestamp in DB
+              db.updateOrganization(appData.currentOrg!.id, {
+                telegramSettings: {
+                  ...appData.currentOrg!.telegramSettings!,
+                  lastAlertSentAt: new Date().toISOString()
+                }
+              });
             }
           }
         });
@@ -448,12 +453,25 @@ const App: React.FC = () => {
 
             // Telegram Notification
             if (appData.currentOrg?.telegramSettings?.enabled && appData.currentOrg.telegramSettings.botToken && appData.currentOrg.telegramSettings.chatId && appData.currentOrg.telegramSettings.notifyOnLimitExceeded !== false) {
-              const machineName = shift.machineId ? appData.machines.find((m: any) => m.id === shift.machineId)?.name || 'Работа' : 'Работа';
-              const msg = `⛔️ <b>Авто-закрытие (Lazy)</b>\n👤 Сотрудник: ${user.name}\n📍 Позиция: ${user.position}\n🔧 Слот: ${slot} (${machineName})\n⚠️ Причина: Превышен лимит времени (серверная очистка)`;
-              
-              sendTelegramNotification(appData.currentOrg.telegramSettings.botToken, appData.currentOrg.telegramSettings.chatId, msg);
-              if (user.telegramChatId && (user.telegramSettings?.notifyOnLimitExceeded ?? true)) {
-                 sendTelegramNotification(appData.currentOrg.telegramSettings.botToken, user.telegramChatId, msg);
+              const lastCleanupSentAt = appData.currentOrg.telegramSettings.lastCleanupAlertSentAt;
+              const cooldown = 30 * 60 * 1000; // 30 minutes cooldown for cleanup alerts
+
+              if (!lastCleanupSentAt || (Date.now() - new Date(lastCleanupSentAt).getTime()) > cooldown) {
+                const machineName = shift.machineId ? appData.machines.find((m: any) => m.id === shift.machineId)?.name || 'Работа' : 'Работа';
+                const msg = `⛔️ <b>Авто-закрытие (Lazy)</b>\n👤 Сотрудник: ${user.name}\n📍 Позиция: ${user.position}\n🔧 Слот: ${slot} (${machineName})\n⚠️ Причина: Превышен лимит времени (серверная очистка)`;
+                
+                sendTelegramNotification(appData.currentOrg.telegramSettings.botToken, appData.currentOrg.telegramSettings.chatId, msg);
+                if (user.telegramChatId && (user.telegramSettings?.notifyOnLimitExceeded ?? true)) {
+                   sendTelegramNotification(appData.currentOrg.telegramSettings.botToken, user.telegramChatId, msg);
+                }
+
+                // Update last cleanup alert timestamp in DB
+                db.updateOrganization(appData.currentOrg.id, {
+                  telegramSettings: {
+                    ...appData.currentOrg.telegramSettings,
+                    lastCleanupAlertSentAt: new Date().toISOString()
+                  }
+                });
               }
             }
           }

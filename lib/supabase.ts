@@ -797,18 +797,14 @@ export const db = {
       console.error('Error fetching existing machines for sync:', fetchError);
     }
 
-    const newIds = machines.map(m => m.id);
-    const toArchive = existing ? existing.filter(e => !newIds.includes(e.id)) : [];
-
-    // 2. Archive removed machines
-    if (toArchive.length > 0) {
-      for (const m of toArchive) {
-        const info = deletedMachineInfo?.find(i => i.id === m.id);
+    // 2. Archive removed machines (only if explicitly in deletedMachineInfo)
+    if (deletedMachineInfo && deletedMachineInfo.length > 0) {
+      for (const info of deletedMachineInfo) {
         await supabase.from('machines').update({
           is_archived: true,
           archived_at: new Date().toISOString(),
-          archive_reason: info?.reason || 'Удален администратором'
-        }).eq('id', m.id).eq('organization_id', orgId);
+          archive_reason: info.reason || 'Удален администратором'
+        }).eq('id', info.id).eq('organization_id', orgId);
       }
     }
 
