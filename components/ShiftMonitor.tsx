@@ -55,29 +55,42 @@ export const ShiftMonitor: React.FC<ShiftMonitorProps> = ({
 
       // Stage 3: Force Close (Max + first + second + third)
       if (elapsed >= maxDuration + firstInterval + secondInterval + thirdInterval) {
-        setStatus('expired');
-        setMessage('Смена принудительно завершена (превышен лимит времени)');
-        // Trigger force close
-        const forceEndTime = addMinutes(startTime, maxDuration).toISOString();
-        onForceClose(activeShift.id, forceEndTime);
-        return;
+        if (autoShift?.enabled === true) {
+          setStatus('expired');
+          setMessage('Смена принудительно завершена (превышен лимит времени)');
+          // Trigger force close
+          const forceEndTime = addMinutes(startTime, maxDuration).toISOString();
+          onForceClose(activeShift.id, forceEndTime);
+          return;
+        } else {
+          setStatus('warning');
+          setMessage('Смена превысила лимит времени. Пожалуйста, закройте смену.');
+          return;
+        }
       }
 
       // Stage 2: Critical Warning (Max + first + second)
       if (elapsed >= maxDuration + firstInterval + secondInterval) {
-        setStatus('critical');
-        setMessage('Смена будет закрыта через ' + thirdInterval + ' минут! Подтвердите присутствие.');
+        if (autoShift?.enabled === true) {
+          setStatus('critical');
+          setMessage('Смена будет закрыта через ' + thirdInterval + ' минут! Подтвердите присутствие.');
+        } else {
+          setStatus('warning');
+          setMessage('Смена превысила лимит времени. Пожалуйста, закройте смену.');
+        }
         
         if (notifiedStage2.current !== activeShift.id) {
           // Send notification / Check location
           if (Notification.permission === 'granted') {
-            new Notification('Внимание! Смена будет закрыта', {
+            new Notification(autoShift?.enabled === true ? 'Внимание! Смена будет закрыта' : 'Внимание! Смена превысила лимит', {
               body: 'Вы превысили максимальное время смены.',
               icon: '/icon-192.png'
             });
           }
           // Here we would check location logic
-          checkLocationAndClose(activeShift.id, startTime, maxDuration);
+          if (autoShift?.enabled === true) {
+            checkLocationAndClose(activeShift.id, startTime, maxDuration);
+          }
           notifiedStage2.current = activeShift.id;
         }
         return;
@@ -86,7 +99,7 @@ export const ShiftMonitor: React.FC<ShiftMonitorProps> = ({
       // Stage 1: Warning (Max + first)
       if (elapsed >= maxDuration + firstInterval) {
         setStatus('warning');
-        setMessage('Вы забыли закрыть смену? Проверка местоположения...');
+        setMessage(autoShift?.enabled === true ? 'Вы забыли закрыть смену? Проверка местоположения...' : 'Вы забыли закрыть смену?');
         
         if (notifiedStage1.current !== activeShift.id) {
            if (Notification.permission === 'granted') {
@@ -95,7 +108,9 @@ export const ShiftMonitor: React.FC<ShiftMonitorProps> = ({
               icon: '/icon-192.png'
             });
           }
-          checkLocationAndClose(activeShift.id, startTime, maxDuration);
+          if (autoShift?.enabled === true) {
+            checkLocationAndClose(activeShift.id, startTime, maxDuration);
+          }
           notifiedStage1.current = activeShift.id;
         }
         return;

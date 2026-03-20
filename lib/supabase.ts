@@ -134,9 +134,10 @@ export const db = {
       notificationSettings: data.notification_settings,
       locationSettings: data.location_settings || data.notification_settings?.locationSettings,
       telegramSettings: data.telegram_settings || data.notification_settings?.telegramSettings,
-      maxShiftDuration: data.max_shift_duration,
-      roundShiftMinutes: data.round_shift_minutes,
-      nightShiftBonus: data.night_shift_bonus,
+      autoShiftCompletion: data.auto_shift_completion || data.notification_settings?.autoShiftCompletion,
+      maxShiftDuration: data.max_shift_duration || data.notification_settings?.maxShiftDuration || 14 * 60,
+      roundShiftMinutes: data.round_shift_minutes || data.notification_settings?.roundShiftMinutes || 15,
+      nightShiftBonus: data.night_shift_bonus || data.notification_settings?.nightShiftBonus || 0,
       createdAt: data.created_at
     };
   },
@@ -1277,6 +1278,10 @@ export const db = {
       dbUpdates.telegram_settings = updates.telegramSettings;
       delete dbUpdates.telegramSettings;
     }
+    if (updates.autoShiftCompletion !== undefined) {
+      dbUpdates.auto_shift_completion = updates.autoShiftCompletion;
+      delete dbUpdates.autoShiftCompletion;
+    }
 
     const { error } = await supabase.from('organizations').update(dbUpdates).eq('id', orgId);
     
@@ -1300,8 +1305,30 @@ export const db = {
         if (dbUpdates.telegram_settings) {
           mergedSettings.telegramSettings = dbUpdates.telegram_settings;
         }
+        if (dbUpdates.auto_shift_completion) {
+          mergedSettings.autoShiftCompletion = dbUpdates.auto_shift_completion;
+        }
+        if (dbUpdates.max_shift_duration !== undefined) {
+          mergedSettings.maxShiftDuration = dbUpdates.max_shift_duration;
+        }
+        if (dbUpdates.round_shift_minutes !== undefined) {
+          mergedSettings.roundShiftMinutes = dbUpdates.round_shift_minutes;
+        }
+        if (dbUpdates.night_shift_bonus !== undefined) {
+          mergedSettings.nightShiftBonus = dbUpdates.night_shift_bonus;
+        }
         
-        const { notification_settings, location_settings, telegram_settings, ...minimalUpdates } = dbUpdates;
+        const { 
+          notification_settings, 
+          location_settings, 
+          telegram_settings, 
+          auto_shift_completion,
+          max_shift_duration,
+          round_shift_minutes,
+          night_shift_bonus,
+          ...minimalUpdates 
+        } = dbUpdates;
+        
         minimalUpdates.notification_settings = mergedSettings;
         
         const { error: retryError } = await supabase.from('organizations').update(minimalUpdates).eq('id', orgId);
@@ -1324,6 +1351,7 @@ export const db = {
       notification_settings: org.notificationSettings,
       location_settings: org.locationSettings,
       telegram_settings: org.telegramSettings,
+      auto_shift_completion: org.autoShiftCompletion,
       max_shift_duration: org.maxShiftDuration,
       round_shift_minutes: org.roundShiftMinutes,
       night_shift_bonus: org.nightShiftBonus
@@ -1337,6 +1365,10 @@ export const db = {
         let mergedSettings: any = org.notificationSettings || {};
         if (org.locationSettings) mergedSettings.locationSettings = org.locationSettings;
         if (org.telegramSettings) mergedSettings.telegramSettings = org.telegramSettings;
+        if (org.autoShiftCompletion) mergedSettings.autoShiftCompletion = org.autoShiftCompletion;
+        if (org.maxShiftDuration !== undefined) mergedSettings.maxShiftDuration = org.maxShiftDuration;
+        if (org.roundShiftMinutes !== undefined) mergedSettings.roundShiftMinutes = org.roundShiftMinutes;
+        if (org.nightShiftBonus !== undefined) mergedSettings.nightShiftBonus = org.nightShiftBonus;
         
         await supabase.from('organizations').upsert({
           id: org.id,
@@ -1346,10 +1378,7 @@ export const db = {
           plan: org.plan,
           status: org.status,
           expiry_date: org.expiryDate,
-          notification_settings: mergedSettings,
-          max_shift_duration: org.maxShiftDuration,
-          round_shift_minutes: org.roundShiftMinutes,
-          night_shift_bonus: org.nightShiftBonus
+          notification_settings: mergedSettings
         }, { onConflict: 'id' });
       }
     }
@@ -1365,9 +1394,10 @@ export const db = {
       notificationSettings: data.notification_settings,
       locationSettings: data.location_settings || data.notification_settings?.locationSettings,
       telegramSettings: data.telegram_settings || data.notification_settings?.telegramSettings,
-      maxShiftDuration: data.max_shift_duration,
-      roundShiftMinutes: data.round_shift_minutes,
-      nightShiftBonus: data.night_shift_bonus
+      autoShiftCompletion: data.auto_shift_completion || data.notification_settings?.autoShiftCompletion,
+      maxShiftDuration: data.max_shift_duration || data.notification_settings?.maxShiftDuration || 14 * 60,
+      roundShiftMinutes: data.round_shift_minutes || data.notification_settings?.roundShiftMinutes || 15,
+      nightShiftBonus: data.night_shift_bonus || data.notification_settings?.nightShiftBonus || 0
     };
   },
   resetAdminPin: async (orgId: string, newPin: string) => {
@@ -1431,8 +1461,10 @@ CREATE TABLE IF NOT EXISTS organizations (
   notification_settings JSONB DEFAULT '{}',
   location_settings JSONB,
   telegram_settings JSONB,
+  auto_shift_completion JSONB,
   max_shift_duration INTEGER DEFAULT 720,
-  round_shift_minutes BOOLEAN DEFAULT false
+  round_shift_minutes BOOLEAN DEFAULT false,
+  night_shift_bonus INTEGER DEFAULT 0
 );
 ALTER TABLE organizations ENABLE ROW LEVEL SECURITY;
 DROP POLICY IF EXISTS "Allow public read" ON organizations;
@@ -1844,10 +1876,10 @@ $$;
       }
 
       for (const table of tablesToCheck) {
-        const { error } = await supabase.from(table).select('count', { count: 'exact', head: true }).limit(0);
+        const { error } = await supabase.from(table).select('*', { count: 'exact', head: true }).limit(0);
         
         // If error is present, OR if the error is specifically that the table doesn't exist
-        const isMissing = error && (error.message.includes('does not exist') || error.code === '42P01');
+        const isMissing = error && ((error.message.includes('relation') && error.message.includes('does not exist')) || error.code === '42P01');
         
         results.tables[table] = error ? { status: 'error', message: error.message } : { status: 'ok' };
         
@@ -1933,8 +1965,10 @@ CREATE TABLE IF NOT EXISTS organizations (
   notification_settings JSONB DEFAULT '{}',
   location_settings JSONB,
   telegram_settings JSONB,
+  auto_shift_completion JSONB,
   max_shift_duration INTEGER DEFAULT 720,
-  round_shift_minutes BOOLEAN DEFAULT false
+  round_shift_minutes BOOLEAN DEFAULT false,
+  night_shift_bonus INTEGER DEFAULT 0
 );
 ALTER TABLE organizations ENABLE ROW LEVEL SECURITY;
 DROP POLICY IF EXISTS "Allow public read" ON organizations;
@@ -2156,7 +2190,7 @@ CREATE POLICY "Allow public delete" ON branches FOR DELETE USING (true);
 
       // Check specific columns
       const expectedSchema: Record<string, string[]> = {
-        organizations: ['id', 'name', 'email', 'owner_id', 'plan', 'status', 'expiry_date', 'notification_settings', 'location_settings', 'telegram_settings', 'max_shift_duration', 'round_shift_minutes'],
+        organizations: ['id', 'name', 'email', 'owner_id', 'plan', 'status', 'expiry_date', 'notification_settings', 'location_settings', 'telegram_settings', 'auto_shift_completion', 'max_shift_duration', 'round_shift_minutes', 'night_shift_bonus'],
         users: ['id', 'organization_id', 'name', 'role', 'department', 'position', 'pin', 'require_photo', 'is_admin', 'force_pin_change', 'push_token', 'planned_shifts', 'payroll', 'branch_id'],
         work_logs: ['id', 'user_id', 'organization_id', 'date', 'entry_type', 'machine_id', 'check_in', 'check_out', 'duration_minutes', 'photo_in', 'photo_out', 'is_corrected', 'correction_note', 'correction_timestamp', 'is_night_shift', 'fine', 'bonus', 'items_produced', 'location', 'branch_id'],
         machines: ['id', 'organization_id', 'name', 'branch_id', 'is_archived'],
@@ -2180,7 +2214,7 @@ CREATE POLICY "Allow public delete" ON branches FOR DELETE USING (true);
             
             if (error) {
               // Double check if the error is actually because the table doesn't exist
-              if (error.code === '42P01' || error.message.includes('does not exist')) {
+              if (error.code === '42P01' || (error.message.includes('relation') && error.message.includes('does not exist'))) {
                 results.tables[table] = { status: 'error', message: error.message };
                 break;
               }
@@ -2197,7 +2231,7 @@ CREATE POLICY "Allow public delete" ON branches FOR DELETE USING (true);
                  if (col.includes('count') || col.includes('days') || col.includes('uses') || col.includes('minutes') || col === 'price' || col === 'fine' || col === 'bonus') colType = 'INTEGER';
                  else if (col.includes('date') || col.includes('_at') || col.includes('timestamp') || col === 'check_in' || col === 'check_out') colType = 'TIMESTAMPTZ';
                  else if (col.startsWith('is_') || col.startsWith('require_') || col.startsWith('force_')) colType = 'BOOLEAN';
-                 else if (col === 'notification_settings' || col === 'permissions' || col === 'limits' || col === 'shifts_json' || col === 'shifts' || col === 'planned_shifts' || col === 'payroll') colType = 'JSONB';
+                 else if (col === 'notification_settings' || col === 'location_settings' || col === 'telegram_settings' || col === 'auto_shift_completion' || col === 'permissions' || col === 'limits' || col === 'shifts_json' || col === 'shifts' || col === 'planned_shifts' || col === 'payroll') colType = 'JSONB';
                  
                  // Explicitly handle round_shift_minutes as boolean
                  if (col === 'round_shift_minutes') colType = 'BOOLEAN';

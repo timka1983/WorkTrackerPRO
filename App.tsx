@@ -401,6 +401,7 @@ const App: React.FC = () => {
 
     const cleanupZombieShifts = async () => {
       if (appData.isSyncing) return;
+      if (appData.currentOrg?.autoShiftCompletion?.enabled !== true) return;
 
       const now = getNow();
       const updates: WorkLog[] = [];
