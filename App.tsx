@@ -306,34 +306,46 @@ const App: React.FC = () => {
     if (!planLimits.features.shiftMonitoring) return;
     if (!appData.currentOrg?.telegramSettings?.enabled || !appData.currentOrg.telegramSettings.botToken) return;
 
-    const checkShifts = () => {
+    const checkShifts = async () => {
+      if (appData.isSyncing) return;
+      
       const now = getNow();
       const botToken = appData.currentOrg!.telegramSettings!.botToken;
       
-      Object.entries(appData.activeShiftsMap).forEach(([userId, shifts]) => {
+      for (const [userId, shifts] of Object.entries(appData.activeShiftsMap)) {
         // Prevent other employees' stale devices from sending notifications for this user
-        if (userId !== auth.currentUser?.id && !isEmployerAuthorized) return;
+        if (userId !== auth.currentUser?.id && !isEmployerAuthorized) continue;
 
         const user = appData.users.find((u: User) => u.id === userId);
-        if (!user) return;
+        if (!user) continue;
 
         const positionConfig = appData.positions.find((p: PositionConfig) => p.name === user.position);
         
         // Only monitor if maxShiftDurationMinutes is explicitly set and > 0
         const maxDuration = positionConfig?.permissions.maxShiftDurationMinutes;
-        if (!maxDuration || maxDuration <= 0) return;
+        if (!maxDuration || maxDuration <= 0) continue;
 
         const alertThreshold = maxDuration + 15;
 
         const shiftsRecord = shifts as Record<string, any>;
-        if (!shiftsRecord) return;
+        if (!shiftsRecord) continue;
 
-        Object.entries(shiftsRecord).forEach(([slot, shift]: [string, any]) => {
-          if (!shift || !shift.checkIn || shift.checkOut) return;
+        for (const [slot, shift] of Object.entries(shiftsRecord)) {
+          if (!shift || !shift.checkIn || shift.checkOut) continue;
 
           // Double-check if the shift is already closed in the logs
           const log = appData.logs.find((l: any) => l.id === shift.id);
-          if (log && log.checkOut) return;
+          if (log && log.checkOut) continue;
+          
+          // If not found in local logs, check DB
+          if (!log) {
+            try {
+              const { data } = await supabase.from('work_logs').select('checkOut').eq('id', shift.id).maybeSingle();
+              if (data && data.checkOut) continue;
+            } catch (e) {
+              console.error('Error checking shift status in DB', e);
+            }
+          }
 
           const duration = calculateMinutes(shift.checkIn, now.toISOString());
           
@@ -364,8 +376,8 @@ const App: React.FC = () => {
               });
             }
           }
-        });
-      });
+        }
+      }
     };
 
     const interval = setInterval(checkShifts, 60000); // Check every minute
@@ -387,17 +399,19 @@ const App: React.FC = () => {
   useEffect(() => {
     if (!appData.currentOrg) return;
 
-    const cleanupZombieShifts = () => {
+    const cleanupZombieShifts = async () => {
+      if (appData.isSyncing) return;
+
       const now = getNow();
       const updates: WorkLog[] = [];
       const shiftUpdates: Record<string, any> = {};
 
-      Object.entries(appData.activeShiftsMap).forEach(([userId, shifts]) => {
+      for (const [userId, shifts] of Object.entries(appData.activeShiftsMap)) {
         // Only process if it's the current user, OR if the current user is an employer
-        if (userId !== auth.currentUser?.id && !isEmployerAuthorized) return;
+        if (userId !== auth.currentUser?.id && !isEmployerAuthorized) continue;
 
         const user = appData.users.find(u => u.id === userId);
-        if (!user) return;
+        if (!user) continue;
         
         const pos = appData.positions.find((p: PositionConfig) => p.name === user.position);
         const maxDuration = pos?.permissions.maxShiftDurationMinutes || appData.currentOrg!.maxShiftDuration || 720;
@@ -406,18 +420,18 @@ const App: React.FC = () => {
         const threshold = maxDuration + 120;
 
         const userShifts = shifts as Record<string, any>;
-        if (!userShifts) return;
+        if (!userShifts) continue;
 
         let userChanged = false;
         const nextUserShifts = { ...userShifts };
 
-        Object.entries(userShifts).forEach(([slot, shift]) => {
-          if (!shift || !shift.checkIn) return;
+        for (const [slot, shift] of Object.entries(userShifts)) {
+          if (!shift || !shift.checkIn) continue;
 
           if (shift.checkOut) {
             nextUserShifts[slot] = null;
             userChanged = true;
-            return;
+            continue;
           }
 
           // Double-check if the shift is already closed in the logs
@@ -425,7 +439,21 @@ const App: React.FC = () => {
           if (log && log.checkOut) {
             nextUserShifts[slot] = null;
             userChanged = true;
-            return;
+            continue;
+          }
+          
+          // If not found in local logs, check DB
+          if (!log) {
+            try {
+              const { data } = await supabase.from('work_logs').select('checkOut').eq('id', shift.id).maybeSingle();
+              if (data && data.checkOut) {
+                nextUserShifts[slot] = null;
+                userChanged = true;
+                continue;
+              }
+            } catch (e) {
+              console.error('Error checking shift status in DB', e);
+            }
           }
 
           const duration = calculateMinutes(shift.checkIn, now.toISOString());
@@ -475,12 +503,12 @@ const App: React.FC = () => {
               }
             }
           }
-        });
+        }
 
         if (userChanged) {
           shiftUpdates[userId] = nextUserShifts;
         }
-      });
+      }
 
       if (updates.length > 0) {
         appData.handleLogsUpsert(updates);
