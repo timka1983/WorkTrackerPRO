@@ -26,7 +26,7 @@ interface EmployeeMatrixProps {
 
 const SHIFT_COLORS = {
   'Р': 'bg-blue-100 text-blue-700',
-  'В': 'bg-slate-100 text-slate-500',
+  'В': 'bg-slate-50 text-slate-300',
   'Д': 'bg-amber-100 text-amber-700',
   'О': 'bg-purple-100 text-purple-700',
   'Н': 'bg-indigo-100 text-indigo-700',
@@ -155,9 +155,9 @@ export const EmployeeMatrix = memo<EmployeeMatrixProps>(({
       </div>
 
       <div className="p-4 bg-slate-50/30 border-b border-slate-100 no-print">
-        <div className="flex flex-wrap gap-4 text-[10px] font-bold text-slate-500">
+        <div className="flex flex-wrap gap-4 text-xs font-bold text-slate-500">
           <span className="flex items-center gap-1.5"><span className="w-5 h-5 rounded bg-blue-100 text-blue-700 flex items-center justify-center text-[9px]">Р</span> Рабочий - {computedShiftCounts['Р']}</span>
-          <span className="flex items-center gap-1.5"><span className="w-5 h-5 rounded bg-slate-100 text-slate-400 flex items-center justify-center text-[9px]">В</span> Выходной - {computedShiftCounts['В']}</span>
+          <span className="flex items-center gap-1.5"><span className="w-5 h-5 rounded bg-slate-50 text-slate-300 flex items-center justify-center text-[9px]">В</span> Выходной - {computedShiftCounts['В']}</span>
           <span className="flex items-center gap-1.5"><span className="w-5 h-5 rounded bg-amber-100 text-amber-700 flex items-center justify-center text-[9px]">Д</span> День - {computedShiftCounts['Д']}</span>
           <span className="flex items-center gap-1.5"><span className="w-5 h-5 rounded bg-purple-100 text-purple-700 flex items-center justify-center text-[9px]">О</span> Отпуск - {computedShiftCounts['О']}</span>
           <span className="flex items-center gap-1.5"><span className="w-5 h-5 rounded bg-indigo-100 text-indigo-700 flex items-center justify-center text-[9px]">Н</span> Ночь - {computedShiftCounts['Н']}</span>
@@ -240,7 +240,7 @@ export const EmployeeMatrix = memo<EmployeeMatrixProps>(({
                     {format(day, 'd')}
                   </span>
                   {shift && isFutureOrToday && (
-                    <span className={`text-sm font-bold mt-0.5 ${SHIFT_COLORS[shift].split(' ')[1]}`}>
+                    <span className={`${shift === 'В' ? 'text-[10px] sm:text-[11px]' : 'text-sm'} font-bold mt-0.5 ${SHIFT_COLORS[shift].split(' ')[1]}`}>
                       {shift}
                     </span>
                   )}

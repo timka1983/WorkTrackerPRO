@@ -105,14 +105,75 @@ const LandingPage: React.FC<LandingPageProps> = ({ onStart, onRegister, plans })
     return features;
   };
 
+  const schemaData = React.useMemo(() => {
+    const softwareApp = {
+      "@context": "https://schema.org",
+      "@type": "SoftwareApplication",
+      "name": "WorkTracker PRO",
+      "operatingSystem": "Web, Android, iOS",
+      "applicationCategory": "BusinessApplication",
+      "description": "Профессиональная система контроля и учета рабочего времени, контроля смен сотрудников и автоматизации табеля для производственных предприятий.",
+      "offers": displayPlans.map(plan => ({
+        "@type": "Offer",
+        "name": plan.name,
+        "price": plan.price,
+        "priceCurrency": "RUB",
+        "description": getFeatures(plan).join(", ")
+      }))
+    };
+
+    const faqPage = {
+      "@context": "https://schema.org",
+      "@type": "FAQPage",
+      "mainEntity": [
+        {
+          "@type": "Question",
+          "name": "Как внедрить систему учета рабочего времени?",
+          "acceptedAnswer": {
+            "@type": "Answer",
+            "text": "Внедрение WorkTracker PRO занимает от 15 минут. Просто зарегистрируйте организацию, добавьте сотрудников и установите приложение на их устройства."
+          }
+        },
+        {
+          "@type": "Question",
+          "name": "Можно ли использовать систему оффлайн?",
+          "acceptedAnswer": {
+            "@type": "Answer",
+            "text": "Да, благодаря PWA-технологиям приложение работает оффлайн, а данные синхронизируются с облаком при появлении сети."
+          }
+        },
+        {
+          "@type": "Question",
+          "name": "Как происходит расчет зарплаты?",
+          "acceptedAnswer": {
+            "@type": "Answer",
+            "text": "Система автоматически суммирует отработанные часы, учитывает ночные смены, переработки и штрафы на основе настроенных вами правил."
+          }
+        }
+      ]
+    };
+
+    return [softwareApp, faqPage];
+  }, [displayPlans]);
+
   return (
     <div className="min-h-screen bg-white text-slate-900 selection:bg-blue-100 font-sans">
+      {/* Schema.org JSON-LD */}
+      {schemaData.map((data, idx) => (
+        <script
+          key={idx}
+          type="application/ld+json"
+          dangerouslySetInnerHTML={{ __html: JSON.stringify(data) }}
+        />
+      ))}
+
       {/* Navigation */}
       <nav className="fixed top-0 w-full z-[100] bg-white/90 backdrop-blur-md border-b border-slate-100 supports-[backdrop-filter]:bg-white/60">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 flex justify-between items-center h-16 sm:h-20">
           <div className="flex items-center gap-2">
             <div className="bg-blue-600 text-white p-1.5 rounded-xl shadow-lg shadow-blue-200">
-              <svg className="w-5 h-5 sm:w-6 sm:h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <svg className="w-5 h-5 sm:w-6 sm:h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24" role="img">
+                <title>Логотип WorkTracker PRO — учет времени</title>
                 <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z" />
               </svg>
             </div>
@@ -128,7 +189,7 @@ const LandingPage: React.FC<LandingPageProps> = ({ onStart, onRegister, plans })
       </nav>
 
       {/* Hero Section */}
-      <section className="pt-28 sm:pt-32 pb-12 sm:pb-20 px-4 sm:px-6 lg:px-8 max-w-7xl mx-auto text-center">
+      <section className="pt-20 sm:pt-24 pb-8 sm:pb-12 px-4 sm:px-6 lg:px-8 max-w-7xl mx-auto text-center">
         <div className="inline-block px-4 py-1.5 bg-blue-50 text-blue-600 rounded-full text-[10px] font-black uppercase tracking-widest mb-6 animate-fadeIn">
           Версия 2.2.0-PRO уже доступна
         </div>
@@ -137,7 +198,7 @@ const LandingPage: React.FC<LandingPageProps> = ({ onStart, onRegister, plans })
           <span className="text-transparent bg-clip-text bg-gradient-to-r from-blue-600 to-indigo-600">для производственных предприятий</span>
         </h1>
         <p className="text-base sm:text-lg md:text-xl text-slate-500 max-w-2xl mx-auto mb-8 sm:mb-10 font-medium leading-relaxed">
-          Профессиональная система контроля смен и автоматизации табеля. 
+          Профессиональная система контроля и учета рабочего времени, контроля смен сотрудников и автоматизации табеля. 
           Никаких турникетов и дорогого оборудования — только смартфоны сотрудников и дисциплина.
         </p>
         <div className="flex flex-col sm:flex-row gap-4 justify-center items-center px-4 sm:px-0">
@@ -145,7 +206,7 @@ const LandingPage: React.FC<LandingPageProps> = ({ onStart, onRegister, plans })
             onClick={onRegister}
             className="w-full sm:w-auto px-8 sm:px-10 py-4 sm:py-5 bg-blue-600 text-white rounded-[2rem] font-black text-base sm:text-lg shadow-2xl shadow-blue-200 hover:bg-blue-700 transition-all hover:-translate-y-1 active:scale-95 uppercase tracking-wide"
           >
-            Начать бесплатно
+            Начать бесплатно за 1 минуту
           </button>
           <a 
             href="#pricing"
@@ -154,36 +215,12 @@ const LandingPage: React.FC<LandingPageProps> = ({ onStart, onRegister, plans })
             Тарифы
           </a>
         </div>
-        
-        {/* Interface Preview */}
-        <div className="mt-12 sm:mt-20 relative max-w-7xl mx-auto px-2 sm:px-0">
-          <InterfacePreview />
-        </div>
-      </section>
-
-      {/* For Whom */}
-      <section className="py-24 bg-slate-50">
-        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
-          <h2 className="text-3xl sm:text-4xl font-black mb-16 text-center uppercase tracking-tight">Для кого наше решение</h2>
-          <div className="grid grid-cols-1 md:grid-cols-3 gap-8">
-            {[
-              { title: "Мебельные цеха", desc: "Контроль выработки и времени на сборку изделий без турникетов." },
-              { title: "Металлообработка", desc: "Учет работы на станках и дисциплина в производственных зонах." },
-              { title: "Пекарни и пищевое производство", desc: "Прозрачный график смен и автоматизация расчетов для сменного персонала." }
-            ].map((item, i) => (
-              <div key={i} className="bg-white p-8 rounded-2xl border border-slate-100 shadow-sm">
-                <h3 className="text-lg font-black mb-3">{item.title}</h3>
-                <p className="text-slate-600 font-medium leading-relaxed">{item.desc}</p>
-              </div>
-            ))}
-          </div>
-        </div>
       </section>
 
       {/* Features */}
-      <section className="py-16 sm:py-24 bg-slate-50">
+      <section className="py-8 sm:py-10 bg-slate-50">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
-          <div className="text-center mb-12 sm:mb-16">
+          <div className="text-center mb-8 sm:mb-12">
             <h2 className="text-2xl sm:text-3xl md:text-4xl font-black mb-4">Все, что нужно для контроля</h2>
             <p className="text-sm sm:text-base text-slate-500 font-medium">Технологии, которые работают на ваш бизнес</p>
           </div>
@@ -222,7 +259,8 @@ const LandingPage: React.FC<LandingPageProps> = ({ onStart, onRegister, plans })
             ].map((f, i) => (
               <div key={i} className="bg-white p-6 sm:p-10 rounded-[2rem] sm:rounded-[2.5rem] border border-slate-100 shadow-sm hover:shadow-xl transition-all hover:-translate-y-2 group">
                 <div className="w-12 h-12 sm:w-14 sm:h-14 bg-blue-50 text-blue-600 rounded-2xl flex items-center justify-center mb-6 group-hover:bg-blue-600 group-hover:text-white transition-colors">
-                  <svg className="w-6 h-6 sm:w-7 sm:h-7" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <svg className="w-6 h-6 sm:w-7 sm:h-7" fill="none" stroke="currentColor" viewBox="0 0 24 24" role="img">
+                    <title>{f.title}</title>
                     <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d={f.icon} />
                   </svg>
                 </div>
@@ -234,10 +272,80 @@ const LandingPage: React.FC<LandingPageProps> = ({ onStart, onRegister, plans })
         </div>
       </section>
 
-      {/* How it works */}
-      <section className="py-24 bg-white">
+      {/* For Whom */}
+      <section className="py-10 bg-white">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
-          <h2 className="text-3xl sm:text-4xl font-black mb-16 text-center uppercase tracking-tight">Как начать работу</h2>
+          <h2 className="text-3xl sm:text-4xl font-black mb-12 text-center uppercase tracking-tight">Для кого наше решение</h2>
+          <div className="grid grid-cols-1 md:grid-cols-3 gap-8">
+            {[
+              { title: "Мебельные цеха", desc: "Контроль выработки и времени на сборку изделий без турникетов." },
+              { title: "Металлообработка", desc: "Учет работы на станках и дисциплина в производственных зонах." },
+              { title: "Пекарни и пищевое производство", desc: "Прозрачный график смен и автоматизация расчетов для сменного персонала." }
+            ].map((item, i) => (
+              <div key={i} className="bg-slate-50 p-8 rounded-2xl border border-slate-100 shadow-sm">
+                <h3 className="text-lg font-black mb-3">{item.title}</h3>
+                <p className="text-slate-600 font-medium leading-relaxed">{item.desc}</p>
+              </div>
+            ))}
+          </div>
+        </div>
+      </section>
+
+      {/* Role-based Benefits */}
+      <section className="py-10 bg-slate-900 text-white overflow-hidden">
+        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+          <div className="text-center mb-12">
+            <h2 className="text-2xl sm:text-3xl font-black uppercase tracking-tight">Выгода для каждого сотрудника</h2>
+          </div>
+          <div className="grid grid-cols-1 md:grid-cols-3 gap-8">
+            {[
+              { 
+                role: "Владелец бизнеса", 
+                benefit: "Полный контроль ФОТ и дисциплины. Сокращение издержек на 15-20% за счет исключения приписок и ошибок.",
+                icon: "M12 8c-1.657 0-3 .895-3 2s1.343 2 3 2 3 .895 3 2-1.343 2-3 2m0-8c1.11 0 2.08.402 2.599 1M12 8V7m0 1v8m0 0v1m0-1c-1.11 0-2.08-.402-2.599-1M21 12a9 9 0 11-18 0 9 9 0 0118 0z"
+              },
+              { 
+                role: "Начальник цеха", 
+                benefit: "Видит статус всех смен в реальном времени. Больше не нужно бегать по цеху с журналами и проверять присутствие.",
+                icon: "M15 12a3 3 0 11-6 0 3 3 0 016 0z M2.458 12C3.732 7.943 7.523 5 12 5c4.478 0 8.268 2.943 9.542 7-1.274 4.057-5.064 7-9.542 7-4.477 0-8.268-2.943-9.542-7z"
+              },
+              { 
+                role: "Бухгалтер", 
+                benefit: "Автоматический табель Т-13. Расчет зарплаты, ночных и переработок в один клик. Интеграция с 1С.",
+                icon: "M9 17v-2m3 2v-4m3 4v-6m2 10H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"
+              }
+            ].map((item, i) => (
+              <div key={i} className="bg-white/5 p-8 rounded-3xl border border-white/10 hover:bg-white/10 transition-all group">
+                <div className="w-12 h-12 bg-blue-600 rounded-xl flex items-center justify-center mb-6 shadow-lg shadow-blue-500/20 group-hover:scale-110 transition-transform">
+                  <svg className="w-6 h-6 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d={item.icon} />
+                  </svg>
+                </div>
+                <h3 className="text-xl font-black mb-4 text-blue-400 uppercase tracking-tight">{item.role}</h3>
+                <p className="text-slate-400 font-medium leading-relaxed">{item.benefit}</p>
+              </div>
+            ))}
+          </div>
+        </div>
+      </section>
+
+      {/* Interface Preview Section */}
+      <section className="py-8 sm:py-10 bg-slate-50">
+        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+          <div className="text-center mb-8 sm:mb-12">
+            <h2 className="text-2xl sm:text-3xl md:text-4xl font-black mb-4 uppercase tracking-tight">Интуитивный интерфейс</h2>
+            <p className="text-sm sm:text-base text-slate-500 font-medium">Управляйте производством с любого устройства</p>
+          </div>
+          <div className="relative max-w-5xl mx-auto">
+            <InterfacePreview />
+          </div>
+        </div>
+      </section>
+
+      {/* How it works */}
+      <section className="py-10 bg-white">
+        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+          <h2 className="text-3xl sm:text-4xl font-black mb-12 text-center uppercase tracking-tight">Как начать работу</h2>
           <div className="grid grid-cols-1 md:grid-cols-3 gap-12">
             {[
               { step: "01", title: "Регистрация", desc: "Создайте аккаунт компании за 1 минуту." },
@@ -254,10 +362,53 @@ const LandingPage: React.FC<LandingPageProps> = ({ onStart, onRegister, plans })
         </div>
       </section>
 
+      {/* Security Guarantees */}
+      <section className="py-8 bg-slate-900 text-white overflow-hidden relative">
+        <div className="absolute top-0 left-0 w-full h-full opacity-10 pointer-events-none">
+          <svg className="w-full h-full" viewBox="0 0 100 100" preserveAspectRatio="none">
+            <path d="M0 100 L100 0 L100 100 Z" fill="currentColor" />
+          </svg>
+        </div>
+        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 relative z-10">
+          <div className="grid grid-cols-1 md:grid-cols-3 gap-8 items-center">
+            {[
+              {
+                title: "Данные зашифрованы",
+                desc: "Используем SSL/TLS шифрование банковского уровня для защиты всей передаваемой информации.",
+                icon: "M12 15v2m-6 4h12a2 2 0 002-2v-6a2 2 0 00-2-2H6a2 2 0 00-2 2v6a2 2 0 002 2zm10-10V7a4 4 0 00-8 0v4h8z"
+              },
+              {
+                title: "Ежедневные бэкапы",
+                desc: "Ваши данные дублируются в нескольких дата-центрах. Мы гарантируем сохранность истории за последние 5 лет.",
+                icon: "M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15"
+              },
+              {
+                title: "Соответствие ФЗ-152",
+                desc: "Полное соответствие законодательству РФ о персональных данных. Сервера находятся на территории России.",
+                icon: "M9 12l2 2 4-4m5.618-4.016A11.955 11.955 0 0112 2.944a11.955 11.955 0 01-8.618 3.04M12 21.48l-.392-.232a12.81 12.81 0 01-9.89-8.115l-.494-1.483.007-.001a11.952 11.952 0 0110.769-9.05l.008-.001.008.001a11.952 11.952 0 0110.769 9.05l.007.001-.494 1.483a12.81 12.81 0 01-9.89 8.115l-.392.232z"
+              }
+            ].map((s, i) => (
+              <div key={i} className="flex flex-col items-center text-center md:items-start md:text-left gap-4 group">
+                <div className="w-14 h-14 bg-white/10 rounded-2xl flex items-center justify-center shrink-0 group-hover:bg-blue-600 transition-colors duration-500">
+                  <svg className="w-7 h-7 text-blue-400 group-hover:text-white transition-colors" fill="none" stroke="currentColor" viewBox="0 0 24 24" role="img">
+                    <title>{s.title}</title>
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d={s.icon} />
+                  </svg>
+                </div>
+                <div>
+                  <h3 className="text-lg font-black mb-1 uppercase tracking-tight">{s.title}</h3>
+                  <p className="text-slate-400 text-sm font-medium leading-relaxed">{s.desc}</p>
+                </div>
+              </div>
+            ))}
+          </div>
+        </div>
+      </section>
+
       {/* Testimonials */}
-      <section className="py-24 bg-white">
+      <section className="py-10 bg-white">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
-          <h2 className="text-3xl sm:text-4xl font-black mb-16 text-center uppercase tracking-tight">Нам доверяют</h2>
+          <h2 className="text-3xl sm:text-4xl font-black mb-12 text-center uppercase tracking-tight">Нам доверяют</h2>
           <div className="grid grid-cols-1 md:grid-cols-3 gap-8">
             {[
               { name: "Алексей, владелец мебельного цеха", text: "Раньше тратили часы на Excel, теперь расчет зарплаты занимает 10 минут. Сотрудники стали дисциплинированнее." },
@@ -274,9 +425,9 @@ const LandingPage: React.FC<LandingPageProps> = ({ onStart, onRegister, plans })
       </section>
 
       {/* FAQ Section */}
-      <section className="py-24 bg-slate-50">
+      <section className="py-10 bg-slate-50">
         <div className="max-w-3xl mx-auto px-6">
-          <h2 className="text-3xl font-black mb-12 text-center uppercase tracking-tight">Часто задаваемые вопросы</h2>
+          <h2 className="text-3xl font-black mb-10 text-center uppercase tracking-tight">Часто задаваемые вопросы</h2>
           <div className="space-y-6">
             {[
               { q: "Как внедрить систему учета рабочего времени?", a: "Внедрение WorkTracker PRO занимает от 15 минут. Просто зарегистрируйте организацию, добавьте сотрудников и установите приложение на их устройства." },
@@ -292,9 +443,45 @@ const LandingPage: React.FC<LandingPageProps> = ({ onStart, onRegister, plans })
         </div>
       </section>
 
+      {/* Integration Block */}
+      <section className="py-10 bg-white overflow-hidden">
+        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+          <div className="bg-blue-600 rounded-[3rem] p-8 sm:p-16 text-white flex flex-col md:flex-row items-center gap-12 relative overflow-hidden">
+            <div className="absolute top-0 right-0 w-64 h-64 bg-white/10 rounded-full -translate-y-1/2 translate-x-1/2 blur-3xl"></div>
+            <div className="flex-1 text-center md:text-left relative z-10">
+              <h2 className="text-3xl sm:text-4xl font-black mb-6 uppercase tracking-tight">Интеграция с 1С и Excel</h2>
+              <p className="text-blue-100 text-lg font-medium mb-8 leading-relaxed">
+                Выгружайте готовые табели и расчеты напрямую в вашу учетную систему. 
+                Поддержка форматов CSV, XLSX и прямая совместимость с 1С:ЗУП.
+              </p>
+              <div className="flex flex-wrap justify-center md:justify-start gap-4">
+                <div className="px-6 py-3 bg-white/10 rounded-2xl border border-white/20 font-black uppercase text-xs tracking-widest">1С:ЗУП</div>
+                <div className="px-6 py-3 bg-white/10 rounded-2xl border border-white/20 font-black uppercase text-xs tracking-widest">Excel</div>
+                <div className="px-6 py-3 bg-white/10 rounded-2xl border border-white/20 font-black uppercase text-xs tracking-widest">Google Sheets</div>
+              </div>
+            </div>
+            <div className="w-full md:w-1/3 flex justify-center relative z-10">
+               <div className="bg-white p-8 rounded-[2.5rem] shadow-2xl rotate-3 hover:rotate-0 transition-transform duration-500">
+                  <div className="flex items-center gap-4 mb-4">
+                    <div className="w-10 h-10 bg-blue-100 rounded-xl flex items-center justify-center text-blue-600">
+                      <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-4l-4 4m0 0l-4-4m4 4V4" /></svg>
+                    </div>
+                    <span className="text-slate-900 font-black uppercase text-xs tracking-widest">Экспорт табеля</span>
+                  </div>
+                  <div className="space-y-2">
+                    <div className="h-2 w-full bg-slate-100 rounded-full"></div>
+                    <div className="h-2 w-3/4 bg-slate-100 rounded-full"></div>
+                    <div className="h-2 w-1/2 bg-blue-100 rounded-full"></div>
+                  </div>
+               </div>
+            </div>
+          </div>
+        </div>
+      </section>
+
       {/* Pricing */}
-      <section id="pricing" className="py-24 max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
-        <div className="text-center mb-16">
+      <section id="pricing" className="py-10 max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+        <div className="text-center mb-12">
           <h2 className="text-3xl sm:text-4xl font-black mb-4 uppercase tracking-tight">Тарифные планы</h2>
           <p className="text-slate-500 font-medium italic">Выберите идеальный вариант для масштаба вашего бизнеса</p>
         </div>
@@ -356,7 +543,7 @@ const LandingPage: React.FC<LandingPageProps> = ({ onStart, onRegister, plans })
       </section>
 
       {/* Footer */}
-      <footer className="bg-slate-900 text-white py-12 sm:py-20 px-4 mt-12 sm:mt-20">
+      <footer className="bg-slate-900 text-white py-8 sm:py-10 px-4 mt-8 sm:mt-12">
         <div className="max-w-7xl mx-auto grid grid-cols-1 md:grid-cols-2 gap-8 sm:gap-12 items-center">
            <div className="text-center md:text-left">
               <div className="flex items-center justify-center md:justify-start gap-2 mb-6">

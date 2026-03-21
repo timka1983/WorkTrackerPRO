@@ -4,9 +4,7 @@ export interface Feature {
   id: string;
   title: string;
   description: string;
-  icon: React.ElementType;
-  // Placeholder for a screenshot or component preview
-  preview: string; 
+  icon: any;
 }
 
 export const features: Feature[] = [
@@ -14,42 +12,36 @@ export const features: Feature[] = [
     id: 'monitoring',
     title: 'Мониторинг смен',
     description: 'Отслеживайте активность сотрудников в реальном времени. Визуальная панель показывает, кто сейчас на смене, на каком оборудовании работает и текущий статус выполнения задач.',
-    icon: Activity,
-    preview: 'https://picsum.photos/seed/monitoring/800/600'
+    icon: Activity
   },
   {
     id: 'matrix',
     title: 'Матрица сотрудников',
     description: 'Управляйте расписанием через интерактивную матрицу. Быстрое переключение между сотрудниками, назначение смен и контроль загрузки персонала в едином окне.',
-    icon: Grid3X3,
-    preview: 'https://picsum.photos/seed/matrix/800/600'
+    icon: Grid3X3
   },
   {
     id: 'payroll',
     title: 'Автоматизация зарплаты',
     description: 'Забудьте о ручных расчетах. Система автоматически учитывает отработанные часы, ночные смены, переработки и штрафы согласно настроенным правилам организации.',
-    icon: Calculator,
-    preview: 'https://picsum.photos/seed/payroll/800/600'
+    icon: Calculator
   },
   {
     id: 'absence',
     title: 'Учет отсутствий',
     description: 'Полный контроль за посещаемостью. Фиксируйте больничные, отпуска и прогулы, с автоматическим обновлением графиков и расчетов заработной платы.',
-    icon: CalendarOff,
-    preview: 'https://picsum.photos/seed/absence/800/600'
+    icon: CalendarOff
   },
   {
     id: 'photo',
     title: 'Фотофиксация и QR',
     description: 'Исключите подмены сотрудников. Система требует фото при входе и выходе, а QR-коды на рабочих местах гарантируют физическое присутствие на объекте.',
-    icon: Camera,
-    preview: 'https://picsum.photos/seed/photo/800/600'
+    icon: Camera
   },
   {
     id: 'analytics',
     title: 'Аналитика и отчеты',
     description: 'Принимайте решения на основе данных. Глубокая аналитика эффективности оборудования, дисциплины сотрудников и затрат на ФОТ в наглядных графиках.',
-    icon: BarChart3,
-    preview: 'https://picsum.photos/seed/analytics/800/600'
+    icon: BarChart3
   }
 ];

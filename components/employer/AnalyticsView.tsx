@@ -23,11 +23,18 @@ export const AnalyticsView: React.FC<AnalyticsViewProps> = ({
   return (
     <div className="space-y-8 no-print">
       <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
-         <div className="bg-white p-6 rounded-[2rem] border border-slate-200 shadow-sm">
-            <div className="flex items-center justify-between mb-6">
-               <h3 className="text-xs font-black text-slate-400 uppercase tracking-widest">Сейчас в работе</h3>
-               <span className="flex h-2 w-2 rounded-full bg-green-500 animate-pulse"></span>
+         {/* Сейчас в работе */}
+         <div className="space-y-4">
+            <div className="flex items-center justify-between px-2">
+               <h3 className="text-[10px] font-black text-slate-400 uppercase tracking-[0.2em]">Сейчас в работе</h3>
+               <div className="flex items-center gap-2">
+                  <span className="text-[10px] font-black text-green-600 bg-green-50 px-2 py-0.5 rounded-full border border-green-100">
+                    {dashboardStats.activeShifts.length} чел.
+                  </span>
+                  <span className="flex h-2 w-2 rounded-full bg-green-500 animate-pulse"></span>
+               </div>
             </div>
+            
             <div className="space-y-3">
                {dashboardStats.activeShifts.length > 0 ? dashboardStats.activeShifts.map((s: WorkLog) => {
                   const emp = users.find(u => u.id === s.userId);
@@ -36,71 +43,118 @@ export const AnalyticsView: React.FC<AnalyticsViewProps> = ({
                   const isOld = s.date !== dashboardStats.todayStr;
                   
                   return (
-                    <div key={s.id} className={`group/item flex justify-between items-center p-3 rounded-xl border transition-all ${isOld ? 'bg-red-50 border-red-200 hover:bg-white shadow-sm' : 'bg-blue-50 border-blue-100 hover:bg-white'}`}>
-                       <div className="flex-1 pr-2">
-                          <span className={`text-xs font-bold block truncate ${isOld ? 'text-red-900' : 'text-slate-700'}`}>
-                            {emp?.name}
-                            {emp?.isArchived && <span className="ml-1 text-[8px] bg-slate-200 text-slate-600 px-1.5 py-0.5 rounded-full">Архив</span>}
-                            {emp?.branchId && branches.find(b => b.id === emp.branchId) && (
-                              <span className="ml-1 text-[8px] text-slate-400 font-bold uppercase">
-                                ({branches.find(b => b.id === emp.branchId)?.name})
-                              </span>
-                            )}
-                          </span>
-                          <span className={`text-[9px] font-black uppercase tracking-tighter mt-1 flex items-center gap-1 ${isOld ? 'text-red-500' : 'text-blue-500'}`}>
-                            {s.isNightShift && <svg className="w-2.5 h-2.5" fill="currentColor" viewBox="0 0 20 20"><path d="M17.293 13.293A8 8 0 016.707 2.707a8.001 8.001 0 1010.586 10.586z"/></svg>}
-                            {machineName}
-                          </span>
+                    <div key={s.id} className={`group/item relative bg-white p-4 rounded-2xl border transition-all shadow-sm hover:shadow-md ${isOld ? 'border-red-200 bg-red-50/30' : 'border-slate-200'}`}>
+                       <div className="flex justify-between items-start mb-3">
+                          <div className="min-w-0 flex-1">
+                             <div className="flex items-center gap-2">
+                                <span className={`text-sm font-bold truncate ${isOld ? 'text-red-900' : 'text-slate-900'}`}>
+                                  {emp?.name}
+                                </span>
+                                {emp?.isArchived && <span className="flex-shrink-0 text-[8px] bg-slate-200 text-slate-600 px-1.5 py-0.5 rounded-full">Архив</span>}
+                             </div>
+                             <div className="flex items-center gap-1.5 mt-0.5">
+                                <span className={`text-[10px] font-black uppercase tracking-tight ${isOld ? 'text-red-500' : 'text-blue-500'}`}>
+                                  {machineName}
+                                </span>
+                                {emp?.branchId && branches.find(b => b.id === emp.branchId) && (
+                                  <span className="text-[9px] text-slate-400 font-bold uppercase">
+                                    • {branches.find(b => b.id === emp.branchId)?.name}
+                                  </span>
+                                )}
+                             </div>
+                          </div>
+                          <div className="text-right shrink-0">
+                             <div className={`text-xs font-black px-2 py-1 rounded-lg border ${isOld ? 'text-red-600 border-red-200 bg-white' : 'text-blue-600 border-blue-100 bg-blue-50/50'}`}>
+                                {formatTime(s.checkIn)}
+                             </div>
+                             {isOld && (
+                               <div className="text-[8px] font-black text-red-600 uppercase mt-1 tracking-tighter">
+                                 Начало: {format(new Date(s.date), 'dd.MM')}
+                               </div>
+                             )}
+                          </div>
                        </div>
-                       <div className="flex items-center gap-2">
-                         <div className="flex flex-col items-end">
-                           {isOld && (
-                             <span className="text-[8px] font-black text-red-600 uppercase mb-0.5 tracking-tighter">
-                               Начало: {format(new Date(s.date), 'dd.MM')}
-                             </span>
-                           )}
-                           <span className={`text-[10px] font-black bg-white px-2 py-0.5 rounded-lg border ${isOld ? 'text-red-600 border-red-200' : 'text-blue-600 border-blue-100'}`}>
-                             {formatTime(s.checkIn)}
-                           </span>
-                         </div>
-                         <div className="flex flex-col items-center gap-1">
-                            {userPerms.isFullAdmin && (
+
+                       <div className="flex items-center justify-between pt-3 border-t border-slate-100">
+                          <div className="flex items-center gap-1.5">
+                             {s.isNightShift && (
+                               <div className="flex items-center gap-1 text-[9px] font-bold text-indigo-500 bg-indigo-50 px-1.5 py-0.5 rounded-md">
+                                 <svg className="w-2.5 h-2.5" fill="currentColor" viewBox="0 0 20 20"><path d="M17.293 13.293A8 8 0 016.707 2.707a8.001 8.001 0 1010.586 10.586z"/></svg>
+                                 Ночь
+                               </div>
+                             )}
+                             <span className="text-[9px] font-bold text-slate-400 uppercase">В работе</span>
+                          </div>
+                          
+                          {userPerms.isFullAdmin && (
                             <button 
                                onClick={() => handleForceFinish(s)}
-                               className={`hidden group-hover/item:flex items-center justify-center p-1.5 text-white rounded-lg transition-colors shadow-sm ${isOld ? 'bg-red-600 hover:bg-red-700' : 'bg-red-500 hover:bg-red-600'}`}
-                               title="Принудительно завершить"
+                               className={`flex items-center gap-1.5 px-3 py-1.5 rounded-xl text-[10px] font-black uppercase tracking-widest transition-all active:scale-95 ${isOld ? 'bg-red-600 text-white hover:bg-red-700 shadow-lg shadow-red-100' : 'bg-slate-100 text-slate-400 hover:bg-red-50 hover:text-red-600'}`}
                             >
                                <svg className="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={3} d="M6 18L18 6M6 6l12 12" /></svg>
+                               Стоп
                             </button>
-                            )}
-                            <span className={`hidden group-hover/item:block text-[6px] font-black uppercase leading-none tracking-tighter ${isOld ? 'text-red-600' : 'text-red-400'}`}>СТОП {machineName.split(' ')[0]}</span>
-                         </div>
+                          )}
                        </div>
                     </div>
                   );
-               }) : <p className="text-xs text-slate-400 italic py-4 text-center">Все отдыхают</p>}
+               }) : (
+                 <div className="bg-white p-8 rounded-3xl border border-dashed border-slate-200 text-center">
+                    <p className="text-xs text-slate-400 font-medium italic">Все отдыхают</p>
+                 </div>
+               )}
             </div>
          </div>
          
-         <div className="bg-white p-6 rounded-[2rem] border border-slate-200 shadow-sm">
-            <h3 className="text-xs font-black text-slate-400 uppercase tracking-widest mb-6">Смена (Сегодня)</h3>
+         {/* Смена (Сегодня) */}
+         <div className="space-y-4">
+            <div className="flex items-center justify-between px-2">
+               <h3 className="text-[10px] font-black text-slate-400 uppercase tracking-[0.2em]">Смена (Сегодня)</h3>
+               <span className="text-[10px] font-black text-slate-500 bg-slate-100 px-2 py-0.5 rounded-full border border-slate-200">
+                 {dashboardStats.finishedToday.length} смен
+               </span>
+            </div>
+
             <div className="space-y-3">
                {dashboardStats.finishedToday.length > 0 ? dashboardStats.finishedToday.map((s: any) => {
                   const emp = users.find(u => u.id === s.userId);
                   return (
-                    <div key={s.id} className="flex justify-between items-center p-3 bg-slate-50 rounded-xl border border-slate-100">
-                       <div className="flex flex-col">
-                          <span className="text-xs font-bold text-slate-800 flex items-center gap-2 min-w-0">
-                             {s.isNightShift && <svg className="w-3 h-3 text-slate-400 flex-shrink-0" fill="currentColor" viewBox="0 0 20 20"><path d="M17.293 13.293A8 8 0 016.707 2.707a8.001 8.001 0 1010.586 10.586z"/></svg>}
-                             <span className="truncate">{emp?.name}</span>
-                             {emp?.isArchived && <span className="flex-shrink-0 text-[8px] bg-slate-200 text-slate-600 px-1.5 py-0.5 rounded-full">Архив</span>}
-                          </span>
-                          <span className="text-[9px] text-slate-400 font-black uppercase tracking-tighter">Начало: {formatTime(s.checkIn)} | Конец: {formatTime(s.checkOut)}</span>
+                    <div key={s.id} className="bg-white p-4 rounded-2xl border border-slate-200 shadow-sm hover:shadow-md transition-all">
+                       <div className="flex justify-between items-start mb-3">
+                          <div className="min-w-0 flex-1">
+                             <div className="flex items-center gap-2">
+                                <span className="text-sm font-bold text-slate-900 truncate">{emp?.name}</span>
+                                {emp?.isArchived && <span className="flex-shrink-0 text-[8px] bg-slate-200 text-slate-600 px-1.5 py-0.5 rounded-full">Архив</span>}
+                             </div>
+                             <div className="flex items-center gap-1.5 mt-0.5">
+                                <span className="text-[9px] text-slate-400 font-black uppercase tracking-tighter">
+                                   {formatTime(s.checkIn)} — {formatTime(s.checkOut)}
+                                </span>
+                             </div>
+                          </div>
+                          <div className="text-right shrink-0">
+                             <div className="text-xs font-black text-slate-900 bg-slate-50 px-2 py-1 rounded-lg border border-slate-100">
+                                {formatDurationShort(s.durationMinutes)}
+                             </div>
+                          </div>
                        </div>
-                       <span className="text-[11px] font-black text-slate-900 bg-white px-2 py-1 rounded-lg border border-slate-200">{formatDurationShort(s.durationMinutes)}</span>
+                       
+                       <div className="flex items-center gap-1.5 pt-3 border-t border-slate-50">
+                          {s.isNightShift && (
+                            <div className="flex items-center gap-1 text-[9px] font-bold text-indigo-500 bg-indigo-50 px-1.5 py-0.5 rounded-md">
+                               <svg className="w-2.5 h-2.5" fill="currentColor" viewBox="0 0 20 20"><path d="M17.293 13.293A8 8 0 016.707 2.707a8.001 8.001 0 1010.586 10.586z"/></svg>
+                               Ночь
+                            </div>
+                          )}
+                          <span className="text-[9px] font-bold text-slate-400 uppercase">Завершено</span>
+                       </div>
                     </div>
                   );
-               }) : <p className="text-xs text-slate-400 italic py-4 text-center">Нет завершенных смен</p>}
+               }) : (
+                 <div className="bg-white p-8 rounded-3xl border border-dashed border-slate-200 text-center">
+                    <p className="text-xs text-slate-400 font-medium italic">Нет завершенных смен</p>
+                 </div>
+               )}
             </div>
          </div>
 

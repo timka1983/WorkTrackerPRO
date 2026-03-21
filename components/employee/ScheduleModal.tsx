@@ -21,7 +21,7 @@ type ShiftType = 'Р' | 'В' | 'Д' | 'О' | 'Н';
 
 const SHIFT_COLORS = {
   'Р': 'bg-blue-100 text-blue-700',
-  'В': 'bg-slate-100 text-slate-500',
+  'В': 'bg-slate-50 text-slate-300',
   'Д': 'bg-amber-100 text-amber-700',
   'О': 'bg-purple-100 text-purple-700',
   'Н': 'bg-indigo-100 text-indigo-700',
@@ -125,11 +125,7 @@ export const ScheduleModal: React.FC<ScheduleModalProps> = ({
       const dateStr = format(currentDate, 'yyyy-MM-dd');
       const shift = pattern[patternIndex];
       
-      if (shift === 'В') {
-        delete newPlannedShifts[dateStr];
-      } else {
-        newPlannedShifts[dateStr] = shift;
-      }
+      newPlannedShifts[dateStr] = shift;
       
       currentDate = addDays(currentDate, 1);
       patternIndex = (patternIndex + 1) % pattern.length;
@@ -208,7 +204,7 @@ export const ScheduleModal: React.FC<ScheduleModalProps> = ({
                       {format(day, 'd')}
                     </span>
                     {shift && (
-                      <span className="text-[10px] font-black mt-0.5">
+                      <span className={`text-[10px] ${shift === 'В' ? 'font-bold' : 'font-black'} mt-0.5`}>
                         {readOnly ? formatDurationShort(bestMachineMinutes) : shift}
                       </span>
                     )}

@@ -330,18 +330,36 @@ const App: React.FC = () => {
         const shiftsRecord = shifts as Record<string, any>;
         if (!shiftsRecord) continue;
 
+        let userShiftsChanged = false;
+        const nextUserShifts = { ...shiftsRecord };
+
         for (const [slot, shift] of Object.entries(shiftsRecord)) {
-          if (!shift || !shift.checkIn || shift.checkOut) continue;
+          if (!shift || !shift.checkIn) continue;
+
+          // If shift already has a checkOut in the active_shifts record, clean it up
+          if (shift.checkOut) {
+            nextUserShifts[slot] = null;
+            userShiftsChanged = true;
+            continue;
+          }
 
           // Double-check if the shift is already closed in the logs
           const log = appData.logs.find((l: any) => l.id === shift.id);
-          if (log && log.checkOut) continue;
+          if (log && log.checkOut) {
+            nextUserShifts[slot] = null;
+            userShiftsChanged = true;
+            continue;
+          }
           
           // If not found in local logs, check DB
           if (!log) {
             try {
               const { data } = await supabase.from('work_logs').select('checkOut').eq('id', shift.id).maybeSingle();
-              if (data && data.checkOut) continue;
+              if (data && data.checkOut) {
+                nextUserShifts[slot] = null;
+                userShiftsChanged = true;
+                continue;
+              }
             } catch (e) {
               console.error('Error checking shift status in DB', e);
             }
@@ -350,10 +368,13 @@ const App: React.FC = () => {
           const duration = calculateMinutes(shift.checkIn, now.toISOString());
           
           if (duration > alertThreshold && appData.currentOrg?.telegramSettings?.notifyOnLimitExceeded !== false) {
-            const lastSentAt = appData.currentOrg?.telegramSettings?.lastAlertSentAt;
-            const cooldown = 15 * 60 * 1000; // 15 minutes cooldown
+            // Use per-shift notification tracking to prevent spam
+            // We store lastNotifiedAt in the shift object itself (optimistically)
+            const lastNotifiedAt = shift.lastNotifiedAt;
+            const cooldown = 15 * 60 * 1000; // 15 minutes cooldown per shift
             
-            if (!lastSentAt || (Date.now() - new Date(lastSentAt).getTime()) > cooldown) {
+            if (!lastNotifiedAt || (Date.now() - new Date(lastNotifiedAt).getTime()) > cooldown) {
+              console.log(`Sending overtime notification for ${user.name}, duration: ${duration}m`);
               
               // 1. Notify Employee
               if (user.telegramChatId && (user.telegramSettings?.notifyOnLimitExceeded ?? true)) {
@@ -367,7 +388,14 @@ const App: React.FC = () => {
                  sendTelegramNotification(botToken, appData.currentOrg.telegramSettings.chatId, msg);
               }
 
-              // Update last alert timestamp in DB
+              // Update last notified timestamp in the shift object
+              nextUserShifts[slot] = {
+                ...shift,
+                lastNotifiedAt: new Date().toISOString()
+              };
+              userShiftsChanged = true;
+
+              // Also update organization-wide timestamp for backward compatibility/legacy monitoring
               db.updateOrganization(appData.currentOrg!.id, {
                 telegramSettings: {
                   ...appData.currentOrg!.telegramSettings!,
@@ -376,6 +404,10 @@ const App: React.FC = () => {
               });
             }
           }
+        }
+
+        if (userShiftsChanged) {
+          appData.handleActiveShiftsUpdate(userId, nextUserShifts);
         }
       }
     };
@@ -482,26 +514,21 @@ const App: React.FC = () => {
 
             // Telegram Notification
             if (appData.currentOrg?.telegramSettings?.enabled && appData.currentOrg.telegramSettings.botToken && appData.currentOrg.telegramSettings.chatId && appData.currentOrg.telegramSettings.notifyOnLimitExceeded !== false) {
-              const lastCleanupSentAt = appData.currentOrg.telegramSettings.lastCleanupAlertSentAt;
-              const cooldown = 30 * 60 * 1000; // 30 minutes cooldown for cleanup alerts
-
-              if (!lastCleanupSentAt || (Date.now() - new Date(lastCleanupSentAt).getTime()) > cooldown) {
-                const machineName = shift.machineId ? appData.machines.find((m: any) => m.id === shift.machineId)?.name || 'Работа' : 'Работа';
-                const msg = `⛔️ <b>Авто-закрытие (Lazy)</b>\n👤 Сотрудник: ${user.name}\n📍 Позиция: ${user.position}\n🔧 Слот: ${slot} (${machineName})\n⚠️ Причина: Превышен лимит времени (серверная очистка)`;
-                
-                sendTelegramNotification(appData.currentOrg.telegramSettings.botToken, appData.currentOrg.telegramSettings.chatId, msg);
-                if (user.telegramChatId && (user.telegramSettings?.notifyOnLimitExceeded ?? true)) {
-                   sendTelegramNotification(appData.currentOrg.telegramSettings.botToken, user.telegramChatId, msg);
-                }
-
-                // Update last cleanup alert timestamp in DB
-                db.updateOrganization(appData.currentOrg.id, {
-                  telegramSettings: {
-                    ...appData.currentOrg.telegramSettings,
-                    lastCleanupAlertSentAt: new Date().toISOString()
-                  }
-                });
+              const machineName = shift.machineId ? appData.machines.find((m: any) => m.id === shift.machineId)?.name || 'Работа' : 'Работа';
+              const msg = `⛔️ <b>Авто-закрытие (Lazy)</b>\n👤 Сотрудник: ${user.name}\n📍 Позиция: ${user.position}\n🔧 Слот: ${slot} (${machineName})\n⚠️ Причина: Превышен лимит времени (серверная очистка)`;
+              
+              sendTelegramNotification(appData.currentOrg.telegramSettings.botToken, appData.currentOrg.telegramSettings.chatId, msg);
+              if (user.telegramChatId && (user.telegramSettings?.notifyOnLimitExceeded ?? true)) {
+                 sendTelegramNotification(appData.currentOrg.telegramSettings.botToken, user.telegramChatId, msg);
               }
+
+              // Update last cleanup alert timestamp in DB for legacy tracking
+              db.updateOrganization(appData.currentOrg.id, {
+                telegramSettings: {
+                  ...appData.currentOrg.telegramSettings,
+                  lastCleanupAlertSentAt: new Date().toISOString()
+                }
+              });
             }
           }
         }

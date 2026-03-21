@@ -58,7 +58,7 @@ export const UserMatrixRowCells = memo(({
           return (
             <td key={dateStr} className="border-r p-1 h-12 text-center align-middle">
               {planned && (
-                <span className={`text-[10px] font-black ${
+                <span className={`text-[10px] ${planned === 'В' ? 'font-bold' : 'font-black'} ${
                   planned === 'Р' ? 'text-blue-400' :
                   planned === 'В' ? 'text-slate-300' :
                   planned === 'Д' ? 'text-amber-400' :

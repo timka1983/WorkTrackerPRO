@@ -1,66 +1,41 @@
-import React, { useState } from 'react';
-import { motion, AnimatePresence } from 'motion/react';
+import React from 'react';
+import { motion } from 'motion/react';
 import { features } from './previewData';
 
 export const InterfacePreview: React.FC = () => {
-  const [activeFeature, setActiveFeature] = useState(features[0]);
-
   return (
-    <section id="interface-preview" className="py-20 bg-white text-slate-900 font-sans">
+    <section id="interface-preview" className="py-12 bg-white text-slate-900 font-sans">
       <div className="max-w-7xl mx-auto px-6">
-        <h2 className="text-4xl font-black mb-12 tracking-tight text-center">Интерфейс системы</h2>
-        
-        <div className="grid grid-cols-1 md:grid-cols-12 gap-8">
-          {/* Sidebar: Feature List */}
-          <div className="md:col-span-4 space-y-4">
-            {features.map((feature) => {
-              const Icon = feature.icon;
-              const isActive = activeFeature.id === feature.id;
-              return (
-                <button
-                  key={feature.id}
-                  id={`btn-${feature.id}`}
-                  onClick={() => setActiveFeature(feature)}
-                  className={`w-full text-left p-6 rounded-2xl border transition-all duration-200 flex items-center gap-4 ${
-                    isActive 
-                      ? 'bg-blue-600 text-white border-blue-600 shadow-lg shadow-blue-200' 
-                      : 'bg-white border-slate-100 hover:bg-slate-50 shadow-sm'
-                  }`}
-                >
-                  <Icon className={`w-6 h-6 ${isActive ? 'text-white' : 'text-blue-600'}`} />
-                  <span className="font-bold text-sm uppercase tracking-wider">{feature.title}</span>
-                </button>
-              );
-            })}
-          </div>
-
-          {/* Main Preview Area */}
-          <div className="md:col-span-8 bg-white p-10 rounded-[2.5rem] border border-slate-100 shadow-xl min-h-[400px] flex flex-col justify-center">
-            <AnimatePresence mode="wait">
+        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6 sm:gap-8">
+          {features.map((feature, index) => {
+            const Icon = feature.icon;
+            return (
               <motion.div
-                key={activeFeature.id}
-                initial={{ opacity: 0, y: 10 }}
-                animate={{ opacity: 1, y: 0 }}
-                exit={{ opacity: 0, y: -10 }}
-                transition={{ duration: 0.3 }}
+                key={feature.id}
+                initial={{ opacity: 0, y: 20 }}
+                whileInView={{ opacity: 1, y: 0 }}
+                viewport={{ once: true }}
+                transition={{ duration: 0.5, delay: index * 0.1 }}
+                className="group p-8 rounded-[2.5rem] bg-slate-50 border border-slate-100 hover:bg-white hover:border-blue-100 hover:shadow-2xl hover:shadow-blue-100/50 transition-all duration-500 flex flex-col h-full"
               >
-                <h3 className="text-3xl font-black mb-6">{activeFeature.title}</h3>
-                <p className="text-slate-500 font-medium text-base leading-relaxed mb-8 max-w-2xl">
-                  {activeFeature.description}
+                <div className="w-14 h-14 bg-white text-blue-600 rounded-2xl flex items-center justify-center mb-6 shadow-sm group-hover:bg-blue-600 group-hover:text-white group-hover:scale-110 transition-all duration-500">
+                  <Icon className="w-7 h-7" />
+                </div>
+                <h3 className="text-xl font-black mb-4 group-hover:text-blue-600 transition-colors duration-300 uppercase tracking-tight">
+                  {feature.title}
+                </h3>
+                <p className="text-slate-500 font-medium text-sm sm:text-base leading-relaxed flex-1">
+                  {feature.description}
                 </p>
-                
-                {/* Visual Placeholder for the interface */}
-                <div className="bg-slate-50 border border-slate-100 rounded-2xl h-64 flex items-center justify-center overflow-hidden">
-                  <img 
-                    src={activeFeature.preview} 
-                    alt={activeFeature.title} 
-                    className="w-full h-full object-cover"
-                    referrerPolicy="no-referrer"
-                  />
+                <div className="mt-6 pt-6 border-t border-slate-200/50 flex items-center gap-2 text-blue-600 font-black text-[10px] uppercase tracking-widest opacity-0 group-hover:opacity-100 transition-opacity duration-500">
+                  <span>Подробнее</span>
+                  <svg className="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={3} d="M9 5l7 7-7 7" />
+                  </svg>
                 </div>
               </motion.div>
-            </AnimatePresence>
-          </div>
+            );
+          })}
         </div>
       </div>
     </section>
