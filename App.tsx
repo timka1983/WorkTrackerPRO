@@ -334,47 +334,76 @@ const App: React.FC = () => {
         const nextUserShifts = { ...shiftsRecord };
 
         for (const [slot, shift] of Object.entries(shiftsRecord)) {
-          if (!shift || !shift.checkIn) continue;
+          if (!shift || !shift.checkIn || !shift.id) {
+            // If shift is malformed, clean it up
+            if (shift && !shift.id) {
+              console.warn(`⚠️ Malformed shift found for ${userId} (no ID), cleaning up`);
+              nextUserShifts[slot] = null;
+              userShiftsChanged = true;
+            }
+            continue;
+          }
 
-          // If shift already has a checkOut in the active_shifts record, clean it up
-          if (shift.checkOut) {
+          // 0. Safety check: If shift is older than 48 hours, it's definitely a zombie
+          const shiftDate = new Date(shift.checkIn);
+          if (now.getTime() - shiftDate.getTime() > 48 * 60 * 60 * 1000) {
+            console.log(`🧹 Cleaning up ancient shift (>48h) for ${user.name}`);
             nextUserShifts[slot] = null;
             userShiftsChanged = true;
             continue;
           }
 
-          // Double-check if the shift is already closed in the logs
+          // 1. Aggressive cleanup: if shift already has a checkOut in the active_shifts record, clean it up
+          if (shift.checkOut) {
+            console.log(`🧹 Cleaning up finished shift (checkOut present) for ${user.name}`);
+            nextUserShifts[slot] = null;
+            userShiftsChanged = true;
+            continue;
+          }
+
+          // 2. Double-check if the shift is already closed in the local logs
           const log = appData.logs.find((l: any) => l.id === shift.id);
           if (log && log.checkOut) {
+            console.log(`🧹 Cleaning up finished shift (local log found) for ${user.name}`);
             nextUserShifts[slot] = null;
             userShiftsChanged = true;
             continue;
           }
           
-          // If not found in local logs, check DB
-          if (!log) {
-            try {
-              const { data } = await supabase.from('work_logs').select('checkOut').eq('id', shift.id).maybeSingle();
-              if (data && data.checkOut) {
+          // 3. If not found in local logs, check DB directly to be absolutely sure
+          // This is the most important check to prevent false notifications
+          try {
+            const { data, error } = await supabase.from('work_logs').select('check_out').eq('id', shift.id).maybeSingle();
+            if (error) {
+              console.error('Error querying DB for shift status:', error);
+            } else if (data && data.check_out) {
+              console.log(`🧹 Cleaning up finished shift (DB check confirmed) for ${user.name}`);
+              nextUserShifts[slot] = null;
+              userShiftsChanged = true;
+              continue;
+            } else if (!data) {
+              // If the shift ID is NOT in the work_logs table at all, and it's older than 2 hours, it's a ghost
+              const ageMinutes = calculateMinutes(shift.checkIn, now.toISOString());
+              if (ageMinutes > 120) {
+                console.log(`🧹 Cleaning up ghost shift (not in DB logs) for ${user.name}`);
                 nextUserShifts[slot] = null;
                 userShiftsChanged = true;
                 continue;
               }
-            } catch (e) {
-              console.error('Error checking shift status in DB', e);
             }
+          } catch (e) {
+            console.error('Error checking shift status in DB', e);
           }
 
           const duration = calculateMinutes(shift.checkIn, now.toISOString());
           
           if (duration > alertThreshold && appData.currentOrg?.telegramSettings?.notifyOnLimitExceeded !== false) {
             // Use per-shift notification tracking to prevent spam
-            // We store lastNotifiedAt in the shift object itself (optimistically)
             const lastNotifiedAt = shift.lastNotifiedAt;
             const cooldown = 15 * 60 * 1000; // 15 minutes cooldown per shift
             
             if (!lastNotifiedAt || (Date.now() - new Date(lastNotifiedAt).getTime()) > cooldown) {
-              console.log(`Sending overtime notification for ${user.name}, duration: ${duration}m`);
+              console.log(`🚀 Sending overtime notification for ${user.name}, duration: ${duration}m, shiftId: ${shift.id}`);
               
               // 1. Notify Employee
               if (user.telegramChatId && (user.telegramSettings?.notifyOnLimitExceeded ?? true)) {
@@ -478,11 +507,20 @@ const App: React.FC = () => {
           // If not found in local logs, check DB
           if (!log) {
             try {
-              const { data } = await supabase.from('work_logs').select('checkOut').eq('id', shift.id).maybeSingle();
-              if (data && data.checkOut) {
+              // FIX: Use snake_case column name 'check_out'
+              const { data } = await supabase.from('work_logs').select('check_out').eq('id', shift.id).maybeSingle();
+              if (data && data.check_out) {
                 nextUserShifts[slot] = null;
                 userChanged = true;
                 continue;
+              } else if (!data) {
+                // If not in DB logs and older than 4 hours, kill it
+                const ageMinutes = calculateMinutes(shift.checkIn, now.toISOString());
+                if (ageMinutes > 240) {
+                  nextUserShifts[slot] = null;
+                  userChanged = true;
+                  continue;
+                }
               }
             } catch (e) {
               console.error('Error checking shift status in DB', e);

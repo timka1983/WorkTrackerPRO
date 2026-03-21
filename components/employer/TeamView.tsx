@@ -142,8 +142,8 @@ export const TeamView: React.FC<TeamViewProps> = ({
           </div>
         </div>
       </div>
-      <div className="lg:col-span-2 grid grid-cols-1 xl:grid-cols-2 gap-4 content-start">
-         <div className="flex items-center justify-between px-2 xl:col-span-2">
+      <div className="lg:col-span-2 grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 2xl:grid-cols-4 gap-4 content-start">
+         <div className="flex items-center justify-between px-2 md:col-span-2 xl:col-span-3 2xl:col-span-4">
            <h3 className="text-[10px] font-black text-slate-400 uppercase tracking-widest">Список сотрудников</h3>
            <button 
              onClick={() => setIsArchiveViewOpen(true)}
@@ -160,10 +160,10 @@ export const TeamView: React.FC<TeamViewProps> = ({
            return (
              <div 
                key={u.id} 
-               className={`p-5 rounded-3xl border flex items-center justify-between group shadow-sm transition-all ${
+               className={`p-4 rounded-3xl border flex flex-col sm:flex-row items-center justify-between group shadow-sm transition-all gap-4 ${
                  isWorking 
                    ? 'bg-emerald-50/40 border-emerald-200 hover:border-emerald-400' 
-                   : 'bg-white border-slate-200 hover:border-slate-300'
+                   : 'bg-slate-50/20 border-slate-100 hover:border-slate-200 opacity-90 hover:opacity-100'
                }`}
              >
                 <div className="flex-1 flex items-center gap-4 min-w-0">

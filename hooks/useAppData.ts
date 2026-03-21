@@ -40,11 +40,44 @@ export const useAppData = (currentUser: User | null) => {
     const cached = localStorage.getItem(STORAGE_KEYS.WORK_LOGS);
     return cached ? JSON.parse(cached) : [];
   });
+  const logsRef = useRef<WorkLog[]>(logs);
+  useEffect(() => { logsRef.current = logs; }, [logs]);
   
   const [activeShiftsMap, setActiveShiftsMap] = useState<Record<string, any>>(() => {
     const cached = localStorage.getItem(STORAGE_KEYS.ACTIVE_SHIFTS);
-    return cached ? JSON.parse(cached) : {};
+    if (!cached) return {};
+    try {
+      const map = JSON.parse(cached);
+      const now = new Date().getTime();
+      const oneDay = 24 * 60 * 60 * 1000;
+      
+      // Filter out shifts older than 24 hours to prevent "zombie" resurrections
+      const filtered: Record<string, any> = {};
+      Object.entries(map).forEach(([userId, userShifts]) => {
+        if (userShifts && typeof userShifts === 'object') {
+          const cleanUserShifts: Record<string, any> = {};
+          let hasAny = false;
+          Object.entries(userShifts as object).forEach(([slot, shift]) => {
+            if (shift && shift.checkIn) {
+              const checkInTime = new Date(shift.checkIn).getTime();
+              if (now - checkInTime < oneDay) {
+                cleanUserShifts[slot] = shift;
+                hasAny = true;
+              }
+            }
+          });
+          if (hasAny) {
+            filtered[userId] = cleanUserShifts;
+          }
+        }
+      });
+      return filtered;
+    } catch (e) {
+      return {};
+    }
   });
+  const activeShiftsMapRef = useRef<Record<string, any>>(activeShiftsMap);
+  useEffect(() => { activeShiftsMapRef.current = activeShiftsMap; }, [activeShiftsMap]);
 
   const [syncError, setSyncError] = useState<string | null>(null);
   const [upgradeReason, setUpgradeReason] = useState<string | null>(null);
@@ -380,6 +413,24 @@ export const useAppData = (currentUser: User | null) => {
           if (typeof parsed === 'string') {
             try { parsed = JSON.parse(parsed); } catch (e) { parsed = {}; }
           }
+          
+          // CRITICAL: Filter out zombies right here using logsRef to prevent flickering
+          if (parsed && typeof parsed === 'object') {
+            let changed = false;
+            Object.keys(parsed).forEach(slot => {
+              const shift = parsed[slot];
+              if (shift && shift.id) {
+                const log = logsRef.current.find(l => l.id === shift.id);
+                if (log && log.checkOut) {
+                  parsed[slot] = null;
+                  changed = true;
+                }
+              }
+            });
+            // If we found a zombie, we should ideally update the server too, 
+            // but we'll do that in checkShifts or in the log queries to avoid infinite loops here.
+          }
+          
           map[cleanValue(s.user_id)] = parsed || {};
         });
       }
@@ -453,45 +504,42 @@ export const useAppData = (currentUser: User | null) => {
             return sorted;
           });
 
-          // Sync Active Shifts Map with Logs
+          // Sync Active Shifts Map with Logs - Only for CLEARING finished shifts
           setActiveShiftsMap(prevMap => {
             const newMap = { ...prevMap };
+            let changed = false;
+            const usersToUpdate: string[] = [];
+            
             // Clear finished shifts
             Object.keys(newMap).forEach(userId => {
               const userShifts = newMap[userId];
               if (userShifts && typeof userShifts === 'object') {
+                let userChanged = false;
                 Object.keys(userShifts).forEach(slot => {
                   const shift = userShifts[slot];
                   if (shift && shift.id) {
                     const log = combined.find(l => l.id === shift.id);
                     if (log && log.checkOut) {
                       userShifts[slot] = null;
+                      userChanged = true;
+                      changed = true;
                     }
                   }
                 });
+                if (userChanged) {
+                  usersToUpdate.push(userId);
+                }
               }
             });
             
-            // Add open shifts
-            const openLogs = combined.filter(l => !l.checkOut && l.entryType === EntryType.WORK);
-            openLogs.forEach(log => {
-              const uId = String(log.userId).trim();
-              if (!newMap[uId] || typeof newMap[uId] !== 'object') {
-                newMap[uId] = {};
-              }
-              const userShifts = newMap[uId];
-              let slot = 1;
-              const parts = log.id.split('-');
-              if (parts.length >= 4) {
-                const parsedSlot = parseInt(parts[parts.length - 1]);
-                if (!isNaN(parsedSlot)) slot = parsedSlot;
-              }
-              if (!userShifts[slot] || userShifts[slot].id !== log.id) {
-                userShifts[slot] = log;
-              }
-            });
+            // If we found zombies, update the server to prevent them from coming back in activeShifts query
+            if (usersToUpdate.length > 0) {
+              usersToUpdate.forEach(uid => {
+                db.saveActiveShifts(uid, newMap[uid], orgId);
+              });
+            }
             
-            return newMap;
+            return changed ? newMap : prevMap;
           });
         }
         return combined;
@@ -540,22 +588,40 @@ export const useAppData = (currentUser: User | null) => {
           setActiveShiftsMap(prevMap => {
             const newMap = { ...prevMap };
             let changed = false;
+            const now = getNow();
+            const oneDayAgo = new Date(now.getTime() - 24 * 60 * 60 * 1000);
+            const usersToUpdate: string[] = [];
             
             Object.keys(newMap).forEach(userId => {
               const userShifts = newMap[userId];
               if (userShifts && typeof userShifts === 'object') {
+                let userChanged = false;
                 Object.keys(userShifts).forEach(slot => {
                   const shift = userShifts[slot];
                   if (shift && shift.id) {
                     const log = recent.find(l => l.id === shift.id);
                     if (log && log.checkOut) {
                       userShifts[slot] = null;
+                      userChanged = true;
                       changed = true;
+                    } else if (!log && new Date(shift.date + 'T' + (shift.checkIn || '00:00')) < oneDayAgo) {
+                      // If shift is old and not in recent logs, it might be a zombie
+                      // But we don't clear it here to be safe, checkShifts will handle it
                     }
                   }
                 });
+                if (userChanged) {
+                  usersToUpdate.push(userId);
+                }
               }
             });
+            
+            // Update server if we found zombies
+            if (usersToUpdate.length > 0) {
+              usersToUpdate.forEach(uid => {
+                db.saveActiveShifts(uid, newMap[uid], orgId);
+              });
+            }
             
             return changed ? newMap : prevMap;
           });
