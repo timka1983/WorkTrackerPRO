@@ -142,8 +142,8 @@ export const TeamView: React.FC<TeamViewProps> = ({
           </div>
         </div>
       </div>
-      <div className="lg:col-span-2 space-y-4">
-         <div className="flex items-center justify-between px-2">
+      <div className="lg:col-span-2 grid grid-cols-1 xl:grid-cols-2 gap-4 content-start">
+         <div className="flex items-center justify-between px-2 xl:col-span-2">
            <h3 className="text-[10px] font-black text-slate-400 uppercase tracking-widest">Список сотрудников</h3>
            <button 
              onClick={() => setIsArchiveViewOpen(true)}
@@ -158,11 +158,22 @@ export const TeamView: React.FC<TeamViewProps> = ({
            const activeLogs = dashboardStats.activeLogsMap[u.id] || [];
            const isWorking = activeLogs.length > 0;
            return (
-             <div key={u.id} className="bg-white p-5 rounded-3xl border border-slate-200 flex items-center justify-between group shadow-sm transition-all hover:border-blue-300">
+             <div 
+               key={u.id} 
+               className={`p-5 rounded-3xl border flex items-center justify-between group shadow-sm transition-all ${
+                 isWorking 
+                   ? 'bg-emerald-50/40 border-emerald-200 hover:border-emerald-400' 
+                   : 'bg-white border-slate-200 hover:border-slate-300'
+               }`}
+             >
                 <div className="flex-1 flex items-center gap-4 min-w-0">
                   <div className="relative flex-shrink-0">
-                    <div className="w-12 h-12 rounded-2xl bg-blue-100 text-blue-600 flex items-center justify-center font-black text-xl">{u.name.charAt(0)}</div>
-                    {isWorking && <span className="absolute -top-1 -right-1 w-3 h-3 bg-blue-600 border-2 border-white rounded-full animate-pulse"></span>}
+                    <div className={`w-12 h-12 rounded-2xl flex items-center justify-center font-black text-xl ${
+                      isWorking ? 'bg-emerald-100 text-emerald-600' : 'bg-blue-100 text-blue-600'
+                    }`}>
+                      {u.name.charAt(0)}
+                    </div>
+                    {isWorking && <span className="absolute -top-1 -right-1 w-3 h-3 bg-emerald-600 border-2 border-white rounded-full animate-pulse"></span>}
                   </div>
                   <div className="min-w-0">
                     <div className="flex items-center gap-2">
@@ -206,29 +217,37 @@ export const TeamView: React.FC<TeamViewProps> = ({
                   )}
                   <button 
                     onClick={() => { setSelectedUserForQr(u); setIsTelegramQrModalOpen(true); }}
-                    className="p-3 text-slate-300 hover:text-emerald-600 transition-all hover:bg-emerald-50 rounded-2xl"
+                    className={`p-3 transition-all rounded-2xl ${
+                      isWorking ? 'text-emerald-600 hover:bg-emerald-100' : 'text-slate-300 hover:text-emerald-600 hover:bg-emerald-50'
+                    }`}
                     title="QR-код для Telegram"
                   >
                     <QrCode size={20} />
                   </button>
                   <button 
                     onClick={() => handleSendTelegram(u)}
-                    className="p-3 text-slate-300 hover:text-blue-600 transition-all hover:bg-blue-50 rounded-2xl"
+                    className={`p-3 transition-all rounded-2xl ${
+                      isWorking ? 'text-blue-600 hover:bg-blue-100' : 'text-slate-300 hover:text-blue-600 hover:bg-blue-50'
+                    }`}
                     title="Отправить QR в Telegram"
                   >
                     <Send size={20} />
                   </button>
                   <button 
                     onClick={() => setEditingEmployee(u)}
-                    className="p-3 text-slate-300 hover:text-blue-600 transition-all hover:bg-blue-50 rounded-2xl"
+                    className={`p-3 transition-all rounded-2xl ${
+                      isWorking ? 'text-blue-600 hover:bg-blue-100' : 'text-slate-300 hover:text-blue-600 hover:bg-blue-50'
+                    }`}
                     title="Редактировать"
                   >
-                    <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15.232 5.232l3.536 3.536m-2.036-5.036a2.5 2.5 0 113.536 3.536L6.5 21.036H3v-3.572L16.732 3.732z" /></svg>
+                    <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15.232 5.232l3.536 3.536L6.5 21.036H3v-3.572L16.732 3.732z" /></svg>
                   </button>
                   {u.id !== 'admin' && (
                     <button 
                       onClick={() => setArchiveConfirm({ isOpen: true, userId: u.id, userName: u.name })} 
-                      className="p-3 text-slate-300 hover:text-amber-600 transition-all hover:bg-amber-50 rounded-2xl"
+                      className={`p-3 transition-all rounded-2xl ${
+                        isWorking ? 'text-amber-600 hover:bg-amber-100' : 'text-slate-300 hover:text-amber-600 hover:bg-amber-50'
+                      }`}
                       title="Архивировать"
                     >
                       <Archive size={20} />
