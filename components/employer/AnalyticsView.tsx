@@ -10,6 +10,7 @@ interface AnalyticsViewProps {
   userPerms: any;
   handleForceFinish: (log: WorkLog) => void;
   branches: Branch[];
+  onEditLog: (log: WorkLog) => void;
 }
 
 export const AnalyticsView: React.FC<AnalyticsViewProps> = ({
@@ -18,7 +19,8 @@ export const AnalyticsView: React.FC<AnalyticsViewProps> = ({
   machines,
   userPerms,
   handleForceFinish,
-  branches
+  branches,
+  onEditLog
 }) => {
   return (
     <div className="space-y-8 no-print">
@@ -43,7 +45,10 @@ export const AnalyticsView: React.FC<AnalyticsViewProps> = ({
                   const isOld = s.date !== dashboardStats.todayStr;
                   
                   return (
-                    <div key={s.id} className={`group/item relative bg-white dark:bg-slate-900 p-4 rounded-2xl border transition-all shadow-md dark:shadow-[0_0_20px_rgba(255,255,255,0.05)] hover:shadow-lg dark:hover:shadow-[0_0_25px_rgba(255,255,255,0.1)] ${isOld ? 'border-red-200 bg-red-50/30 dark:border-red-900/50 dark:bg-red-900/10' : 'border-slate-200 dark:border-slate-800'}`}>
+                    <div 
+                      key={s.id} 
+                      onClick={() => onEditLog(s)}
+                      className={`group/item relative bg-white dark:bg-slate-900 p-4 rounded-2xl border transition-all shadow-md dark:shadow-[0_0_20px_rgba(255,255,255,0.05)] hover:shadow-lg dark:hover:shadow-[0_0_25px_rgba(255,255,255,0.1)] cursor-pointer ${isOld ? 'border-red-200 bg-red-50/30 dark:border-red-900/50 dark:bg-red-900/10' : 'border-slate-200 dark:border-slate-800'}`}>
                        <div className="flex justify-between items-start mb-3">
                           <div className="min-w-0 flex-1">
                              <div className="flex items-center gap-2">
@@ -52,15 +57,18 @@ export const AnalyticsView: React.FC<AnalyticsViewProps> = ({
                                 </span>
                                 {emp?.isArchived && <span className="flex-shrink-0 text-[8px] bg-slate-200 dark:bg-slate-800 text-slate-600 dark:text-slate-400 px-1.5 py-0.5 rounded-full">Архив</span>}
                              </div>
-                             <div className="flex items-center gap-1.5 mt-0.5">
-                                <span className={`text-[10px] font-black uppercase tracking-tight ${isOld ? 'text-red-500' : 'text-blue-500'}`}>
-                                  {machineName}
-                                </span>
-                                {emp?.branchId && branches.find(b => b.id === emp.branchId) && (
-                                  <span className="text-[9px] text-slate-400 font-bold uppercase">
-                                    • {branches.find(b => b.id === emp.branchId)?.name}
+                             <div className="flex flex-col gap-0.5 mt-1">
+                                <span className="text-[10px] font-medium text-slate-500 dark:text-slate-400 truncate">{emp?.position}</span>
+                                <div className="flex items-center gap-1.5">
+                                  <span className={`text-[10px] font-black uppercase tracking-tight ${isOld ? 'text-red-500' : 'text-blue-500'}`}>
+                                    {machineName}
                                   </span>
-                                )}
+                                  {emp?.branchId && branches.find(b => b.id === emp.branchId) && (
+                                    <span className="text-[9px] text-slate-400 font-bold uppercase">
+                                      • {branches.find(b => b.id === emp.branchId)?.name}
+                                    </span>
+                                  )}
+                                </div>
                              </div>
                           </div>
                           <div className="text-right shrink-0">

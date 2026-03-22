@@ -143,8 +143,8 @@ export const TeamView: React.FC<TeamViewProps> = ({
         </div>
       </div>
 
-      <div className="grid grid-cols-1 gap-4 content-start">
-         <div className="flex items-center justify-between px-2">
+      <div className="grid grid-cols-1 md:grid-cols-2 gap-4 content-start">
+         <div className="flex items-center justify-between px-2 col-span-1 md:col-span-2">
            <h3 className="text-[10px] font-black text-slate-400 dark:text-slate-500 dark:text-slate-400 uppercase tracking-widest">Список сотрудников</h3>
            <button 
              onClick={() => setIsArchiveViewOpen(true)}

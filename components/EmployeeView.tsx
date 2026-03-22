@@ -52,34 +52,88 @@ const EmployeeView: React.FC<EmployeeViewProps> = ({
   }, [user.position, positions]);
 
   const [overtimeAlerts, setOvertimeAlerts] = useState<Record<number, boolean>>({});
+  const [overdueStages, setOverdueStages] = useState<Record<number, { stage: number, lastCheck: number }>>({});
+
+  const checkGeoZone = (coords: GeolocationCoordinates, geoZone?: { lat: number, lon: number, radius: number }) => {
+    if (!geoZone) return true;
+    const distance = calculateDistance(coords.latitude, coords.longitude, geoZone.lat, geoZone.lon);
+    return distance <= geoZone.radius;
+  };
 
   useEffect(() => {
-    const checkOvertime = () => {
+    const checkOvertime = async () => {
       if (!perms.maxShiftDurationMinutes || !planLimits.features.advancedAnalytics) return; 
 
       const now = getNow();
       const updatedAlerts = { ...overtimeAlerts };
+      const updatedOverdueStages = { ...overdueStages };
       let changed = false;
 
-      Object.entries(activeShifts).forEach(([slot, shift]) => {
+      for (const [slotStr, shift] of Object.entries(activeShifts)) {
+        const slot = Number(slotStr);
         if (shift && shift.checkIn) {
           const duration = calculateMinutes(shift.checkIn, now.toISOString());
-          // Add 15 minutes buffer
-          const limitWithBuffer = perms.maxShiftDurationMinutes! + 15;
+          const limit = perms.maxShiftDurationMinutes!;
+          const autoShift = currentOrg?.autoShiftCompletion;
+          const firstInterval = autoShift?.enabled ? autoShift.firstAlertMinutes : 14;
+          const secondInterval = autoShift?.enabled ? autoShift.secondAlertMinutes : 5;
+          const thirdInterval = autoShift?.enabled ? autoShift.thirdAlertMinutes : 5;
+          const limitWithBuffer = limit + firstInterval;
           
-          if (duration > limitWithBuffer && !overtimeAlerts[Number(slot)]) {
-            updatedAlerts[Number(slot)] = true;
-            changed = true;
-            if (onOvertime) onOvertime(user, Number(slot));
-            sendNotification('Смена не завершена', `Вы работаете уже более ${Math.floor(limitWithBuffer / 60)} часов. Не забудьте завершить смену!`);
-          } else if (duration <= limitWithBuffer && overtimeAlerts[Number(slot)]) {
-            updatedAlerts[Number(slot)] = false;
+          if (duration > limitWithBuffer) {
+            if (!updatedOverdueStages[slot]) {
+              // Stage 1: firstInterval mark
+              updatedOverdueStages[slot] = { stage: 1, lastCheck: now.getTime() };
+              changed = true;
+              
+              // Check Geo
+              try {
+                const position = await new Promise<GeolocationPosition>((resolve, reject) => {
+                  navigator.geolocation.getCurrentPosition(resolve, reject, { enableHighAccuracy: true, timeout: 10000 });
+                });
+                
+                const isInZone = checkGeoZone(position.coords, currentOrg?.geoZone);
+                
+                if (!isInZone) {
+                  handleForceClose(shift.id, now.toISOString());
+                } else {
+                  sendNotification('Смена не завершена', `Вы работаете уже более ${Math.floor(limitWithBuffer / 60)} часов. Не забудьте завершить смену!`);
+                }
+              } catch (e) {
+                console.error("Geo error:", e);
+              }
+            } else if (updatedOverdueStages[slot].stage === 1 && now.getTime() - updatedOverdueStages[slot].lastCheck > secondInterval * 60 * 1000) {
+              // Stage 2: secondInterval later
+              updatedOverdueStages[slot] = { stage: 2, lastCheck: now.getTime() };
+              changed = true;
+              // Check Geo again
+              try {
+                const position = await new Promise<GeolocationPosition>((resolve, reject) => {
+                  navigator.geolocation.getCurrentPosition(resolve, reject, { enableHighAccuracy: true, timeout: 10000 });
+                });
+                const isInZone = checkGeoZone(position.coords, currentOrg?.geoZone);
+                if (!isInZone) {
+                  handleForceClose(shift.id, now.toISOString());
+                  delete updatedOverdueStages[slot];
+                }
+              } catch (e) {
+                console.error("Geo error:", e);
+              }
+            } else if (updatedOverdueStages[slot].stage === 2 && now.getTime() - updatedOverdueStages[slot].lastCheck > thirdInterval * 60 * 1000) {
+              // Stage 3: thirdInterval later
+              handleForceClose(shift.id, now.toISOString());
+              delete updatedOverdueStages[slot];
+              changed = true;
+            }
+          } else if (duration <= limitWithBuffer && updatedOverdueStages[slot]) {
+            delete updatedOverdueStages[slot];
             changed = true;
           }
         }
-      });
+      }
 
       if (changed) {
+        setOverdueStages(updatedOverdueStages);
         setOvertimeAlerts(updatedAlerts);
       }
     };

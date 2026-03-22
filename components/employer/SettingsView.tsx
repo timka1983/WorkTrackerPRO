@@ -171,9 +171,9 @@ export const SettingsView: React.FC<SettingsViewProps> = ({
         <h3 className="font-black text-slate-900 dark:text-slate-50 mb-6 flex items-center gap-2 underline decoration-blue-500 decoration-4 underline-offset-8 uppercase text-xs tracking-widest">Автоматическое завершение смены</h3>
         <p className="text-xs text-slate-500 dark:text-slate-400 mb-6 leading-relaxed">
           Система автоматически отслеживает просроченные смены. Если смена не закрыта вовремя, включается трехэтапный контроль:
-          <br/>1. <b>Предупреждение</b> через заданный 1-й интервал.
-          <br/>2. <b>Критическое уведомление</b> через 2-й интервал (проверка геопозиции).
-          <br/>3. <b>Принудительное закрытие</b> через 3-й интервал, если сотрудник не подтвердил присутствие.
+          <br/><b className="text-white">1-й интервал:</b> При превышении лимита времени на заданное количество минут система проверяет геопозицию. Если сотрудник вне зоны — смена завершается принудительно. Если в зоне — отправляется уведомление.
+          <br/><b className="text-white">2-й интервал:</b> Через указанное время после первого этапа система снова проверяет геопозицию. Если сотрудник вне зоны — смена завершается принудительно.
+          <br/><b className="text-white">3-й интервал:</b> Еще через указанное время система принудительно завершает смену в любом случае.
         </p>
         <div className="space-y-4">
           <label className="flex items-center justify-between p-3 bg-slate-50 dark:bg-slate-800/50 rounded-xl border border-slate-100 dark:border-slate-700 cursor-pointer hover:bg-white dark:hover:bg-slate-800 transition-all">
@@ -214,7 +214,7 @@ export const SettingsView: React.FC<SettingsViewProps> = ({
                       onUpdateOrg({ ...currentOrg, autoShiftCompletion: newSettings });
                       db.updateOrganization(currentOrg.id, { autoShiftCompletion: newSettings });
                     }}
-                    className="w-full border-2 border-slate-100 rounded-xl px-3 py-2 text-sm font-bold outline-none focus:border-blue-500"
+                    className="w-full border-2 border-slate-100 dark:border-slate-700 bg-white dark:bg-slate-900 rounded-xl px-3 py-2 text-sm font-bold text-slate-900 dark:text-slate-100 outline-none focus:border-blue-500"
                   />
                 </div>
               ))}
@@ -241,7 +241,7 @@ export const SettingsView: React.FC<SettingsViewProps> = ({
                        max="100"
                        value={nightShiftBonusMinutes} 
                        onChange={e => onUpdateNightBonus(parseInt(e.target.value || '0'))}
-                       className="w-24 border-2 border-slate-100 rounded-2xl px-4 py-3 text-sm font-bold text-blue-600 dark:text-blue-400 outline-none focus:border-blue-500 transition-all"
+                       className="w-24 border-2 border-slate-100 dark:border-slate-700 bg-white dark:bg-slate-900 rounded-2xl px-4 py-3 text-sm font-bold text-blue-600 dark:text-blue-400 outline-none focus:border-blue-500 transition-all"
                     />
                     <span className="text-xs text-slate-500 dark:text-slate-400 font-medium italic leading-tight">
                        Процент времени, добавляемый к длительности ночной смены. Например, 20% превратит 10 часов работы в 12 часов (10ч + 2ч бонуса).

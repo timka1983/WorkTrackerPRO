@@ -1237,6 +1237,7 @@ const EmployerView: React.FC<EmployerViewProps> = ({
             userPerms={userPerms}
             handleForceFinish={handleForceFinish}
             branches={branches}
+            onEditLog={(log) => setEditingLog({ userId: log.userId, date: log.date })}
           />
         </>
       )}
