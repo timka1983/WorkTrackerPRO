@@ -679,12 +679,12 @@ const App: React.FC = () => {
         unreadSupportMessages={totalUnread}
       >
         {appData.dbError && (
-          <div className="bg-rose-600 text-white px-4 py-2 text-center text-xs font-bold animate-pulse sticky top-16 z-[60] shadow-lg">
+          <div className="bg-rose-600 text-white px-4 py-2 text-center text-xs font-bold animate-pulse sticky top-16 z-[60] shadow-xl dark:shadow-slate-900/20">
             ⚠️ {appData.dbError}
           </div>
         )}
         {appData.syncError && (
-          <div className="bg-amber-500 text-white px-4 py-2 text-center text-xs font-bold sticky top-16 z-[60] shadow-lg">
+          <div className="bg-amber-500 text-white px-4 py-2 text-center text-xs font-bold sticky top-16 z-[60] shadow-xl dark:shadow-slate-900/20">
             ⚠️ {appData.syncError} Данные сохранены локально и будут отправлены позже.
           </div>
         )}
@@ -786,8 +786,8 @@ const App: React.FC = () => {
               />
             ) : (
               <div className="text-center py-20">
-                <h2 className="text-2xl font-black text-slate-900 uppercase">Доступ ограничен</h2>
-                <p className="text-slate-500 mt-2 font-medium">У вас нет прав для просмотра этого раздела.</p>
+                <h2 className="text-2xl font-black text-slate-900 dark:text-slate-50 uppercase">Доступ ограничен</h2>
+                <p className="text-slate-500 dark:text-slate-400 mt-2 font-medium">У вас нет прав для просмотра этого раздела.</p>
                 <button onClick={() => auth.handleSwitchRole(UserRole.EMPLOYEE)} className="mt-6 px-8 py-3 bg-blue-600 text-white rounded-2xl font-black uppercase text-xs">Вернуться в Мой Табель</button>
               </div>
             )

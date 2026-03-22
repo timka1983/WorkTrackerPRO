@@ -30,7 +30,7 @@ export const EmployeePrintView = memo<EmployeePrintViewProps>(({
         </div>
         <div className="text-center flex-1">
           <h1 className="text-6xl font-black tracking-tight leading-none mb-1" style={{ fontFamily: 'serif' }}>{calendarData.monthName} {calendarData.year}</h1>
-          <p className="text-[10px] font-bold uppercase tracking-widest text-slate-500">Рабочий табель сотрудника: {user.name}</p>
+          <p className="text-[10px] font-bold uppercase tracking-widest text-slate-500 dark:text-slate-400">Рабочий табель сотрудника: {user.name}</p>
         </div>
         <div className="w-32 opacity-80 text-right">
           <div className="text-[8px] font-bold mb-1">{calendarData.nextMonth.name} {calendarData.nextMonth.year}</div>
@@ -82,10 +82,10 @@ export const EmployeePrintView = memo<EmployeePrintViewProps>(({
                        </div>
                      ) : hasWork ? (
                        <div className="flex flex-col items-center">
-                          <span className={`text-xl font-black tabular-nums ${workEntries.some(l => !l.checkOut) ? 'text-blue-600 italic' : ''}`}>
+                          <span className={`text-xl font-black tabular-nums ${workEntries.some(l => !l.checkOut) ? 'text-blue-600 dark:text-blue-400 italic' : ''}`}>
                             {workMins > 0 ? formatDurationShort(workMins) : (workEntries.some(l => !l.checkOut) ? '--:--' : '0:00')}
                           </span>
-                          <span className="text-[7px] font-bold text-slate-500 uppercase tracking-tighter">ОТРАБОТАНО</span>
+                          <span className="text-[7px] font-bold text-slate-500 dark:text-slate-400 uppercase tracking-tighter">ОТРАБОТАНО</span>
                        </div>
                      ) : (
                        <span className="text-[10px] text-slate-200 font-bold italic">--:--</span>

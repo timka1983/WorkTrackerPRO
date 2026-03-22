@@ -731,7 +731,7 @@ const EmployeeView: React.FC<EmployeeViewProps> = ({
   };
 
   return (
-    <div className="space-y-6 animate-fadeIn">
+    <div className="space-y-6 animate-fadeIn dark:text-slate-100">
       {Object.values(activeShifts).map(shift => shift && (
         <ShiftMonitor 
           key={shift.id}
@@ -742,20 +742,26 @@ const EmployeeView: React.FC<EmployeeViewProps> = ({
         />
       ))}
       {showPieceworkModal && (
-        <div className="fixed inset-0 bg-slate-900/50 backdrop-blur-sm flex items-center justify-center p-4 z-50 no-print">
-          <div className="bg-white rounded-3xl p-6 w-full max-w-sm shadow-2xl">
-            <h3 className="text-xl font-black text-slate-900 mb-4">Сдельная оплата</h3>
-            <p className="text-sm text-slate-500 mb-4">Введите количество произведенных единиц за эту смену.</p>
+        <div className="fixed inset-0 bg-slate-900/60 backdrop-blur-sm flex items-center justify-center p-4 z-50 no-print">
+          <div className="bg-white dark:bg-slate-900 rounded-3xl p-8 w-full max-w-sm shadow-2xl dark:shadow-slate-900/40 border border-slate-100 dark:border-slate-800 transition-all">
+            <div className="w-16 h-16 bg-blue-50 dark:bg-blue-900/30 text-blue-600 dark:text-blue-400 rounded-2xl flex items-center justify-center mb-6">
+              <CreditCard className="w-8 h-8" />
+            </div>
+            <h3 className="text-2xl font-black text-slate-900 dark:text-slate-50 dark:text-white mb-2">Сдельная оплата</h3>
+            <p className="text-sm text-slate-500 dark:text-slate-400 mb-8 leading-relaxed">Введите количество произведенных единиц за эту смену для расчета оплаты.</p>
             
-            <input
-              type="number"
-              min="0"
-              value={itemsProduced}
-              onChange={e => setItemsProduced(e.target.value)}
-              placeholder="Например: 15"
-              className="w-full bg-slate-50 border-2 border-slate-200 rounded-2xl px-4 py-3 text-lg font-black outline-none focus:border-blue-500 mb-6"
-              autoFocus
-            />
+            <div className="relative mb-8">
+              <input
+                type="number"
+                min="0"
+                value={itemsProduced}
+                onChange={e => setItemsProduced(e.target.value)}
+                placeholder="0"
+                className="w-full bg-slate-50 dark:bg-slate-800/50 border-2 border-slate-100 dark:border-slate-700 rounded-2xl px-6 py-4 text-3xl font-black outline-none focus:border-blue-500 dark:focus:border-blue-400 text-slate-900 dark:text-slate-50 dark:text-white transition-all text-center"
+                autoFocus
+              />
+              <div className="absolute right-6 top-1/2 -translate-y-1/2 text-slate-400 dark:text-slate-500 dark:text-slate-400 font-bold">шт.</div>
+            </div>
             
             <div className="flex gap-3">
               <button
@@ -763,7 +769,7 @@ const EmployeeView: React.FC<EmployeeViewProps> = ({
                   setShowPieceworkModal(null);
                   setItemsProduced('');
                 }}
-                className="flex-1 py-3 rounded-xl font-bold text-slate-500 hover:bg-slate-100 transition-colors"
+                className="flex-1 py-4 rounded-2xl font-bold text-slate-500 dark:text-slate-400 hover:bg-slate-100 dark:hover:bg-slate-800 transition-colors"
               >
                 Отмена
               </button>
@@ -784,7 +790,7 @@ const EmployeeView: React.FC<EmployeeViewProps> = ({
                     setIsProcessingAction(false);
                   }
                 }}
-                className="flex-1 py-3 rounded-xl font-black bg-blue-600 text-white hover:bg-blue-700 transition-colors shadow-lg shadow-blue-600/20"
+                className="flex-[2] py-4 rounded-2xl font-black bg-blue-600 text-white hover:bg-blue-700 transition-all shadow-xl dark:shadow-slate-900/20 shadow-blue-600/20 dark:shadow-blue-900/40 active:scale-95"
               >
                 Сохранить
               </button>
@@ -806,10 +812,10 @@ const EmployeeView: React.FC<EmployeeViewProps> = ({
 
       {showMachineStatsModal && (
         <div className="fixed inset-0 z-[150] bg-slate-900/60 backdrop-blur-sm flex items-center justify-center p-4 no-print">
-          <div className="bg-white rounded-[2rem] w-full max-w-sm shadow-2xl border border-slate-200 overflow-hidden flex flex-col max-h-[80vh]">
+          <div className="bg-white rounded-[2rem] w-full max-w-sm shadow-2xl dark:shadow-slate-900/40 border border-slate-200 overflow-hidden flex flex-col max-h-[80vh]">
             <div className="p-5 border-b border-slate-100 flex justify-between items-center bg-slate-50/50">
-              <h3 className="font-black text-slate-900 uppercase tracking-tight text-sm">Работа на оборудовании</h3>
-              <button onClick={() => setShowMachineStatsModal(false)} className="text-slate-400 hover:text-slate-900 text-2xl font-light transition-colors">&times;</button>
+              <h3 className="font-black text-slate-900 dark:text-slate-50 uppercase tracking-tight text-sm">Работа на оборудовании</h3>
+              <button onClick={() => setShowMachineStatsModal(false)} className="text-slate-400 hover:text-slate-900 dark:text-slate-50 text-2xl font-light transition-colors">&times;</button>
             </div>
             <div className="p-4 overflow-y-auto custom-scrollbar">
               <div className="divide-y divide-slate-100 border border-slate-100 rounded-xl overflow-hidden">
@@ -821,8 +827,8 @@ const EmployeeView: React.FC<EmployeeViewProps> = ({
                     if (!machine) return null;
                     return (
                       <div key={mId} className="flex justify-between items-center px-4 py-2.5 bg-white hover:bg-slate-50 transition-colors">
-                        <span className="text-[11px] font-bold text-slate-600">{machine.name}</span>
-                        <span className="text-[11px] font-black text-blue-600 tabular-nums">{formatDurationShort(mins)}</span>
+                        <span className="text-[11px] font-bold text-slate-600 dark:text-slate-300">{machine.name}</span>
+                        <span className="text-[11px] font-black text-blue-600 dark:text-blue-400 tabular-nums">{formatDurationShort(mins)}</span>
                       </div>
                     );
                   })
@@ -885,14 +891,14 @@ const EmployeeView: React.FC<EmployeeViewProps> = ({
       {planLimits.features.payroll && effectivePayroll && (
         <div 
           onClick={() => setShowPayrollModal(true)}
-          className="bg-emerald-50 border border-emerald-200 rounded-2xl p-4 flex justify-between items-center no-print cursor-pointer hover:bg-emerald-100 transition-colors active:scale-[0.98]"
+          className="bg-emerald-50 dark:bg-emerald-900/10 border border-emerald-200 dark:border-emerald-800 rounded-2xl p-4 flex justify-between items-center no-print cursor-pointer hover:bg-emerald-100 dark:hover:bg-emerald-900/20 transition-colors active:scale-[0.98] shadow-md dark:shadow-[0_0_20px_rgba(255,255,255,0.05)]"
         >
            <div>
               <h3 className="text-emerald-900 font-bold text-base">Зарплата за месяц</h3>
-              <p className="text-emerald-600 text-[10px] font-medium">Нажмите для расшифровки</p>
+              <p className="text-emerald-600 dark:text-emerald-400 text-[10px] font-medium">Нажмите для расшифровки</p>
            </div>
            <div className="text-right">
-              <p className="text-xl font-extrabold text-emerald-600">{Math.floor(monthEarnings)} ₽</p>
+              <p className="text-xl font-extrabold text-emerald-600 dark:text-emerald-400">{Math.floor(monthEarnings)} ₽</p>
            </div>
         </div>
       )}
@@ -998,17 +1004,17 @@ const PayrollBreakdownModal: React.FC<PayrollBreakdownModalProps> = ({
 
   return (
     <div className="fixed inset-0 z-[100] flex items-center justify-center p-4 bg-slate-900/60 backdrop-blur-sm animate-in fade-in duration-200">
-      <div className="bg-white w-full max-w-lg rounded-3xl shadow-2xl overflow-hidden animate-in zoom-in-95 duration-200">
+      <div className="bg-white w-full max-w-lg rounded-3xl shadow-2xl dark:shadow-slate-900/40 overflow-hidden animate-in zoom-in-95 duration-200">
         <div className="p-6 border-b border-slate-100 flex justify-between items-center bg-emerald-50/50">
           <div>
-            <h2 className="text-xl font-black text-slate-900 uppercase tracking-tight">Расшифровка зарплаты</h2>
-            <p className="text-slate-500 text-xs font-bold uppercase mt-0.5">
+            <h2 className="text-xl font-black text-slate-900 dark:text-slate-50 uppercase tracking-tight">Расшифровка зарплаты</h2>
+            <p className="text-slate-500 dark:text-slate-400 text-xs font-bold uppercase mt-0.5">
               {format(new Date(filterMonth + '-01'), 'LLLL yyyy', { locale: ru })}
             </p>
           </div>
           <button 
             onClick={onClose}
-            className="p-2 hover:bg-white rounded-xl transition-colors text-slate-400 hover:text-slate-600 shadow-sm"
+            className="p-2 hover:bg-white rounded-xl transition-colors text-slate-400 hover:text-slate-600 dark:text-slate-300 shadow-md dark:shadow-slate-900/20"
           >
             <X size={20} />
           </button>
@@ -1019,23 +1025,23 @@ const PayrollBreakdownModal: React.FC<PayrollBreakdownModalProps> = ({
           <div className="grid grid-cols-2 gap-4">
             <div className="bg-emerald-50 p-4 rounded-2xl border border-emerald-100">
               <p className="text-[10px] font-bold text-emerald-700 uppercase mb-1">Начислено</p>
-              <p className="text-lg font-extrabold text-emerald-600">{Math.floor(monthEarnings)} ₽</p>
+              <p className="text-lg font-extrabold text-emerald-600 dark:text-emerald-400">{Math.floor(monthEarnings)} ₽</p>
             </div>
             <div className="bg-blue-50 p-4 rounded-2xl border border-blue-100">
-              <p className="text-[10px] font-bold text-blue-700 uppercase mb-1">Выплачено</p>
-              <p className="text-lg font-extrabold text-blue-600">{Math.floor(totalPaid)} ₽</p>
+              <p className="text-[10px] font-bold text-blue-700 dark:text-blue-300 uppercase mb-1">Выплачено</p>
+              <p className="text-lg font-extrabold text-blue-600 dark:text-blue-400">{Math.floor(totalPaid)} ₽</p>
             </div>
           </div>
 
           {/* Balance */}
           <div className={`p-4 rounded-2xl border flex justify-between items-center ${balance > 0 ? 'bg-amber-50 border-amber-100' : 'bg-slate-50 border-slate-100'}`}>
             <div>
-              <p className="text-[10px] font-bold text-slate-500 uppercase">Остаток к выплате</p>
-              <p className={`text-lg font-black ${balance > 0 ? 'text-amber-600' : 'text-slate-400'}`}>
+              <p className="text-[10px] font-bold text-slate-500 dark:text-slate-400 uppercase">Остаток к выплате</p>
+              <p className={`text-lg font-black ${balance > 0 ? 'text-amber-600 dark:text-amber-400' : 'text-slate-400'}`}>
                 {Math.floor(balance)} ₽
               </p>
             </div>
-            <div className={`p-2 rounded-xl ${balance > 0 ? 'bg-amber-100 text-amber-600' : 'bg-slate-200 text-slate-400'}`}>
+            <div className={`p-2 rounded-xl ${balance > 0 ? 'bg-amber-100 text-amber-600 dark:text-amber-400' : 'bg-slate-200 text-slate-400'}`}>
               <CreditCard size={20} />
             </div>
           </div>
@@ -1049,20 +1055,20 @@ const PayrollBreakdownModal: React.FC<PayrollBreakdownModalProps> = ({
             <div className="space-y-2">
               {payrollDetails.regularPay > 0 && (
                 <div className="flex justify-between items-center p-3 bg-slate-50 rounded-xl border border-slate-100">
-                  <span className="text-sm font-medium text-slate-600">Основная оплата ({payrollDetails.details.regularHours} ч)</span>
-                  <span className="font-bold text-slate-900">{Math.floor(payrollDetails.regularPay)} ₽</span>
+                  <span className="text-sm font-medium text-slate-600 dark:text-slate-300">Основная оплата ({payrollDetails.details.regularHours} ч)</span>
+                  <span className="font-bold text-slate-900 dark:text-slate-50">{Math.floor(payrollDetails.regularPay)} ₽</span>
                 </div>
               )}
               {payrollDetails.overtimePay > 0 && (
                 <div className="flex justify-between items-center p-3 bg-slate-50 rounded-xl border border-slate-100">
-                  <span className="text-sm font-medium text-slate-600">Сверхурочные ({payrollDetails.details.overtimeHours} ч)</span>
-                  <span className="font-bold text-emerald-600">+{Math.floor(payrollDetails.overtimePay)} ₽</span>
+                  <span className="text-sm font-medium text-slate-600 dark:text-slate-300">Сверхурочные ({payrollDetails.details.overtimeHours} ч)</span>
+                  <span className="font-bold text-emerald-600 dark:text-emerald-400">+{Math.floor(payrollDetails.overtimePay)} ₽</span>
                 </div>
               )}
               {payrollDetails.nightShiftPay > 0 && (
                 <div className="flex justify-between items-center p-3 bg-slate-50 rounded-xl border border-slate-100">
-                  <span className="text-sm font-medium text-slate-600">Ночные смены ({payrollDetails.details.nightShiftCount})</span>
-                  <span className="font-bold text-indigo-600">+{Math.floor(payrollDetails.nightShiftPay)} ₽</span>
+                  <span className="text-sm font-medium text-slate-600 dark:text-slate-300">Ночные смены ({payrollDetails.details.nightShiftCount})</span>
+                  <span className="font-bold text-indigo-600 dark:text-indigo-400">+{Math.floor(payrollDetails.nightShiftPay)} ₽</span>
                 </div>
               )}
               {payrollDetails.bonuses > 0 && (
@@ -1070,7 +1076,7 @@ const PayrollBreakdownModal: React.FC<PayrollBreakdownModalProps> = ({
                   <span className="text-sm font-medium text-emerald-700 flex items-center gap-1">
                     <TrendingUp size={14} /> Премии
                   </span>
-                  <span className="font-bold text-emerald-600">+{Math.floor(payrollDetails.bonuses)} ₽</span>
+                  <span className="font-bold text-emerald-600 dark:text-emerald-400">+{Math.floor(payrollDetails.bonuses)} ₽</span>
                 </div>
               )}
               {payrollDetails.fines > 0 && (
@@ -1078,13 +1084,13 @@ const PayrollBreakdownModal: React.FC<PayrollBreakdownModalProps> = ({
                   <span className="text-sm font-medium text-red-700 flex items-center gap-1">
                     <TrendingDown size={14} /> Штрафы
                   </span>
-                  <span className="font-bold text-red-600">-{Math.floor(payrollDetails.fines)} ₽</span>
+                  <span className="font-bold text-red-600 dark:text-red-400">-{Math.floor(payrollDetails.fines)} ₽</span>
                 </div>
               )}
               {payrollDetails.sickLeavePay > 0 && (
                 <div className="flex justify-between items-center p-3 bg-slate-50 rounded-xl border border-slate-100">
-                  <span className="text-sm font-medium text-slate-600">Больничные ({payrollDetails.details.sickDays} дн)</span>
-                  <span className="font-bold text-slate-900">{Math.floor(payrollDetails.sickLeavePay)} ₽</span>
+                  <span className="text-sm font-medium text-slate-600 dark:text-slate-300">Больничные ({payrollDetails.details.sickDays} дн)</span>
+                  <span className="font-bold text-slate-900 dark:text-slate-50">{Math.floor(payrollDetails.sickLeavePay)} ₽</span>
                 </div>
               )}
             </div>
@@ -1099,9 +1105,9 @@ const PayrollBreakdownModal: React.FC<PayrollBreakdownModalProps> = ({
             {monthPayments.length > 0 ? (
               <div className="space-y-2">
                 {monthPayments.map(payment => (
-                  <div key={payment.id} className="flex justify-between items-center p-3 bg-white rounded-xl border border-slate-100 shadow-sm">
+                  <div key={payment.id} className="flex justify-between items-center p-3 bg-white rounded-xl border border-slate-100 shadow-md dark:shadow-slate-900/20">
                     <div>
-                      <p className="text-sm font-bold text-slate-900">
+                      <p className="text-sm font-bold text-slate-900 dark:text-slate-50">
                         {payment.type === 'advance' ? 'Аванс' : 
                          payment.type === 'salary' ? 'Зарплата' : 
                          payment.type === 'bonus' ? 'Премия' : 
@@ -1110,7 +1116,7 @@ const PayrollBreakdownModal: React.FC<PayrollBreakdownModalProps> = ({
                       <p className="text-[10px] text-slate-400 font-medium uppercase">{format(new Date(payment.date), 'd MMMM', { locale: ru })}</p>
                     </div>
                     <div className="text-right">
-                      <p className="font-black text-slate-900">{payment.amount} ₽</p>
+                      <p className="font-black text-slate-900 dark:text-slate-50">{payment.amount} ₽</p>
                       {payment.comment && <p className="text-[10px] text-slate-400 italic">{payment.comment}</p>}
                     </div>
                   </div>
@@ -1127,7 +1133,7 @@ const PayrollBreakdownModal: React.FC<PayrollBreakdownModalProps> = ({
         <div className="p-6 bg-slate-50 border-t border-slate-100">
           <button 
             onClick={onClose}
-            className="w-full py-4 bg-slate-900 text-white rounded-2xl font-black uppercase text-xs tracking-widest hover:bg-slate-800 transition-colors shadow-lg active:scale-[0.98]"
+            className="w-full py-4 bg-slate-900 text-white rounded-2xl font-black uppercase text-xs tracking-widest hover:bg-slate-800 transition-colors shadow-xl dark:shadow-slate-900/20 active:scale-[0.98]"
           >
             Понятно
           </button>

@@ -31,13 +31,13 @@ export const PositionConfigModal: React.FC<PositionConfigModalProps> = ({
 
   return (
     <div className="fixed inset-0 z-[130] bg-slate-900/60 backdrop-blur-sm flex items-center justify-center p-4">
-      <div className="bg-white rounded-[2.5rem] w-full max-w-md shadow-2xl border border-slate-200 overflow-hidden">
-         <div className="p-6 border-b border-slate-100 flex justify-between items-center bg-slate-50/50">
+      <div className="bg-white dark:bg-slate-900 rounded-[2.5rem] w-full max-w-md shadow-2xl dark:shadow-slate-900/40 border border-slate-200 dark:border-slate-800 overflow-hidden">
+         <div className="p-6 border-b border-slate-100 dark:border-slate-800 flex justify-between items-center bg-slate-50/50 dark:bg-slate-800/50">
             <div>
-               <h3 className="font-black text-slate-900 uppercase tracking-tight">Конструктор функций</h3>
-               <p className="text-[10px] font-black text-blue-600 uppercase tracking-widest">{configuringPosition.name}</p>
+               <h3 className="font-black text-slate-900 dark:text-slate-50 uppercase tracking-tight">Конструктор функций</h3>
+               <p className="text-[10px] font-black text-blue-600 dark:text-blue-400 uppercase tracking-widest">{configuringPosition.name}</p>
             </div>
-            <button onClick={() => setConfiguringPosition(null)} className="text-slate-400 hover:text-slate-900 text-3xl font-light transition-colors">&times;</button>
+            <button onClick={() => setConfiguringPosition(null)} className="text-slate-400 hover:text-slate-900 dark:text-slate-50 text-3xl font-light transition-colors">&times;</button>
          </div>
          <div className="p-8 space-y-3 max-h-[70vh] overflow-y-auto custom-scrollbar">
             {[
@@ -54,10 +54,10 @@ export const PositionConfigModal: React.FC<PositionConfigModalProps> = ({
                                 (item.key === 'defaultRequirePhoto' && !planLimits.features.photoCapture);
               
               return (
-                <label key={item.key} className={`flex items-center justify-between p-4 bg-slate-50 rounded-2xl border border-slate-100 cursor-pointer hover:bg-white transition-all group ${isBlocked ? 'opacity-60 grayscale-[0.5]' : ''}`}>
+                <label key={item.key} className={`flex items-center justify-between p-4 bg-slate-50 dark:bg-slate-800/50 rounded-2xl border border-slate-100 dark:border-slate-800 cursor-pointer hover:bg-white dark:hover:bg-slate-800 transition-all group ${isBlocked ? 'opacity-60 grayscale-[0.5]' : ''}`}>
                   <div className="flex-1 pr-4">
                      <div className="flex items-center gap-2">
-                       <p className="text-xs font-black text-slate-800 uppercase tracking-tight">{item.label}</p>
+                       <p className="text-xs font-black text-slate-800 dark:text-slate-100 uppercase tracking-tight">{item.label}</p>
                        {isBlocked && <span className="text-[7px] font-black bg-blue-600 text-white px-1 py-0.5 rounded uppercase">PRO</span>}
                      </div>
                      <p className="text-[9px] font-bold text-slate-400 leading-tight mt-0.5">{item.desc}</p>
@@ -81,16 +81,16 @@ export const PositionConfigModal: React.FC<PositionConfigModalProps> = ({
                       }}
                       disabled={isBlocked}
                     />
-                    <div className={`w-11 h-6 bg-slate-200 peer-focus:outline-none rounded-full peer peer-checked:after:translate-x-full after:content-[''] after:absolute after:top-[2px] after:start-[2px] after:bg-white after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-blue-600 shadow-sm ${isBlocked ? 'bg-slate-300' : ''}`}></div>
+                    <div className={`w-11 h-6 bg-slate-200 dark:bg-slate-700 peer-focus:outline-none rounded-full peer peer-checked:after:translate-x-full after:content-[''] after:absolute after:top-[2px] after:start-[2px] after:bg-white dark:after:bg-slate-200 after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-blue-600 shadow-md dark:shadow-slate-900/20 ${isBlocked ? 'bg-slate-300 dark:bg-slate-600' : ''}`}></div>
                   </div>
                 </label>
               );
             })}
 
             {configuringPosition.permissions.useMachines && (
-              <div className="p-4 bg-slate-50 rounded-2xl border border-slate-100 space-y-3">
-                <label className="text-xs font-black text-slate-800 uppercase tracking-tight">Мульти-слот (количество станков)</label>
-                <div className="flex bg-white rounded-xl p-1 border border-slate-200">
+              <div className="p-4 bg-slate-50 dark:bg-slate-800/50 rounded-2xl border border-slate-100 dark:border-slate-800 space-y-3">
+                <label className="text-xs font-black text-slate-800 dark:text-slate-100 uppercase tracking-tight">Мульти-слот (количество станков)</label>
+                <div className="flex bg-white dark:bg-slate-900 rounded-xl p-1 border border-slate-200 dark:border-slate-700">
                   {[0, 2, 3].map(count => (
                     <button
                       key={count}
@@ -102,7 +102,7 @@ export const PositionConfigModal: React.FC<PositionConfigModalProps> = ({
                         setConfiguringPosition(next);
                         onUpdatePositions(positions.map(p => p.name === next.name ? next : p));
                       }}
-                      className={`flex-1 py-2 rounded-lg text-[10px] font-black uppercase transition-all ${configuringPosition.permissions.multiSlot === count ? 'bg-slate-900 text-white shadow-md' : 'text-slate-400 hover:text-slate-600'}`}
+                      className={`flex-1 py-2 rounded-lg text-[10px] font-black uppercase transition-all ${configuringPosition.permissions.multiSlot === count ? 'bg-slate-900 dark:bg-slate-700 text-white shadow-lg dark:shadow-slate-900/20' : 'text-slate-400 hover:text-slate-600 dark:text-slate-300'}`}
                     >
                       {count === 0 ? '1 станок' : `${count} станка`}
                     </button>
@@ -112,17 +112,17 @@ export const PositionConfigModal: React.FC<PositionConfigModalProps> = ({
             )}
 
             {canUsePayroll && (
-              <div className="p-4 bg-slate-50 rounded-2xl border border-slate-100 space-y-4 mt-4">
-                <h4 className="text-[10px] font-black text-slate-400 uppercase tracking-wider border-b border-slate-200 pb-2">Финансовые условия (по умолчанию)</h4>
+              <div className="p-4 bg-slate-50 dark:bg-slate-800/50 rounded-2xl border border-slate-100 dark:border-slate-800 space-y-4 mt-4">
+                <h4 className="text-[10px] font-black text-slate-400 uppercase tracking-wider border-b border-slate-200 dark:border-slate-700 pb-2">Финансовые условия (по умолчанию)</h4>
                 
                 <div className="space-y-1">
                   <label className="text-[9px] font-black text-slate-400 uppercase ml-1">Тип оплаты</label>
-                  <div className="flex bg-white rounded-xl p-1 border border-slate-200">
+                  <div className="flex bg-white dark:bg-slate-900 rounded-xl p-1 border border-slate-200 dark:border-slate-700">
                     {(['hourly', 'fixed', 'shift', 'piecework'] as const).map(type => (
                       <button
                         key={type}
                         onClick={() => handleUpdatePayrollConfig('type', type)}
-                        className={`flex-1 py-2 rounded-lg text-[10px] font-black uppercase transition-all ${(configuringPosition.payroll?.type || DEFAULT_PAYROLL_CONFIG.type) === type ? 'bg-slate-900 text-white shadow-md' : 'text-slate-400 hover:text-slate-600'}`}
+                        className={`flex-1 py-2 rounded-lg text-[10px] font-black uppercase transition-all ${(configuringPosition.payroll?.type || DEFAULT_PAYROLL_CONFIG.type) === type ? 'bg-slate-900 dark:bg-slate-700 text-white shadow-lg dark:shadow-slate-900/20' : 'text-slate-400 hover:text-slate-600 dark:text-slate-300'}`}
                       >
                         {type === 'hourly' ? 'Почасовая' : type === 'fixed' ? 'Оклад' : type === 'shift' ? 'За смену' : 'Сдельная'}
                       </button>
@@ -137,7 +137,7 @@ export const PositionConfigModal: React.FC<PositionConfigModalProps> = ({
                        type="number" 
                        value={configuringPosition.payroll?.rate ?? DEFAULT_PAYROLL_CONFIG.rate}
                        onChange={e => handleUpdatePayrollConfig('rate', Number(e.target.value))}
-                       className="w-full bg-white border-2 border-slate-200 rounded-xl px-3 py-2 text-sm font-bold outline-none focus:border-blue-500"
+                       className="w-full bg-white dark:bg-slate-900 border-2 border-slate-200 dark:border-slate-700 rounded-xl px-3 py-2 text-sm font-bold outline-none focus:border-blue-500 dark:text-slate-100 shadow-sm dark:shadow-none"
                      />
                   </div>
                   <div className="space-y-1">
@@ -147,7 +147,7 @@ export const PositionConfigModal: React.FC<PositionConfigModalProps> = ({
                        step="0.1"
                        value={configuringPosition.payroll?.overtimeMultiplier ?? DEFAULT_PAYROLL_CONFIG.overtimeMultiplier}
                        onChange={e => handleUpdatePayrollConfig('overtimeMultiplier', Number(e.target.value))}
-                       className="w-full bg-white border-2 border-slate-200 rounded-xl px-3 py-2 text-sm font-bold outline-none focus:border-blue-500"
+                       className="w-full bg-white dark:bg-slate-900 border-2 border-slate-200 dark:border-slate-700 rounded-xl px-3 py-2 text-sm font-bold outline-none focus:border-blue-500 dark:text-slate-100 shadow-sm dark:shadow-none"
                      />
                   </div>
                 </div>
@@ -159,7 +159,7 @@ export const PositionConfigModal: React.FC<PositionConfigModalProps> = ({
                        type="number" 
                        value={configuringPosition.payroll?.nightShiftBonus ?? DEFAULT_PAYROLL_CONFIG.nightShiftBonus}
                        onChange={e => handleUpdatePayrollConfig('nightShiftBonus', Number(e.target.value))}
-                       className="w-full bg-white border-2 border-slate-200 rounded-xl px-3 py-2 text-sm font-bold outline-none focus:border-blue-500"
+                       className="w-full bg-white dark:bg-slate-900 border-2 border-slate-200 dark:border-slate-700 rounded-xl px-3 py-2 text-sm font-bold outline-none focus:border-blue-500 dark:text-slate-100 shadow-sm dark:shadow-none"
                      />
                   </div>
                   <div className="space-y-1">
@@ -168,18 +168,18 @@ export const PositionConfigModal: React.FC<PositionConfigModalProps> = ({
                        type="number" 
                        value={configuringPosition.payroll?.sickLeaveRate ?? 0}
                        onChange={e => handleUpdatePayrollConfig('sickLeaveRate', Number(e.target.value))}
-                       className="w-full bg-white border-2 border-slate-200 rounded-xl px-3 py-2 text-sm font-bold outline-none focus:border-blue-500"
+                       className="w-full bg-white dark:bg-slate-900 border-2 border-slate-200 dark:border-slate-700 rounded-xl px-3 py-2 text-sm font-bold outline-none focus:border-blue-500 dark:text-slate-100 shadow-sm dark:shadow-none"
                      />
                   </div>
                 </div>
 
                 {configuringPosition.permissions.useMachines && machines.length > 0 && (
-                  <div className="space-y-2 pt-2 border-t border-slate-200">
+                  <div className="space-y-2 pt-2 border-t border-slate-200 dark:border-slate-700">
                     <div className="flex items-center justify-between">
                       <label className="text-[9px] font-black text-slate-400 uppercase ml-1">Ставки по оборудованию (₽/час)</label>
                       {availableMachines.length > 0 && (
                         <select 
-                          className="text-[10px] bg-white border border-slate-200 rounded-lg px-2 py-1 outline-none focus:border-blue-500 font-bold text-slate-600"
+                          className="text-[10px] bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-700 rounded-lg px-2 py-1 outline-none focus:border-blue-500 font-bold text-slate-600 dark:text-slate-300 shadow-sm dark:shadow-none"
                           value=""
                           onChange={e => {
                             if (!e.target.value) return;
@@ -204,7 +204,7 @@ export const PositionConfigModal: React.FC<PositionConfigModalProps> = ({
                           if (!m) return null;
                           return (
                             <div key={m.id} className="flex items-center gap-2">
-                              <span className="text-xs font-bold text-slate-700 flex-1 truncate">{m.name}</span>
+                              <span className="text-xs font-bold text-slate-700 dark:text-slate-200 flex-1 truncate">{m.name}</span>
                               <input 
                                 type="number" 
                                 placeholder="Ставка"
@@ -215,7 +215,7 @@ export const PositionConfigModal: React.FC<PositionConfigModalProps> = ({
                                   currentRates[m.id] = Number(val);
                                   handleUpdatePayrollConfig('machineRates', currentRates);
                                 }}
-                                className="w-24 bg-white border-2 border-slate-200 rounded-xl px-2 py-1 text-xs font-bold outline-none focus:border-blue-500"
+                                className="w-24 bg-white dark:bg-slate-900 border-2 border-slate-200 dark:border-slate-700 rounded-xl px-2 py-1 text-xs font-bold outline-none focus:border-blue-500 dark:text-slate-100 shadow-sm dark:shadow-none"
                               />
                               <button
                                 onClick={() => {
@@ -238,7 +238,7 @@ export const PositionConfigModal: React.FC<PositionConfigModalProps> = ({
               </div>
             )}
 
-            <div className="p-4 bg-slate-50 rounded-2xl border border-slate-100 space-y-2">
+            <div className="p-4 bg-slate-50 dark:bg-slate-800/50 rounded-2xl border border-slate-100 dark:border-slate-800 space-y-2">
               <label className="block text-[10px] font-black text-slate-400 uppercase tracking-wider">Макс. длительность смены (часов)</label>
               <div className="flex items-center gap-3">
                 <input 
@@ -259,7 +259,7 @@ export const PositionConfigModal: React.FC<PositionConfigModalProps> = ({
                     onUpdatePositions(positions.map(p => p.name === next.name ? next : p));
                   }}
                   placeholder="Без ограничений"
-                  className="w-full bg-white border-2 border-slate-200 rounded-xl px-4 py-2 text-sm font-bold outline-none focus:border-blue-500"
+                  className="w-full bg-white dark:bg-slate-900 border-2 border-slate-200 dark:border-slate-700 rounded-xl px-4 py-2 text-sm font-bold outline-none focus:border-blue-500 dark:text-slate-100 shadow-sm dark:shadow-none"
                 />
                 <span className="text-[10px] font-bold text-slate-400 uppercase">Часов</span>
               </div>
@@ -267,7 +267,7 @@ export const PositionConfigModal: React.FC<PositionConfigModalProps> = ({
             </div>
             <button 
               onClick={() => setConfiguringPosition(null)} 
-              className="w-full py-4 bg-slate-900 text-white rounded-2xl font-black uppercase tracking-widest text-xs mt-4 shadow-xl hover:bg-slate-800 transition-all active:scale-95 sticky bottom-0"
+              className="w-full py-4 bg-slate-900 dark:bg-slate-700 text-white rounded-2xl font-black uppercase tracking-widest text-xs mt-4 shadow-2xl dark:shadow-slate-900/20 hover:bg-slate-800 dark:hover:bg-slate-600 transition-all active:scale-95 sticky bottom-0"
             >
               Готово
             </button>

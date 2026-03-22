@@ -31,21 +31,21 @@ export const LogEditModal: React.FC<LogEditModalProps> = ({
 }) => {
   return (
     <div className="fixed inset-0 z-[100] bg-slate-900/70 backdrop-blur-md flex items-center justify-center p-4">
-      <div className="bg-white rounded-[2.5rem] w-full max-w-2xl shadow-2xl border border-slate-200 overflow-hidden flex flex-col max-h-[90vh]">
-         <div className="p-6 border-b border-slate-100 flex justify-between items-center bg-slate-50/50">
+      <div className="bg-white dark:bg-slate-900 rounded-[2.5rem] w-full max-w-2xl shadow-2xl dark:shadow-slate-900/40 border border-slate-200 dark:border-slate-800 overflow-hidden flex flex-col max-h-[90vh]">
+         <div className="p-6 border-b border-slate-100 dark:border-slate-800 flex justify-between items-center bg-slate-50/50 dark:bg-slate-800/50">
             <div>
-               <h3 className="font-black text-slate-900 uppercase tracking-tight text-lg">Корректировка данных</h3>
+               <h3 className="font-black text-slate-900 dark:text-slate-50 uppercase tracking-tight text-lg">Корректировка данных</h3>
                <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest">{editingLog.date} — {users.find(u => u.id === editingLog.userId)?.name}</p>
             </div>
-            <button onClick={() => { setEditingLog(null); setTempNotes({}); }} className="text-slate-400 hover:text-slate-900 text-3xl font-light transition-colors">&times;</button>
+            <button onClick={() => { setEditingLog(null); setTempNotes({}); }} className="text-slate-400 hover:text-slate-900 dark:text-slate-50 text-3xl font-light transition-colors">&times;</button>
          </div>
          
-         <div className="flex-1 overflow-y-auto p-6 space-y-4 custom-scrollbar bg-slate-50/30">
+         <div className="flex-1 overflow-y-auto p-6 space-y-4 custom-scrollbar bg-slate-50/30 dark:bg-slate-900/30">
             {logs.filter(l => l.userId === editingLog.userId && l.date === editingLog.date).map(log => (
-              <div key={log.id} className="bg-white rounded-[1.5rem] border border-slate-200 shadow-sm p-5 space-y-4 relative group">
-                <div className="flex flex-wrap items-center justify-between gap-3 border-b border-slate-100 pb-3">
+              <div key={log.id} className="bg-white dark:bg-slate-900 rounded-[1.5rem] border border-slate-200 dark:border-slate-800 shadow-md dark:shadow-slate-900/20 p-5 space-y-4 relative group">
+                <div className="flex flex-wrap items-center justify-between gap-3 border-b border-slate-100 dark:border-slate-800 pb-3">
                    <div className="flex items-center gap-3">
-                      <span className={`text-[10px] font-black px-3 py-1 rounded-full uppercase tracking-widest border flex items-center gap-1 ${log.entryType === EntryType.WORK ? 'text-blue-700 bg-blue-50 border-blue-100' : 'text-amber-700 bg-amber-50 border-amber-100'}`}>
+                      <span className={`text-[10px] font-black px-3 py-1 rounded-full uppercase tracking-widest border flex items-center gap-1 ${log.entryType === EntryType.WORK ? 'text-blue-700 dark:text-blue-300 bg-blue-50 dark:bg-blue-900/30 border-blue-100 dark:border-blue-800' : 'text-amber-700 dark:text-amber-400 bg-amber-50 dark:bg-amber-900/30 border-amber-100 dark:border-amber-800'}`}>
                          {log.isNightShift && <svg className="w-2.5 h-2.5" fill="currentColor" viewBox="0 0 20 20"><path d="M17.293 13.293A8 8 0 016.707 2.707a8.001 8.001 0 1010.586 10.586z"/></svg>}
                          {log.entryType === EntryType.WORK ? (machines.find(m => m.id === log.machineId)?.name || 'Работа') : 'Пропуск'}
                       </span>
@@ -53,7 +53,7 @@ export const LogEditModal: React.FC<LogEditModalProps> = ({
                    </div>
                    <button 
                     onClick={() => deleteLogItem(log.id)} 
-                    className="text-red-500 hover:bg-red-50 p-2 rounded-xl transition-all"
+                    className="text-red-500 hover:bg-red-50 dark:hover:bg-red-900/30 p-2 rounded-xl transition-all"
                     title="Удалить запись"
                    >
                       <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2.5} d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" /></svg>
@@ -102,11 +102,11 @@ export const LogEditModal: React.FC<LogEditModalProps> = ({
                       </div>
                       
                       <div className="grid grid-cols-2 gap-2 text-[10px] font-black text-slate-400 uppercase tracking-tighter">
-                         <div className="bg-slate-50 p-2 rounded-lg border border-slate-100">
-                            <span>Начало:</span> <span className="text-slate-900 ml-1">{log.checkIn ? formatTime(log.checkIn) : '--:--'}</span>
+                         <div className="bg-slate-50 dark:bg-slate-800/50 p-2 rounded-lg border border-slate-100 dark:border-slate-800">
+                            <span>Начало:</span> <span className="text-slate-900 dark:text-slate-50 ml-1">{log.checkIn ? formatTime(log.checkIn) : '--:--'}</span>
                          </div>
-                         <div className="bg-slate-50 p-2 rounded-lg border border-slate-100">
-                            <span>Конец:</span> <span className="text-slate-900 ml-1">{log.checkOut ? formatTime(log.checkOut) : '--:--'}</span>
+                         <div className="bg-slate-50 dark:bg-slate-800/50 p-2 rounded-lg border border-slate-100 dark:border-slate-800">
+                            <span>Конец:</span> <span className="text-slate-900 dark:text-slate-50 ml-1">{log.checkOut ? formatTime(log.checkOut) : '--:--'}</span>
                          </div>
                       </div>
                    </div>
@@ -120,7 +120,7 @@ export const LogEditModal: React.FC<LogEditModalProps> = ({
                                  type="number" 
                                  defaultValue={log.durationMinutes} 
                                  onBlur={(e) => saveCorrection(log.id, parseInt(e.target.value) || 0, log.fine, log.bonus, log.itemsProduced)}
-                                 className="w-full bg-slate-50 border-2 border-slate-100 rounded-xl px-4 py-2 text-sm font-black text-slate-900 outline-none focus:border-blue-500 focus:bg-white transition-all"
+                                 className="w-full bg-slate-50 dark:bg-slate-800 border-2 border-slate-100 dark:border-slate-700 rounded-xl px-4 py-2 text-sm font-black text-slate-900 dark:text-slate-50 outline-none focus:border-blue-500 focus:bg-white dark:focus:bg-slate-900 transition-all shadow-sm dark:shadow-none"
                                />
                                <span className="absolute right-4 top-1/2 -translate-y-1/2 text-[10px] text-slate-400 font-bold uppercase">мин</span>
                             </div>
@@ -132,7 +132,7 @@ export const LogEditModal: React.FC<LogEditModalProps> = ({
                                  type="number" 
                                  defaultValue={log.itemsProduced || ''} 
                                  onBlur={(e) => saveCorrection(log.id, log.durationMinutes, log.fine, log.bonus, parseInt(e.target.value) || undefined)}
-                                 className="w-full bg-slate-50 border-2 border-slate-100 rounded-xl px-4 py-2 text-sm font-black text-slate-900 outline-none focus:border-blue-500 focus:bg-white transition-all"
+                                 className="w-full bg-slate-50 dark:bg-slate-800 border-2 border-slate-100 dark:border-slate-700 rounded-xl px-4 py-2 text-sm font-black text-slate-900 dark:text-slate-50 outline-none focus:border-blue-500 focus:bg-white dark:focus:bg-slate-900 transition-all shadow-sm dark:shadow-none"
                                />
                                <span className="absolute right-4 top-1/2 -translate-y-1/2 text-[10px] text-slate-400 font-bold uppercase">шт</span>
                             </div>
@@ -147,7 +147,7 @@ export const LogEditModal: React.FC<LogEditModalProps> = ({
                                placeholder="0"
                                defaultValue={log.fine || ''} 
                                onBlur={(e) => saveCorrection(log.id, log.durationMinutes, parseInt(e.target.value) || 0, log.bonus, log.itemsProduced)}
-                               className="w-full bg-slate-50 border-2 border-slate-100 rounded-xl px-4 py-2 text-sm font-black text-red-600 outline-none focus:border-red-500 focus:bg-white transition-all"
+                               className="w-full bg-slate-50 dark:bg-slate-800 border-2 border-slate-100 dark:border-slate-700 rounded-xl px-4 py-2 text-sm font-black text-red-600 dark:text-red-400 outline-none focus:border-red-500 focus:bg-white dark:focus:bg-slate-900 transition-all shadow-sm dark:shadow-none"
                             />
                          </div>
                          <div className="space-y-1">
@@ -157,7 +157,7 @@ export const LogEditModal: React.FC<LogEditModalProps> = ({
                                placeholder="0"
                                defaultValue={log.bonus || ''} 
                                onBlur={(e) => saveCorrection(log.id, log.durationMinutes, log.fine, parseInt(e.target.value) || 0, log.itemsProduced)}
-                               className="w-full bg-slate-50 border-2 border-slate-100 rounded-xl px-4 py-2 text-sm font-black text-green-600 outline-none focus:border-green-500 focus:bg-white transition-all"
+                               className="w-full bg-slate-50 dark:bg-slate-800 border-2 border-slate-100 dark:border-slate-700 rounded-xl px-4 py-2 text-sm font-black text-green-600 dark:text-green-400 outline-none focus:border-green-500 focus:bg-white dark:focus:bg-slate-900 transition-all shadow-sm dark:shadow-none"
                             />
                          </div>
                       </div>
@@ -166,7 +166,7 @@ export const LogEditModal: React.FC<LogEditModalProps> = ({
                          <label className="text-[9px] font-black text-slate-400 uppercase ml-1">Причина изменений</label>
                          <textarea 
                             placeholder="Опишите причину..."
-                            className="w-full bg-slate-50 border-2 border-slate-100 rounded-xl px-4 py-2 text-xs font-medium text-slate-700 outline-none focus:border-blue-500 focus:bg-white transition-all min-h-[64px]"
+                            className="w-full bg-slate-50 dark:bg-slate-800 border-2 border-slate-100 dark:border-slate-700 rounded-xl px-4 py-2 text-xs font-medium text-slate-700 dark:text-slate-200 outline-none focus:border-blue-500 focus:bg-white dark:focus:bg-slate-900 transition-all min-h-[64px] shadow-sm dark:shadow-none"
                             defaultValue={log.correctionNote || ''}
                             onChange={(e) => setTempNotes({ ...tempNotes, [log.id]: e.target.value })}
                             onBlur={() => saveCorrection(log.id, log.durationMinutes, log.fine, log.bonus, log.itemsProduced)}
@@ -183,10 +183,10 @@ export const LogEditModal: React.FC<LogEditModalProps> = ({
             ))}
          </div>
          
-         <div className="p-6 border-t border-slate-100 bg-slate-50/50">
+         <div className="p-6 border-t border-slate-100 dark:border-slate-800 bg-slate-50/50 dark:bg-slate-800/50">
             <button 
               onClick={() => { setEditingLog(null); setTempNotes({}); }} 
-              className="w-full py-4 bg-slate-900 text-white rounded-2xl font-black uppercase tracking-widest text-xs shadow-xl shadow-slate-200 hover:bg-slate-800 transition-all active:scale-95"
+              className="w-full py-4 bg-slate-900 dark:bg-blue-600 text-white rounded-2xl font-black uppercase tracking-widest text-xs shadow-2xl dark:shadow-slate-900/20 shadow-slate-200 dark:shadow-none hover:bg-slate-800 dark:hover:bg-blue-700 transition-all active:scale-95"
             >
               Завершить редактирование
             </button>

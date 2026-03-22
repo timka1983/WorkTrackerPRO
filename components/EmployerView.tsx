@@ -1067,13 +1067,13 @@ const EmployerView: React.FC<EmployerViewProps> = ({
   return (
     <div className="space-y-6 animate-fadeIn pb-20">
       {dashboardStats.orphanedActiveShifts.length > 0 && (
-        <div className="bg-amber-50 border border-amber-200 p-4 rounded-3xl flex items-center gap-3 animate-fadeIn no-print">
-          <div className="bg-amber-100 p-2 rounded-xl">
-            <svg className="w-5 h-5 text-amber-600" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z" /></svg>
+        <div className="bg-amber-50 dark:bg-amber-900/20 border border-amber-200 dark:border-amber-800 p-4 rounded-3xl flex items-center gap-3 animate-fadeIn no-print">
+          <div className="bg-amber-100 dark:bg-amber-900/30 p-2 rounded-xl">
+            <svg className="w-5 h-5 text-amber-600 dark:text-amber-400" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z" /></svg>
           </div>
           <div className="flex-1">
-            <p className="text-xs font-bold text-amber-900">Обнаружены активные смены для удаленных сотрудников ({dashboardStats.orphanedActiveShifts.length})</p>
-            <p className="text-[10px] text-amber-700 mt-0.5">Эти сотрудники не отображаются в табеле, так как их профили были удалены или повреждены. Рекомендуется завершить эти смены принудительно.</p>
+            <p className="text-xs font-bold text-amber-900 dark:text-amber-100">Обнаружены активные смены для удаленных сотрудников ({dashboardStats.orphanedActiveShifts.length})</p>
+            <p className="text-[10px] text-amber-700 dark:text-amber-400 mt-0.5">Эти сотрудники не отображаются в табеле, так как их профили были удалены или повреждены. Рекомендуется завершить эти смены принудительно.</p>
           </div>
           <button 
             onClick={() => setViewMode('analytics')}
@@ -1083,6 +1083,7 @@ const EmployerView: React.FC<EmployerViewProps> = ({
           </button>
         </div>
       )}
+
 
       {previewPhoto && (
         <PhotoPreviewModal previewPhoto={previewPhoto} setPreviewPhoto={setPreviewPhoto} />
@@ -1134,7 +1135,7 @@ const EmployerView: React.FC<EmployerViewProps> = ({
         />
       )}
 
-      <div className="flex flex-col sm:flex-row justify-between items-center bg-white p-4 rounded-3xl border border-slate-200 gap-4 shadow-sm no-print">
+      <div className="flex flex-col sm:flex-row justify-between items-center bg-white dark:bg-slate-900 p-4 rounded-3xl border border-slate-200 dark:border-slate-800 gap-4 shadow-md dark:shadow-slate-900/20 no-print">
         <div className="flex items-center gap-2 w-full sm:w-auto">
            <button 
             onClick={async () => {
@@ -1164,7 +1165,7 @@ const EmployerView: React.FC<EmployerViewProps> = ({
                 }
               }
             }}
-            className="p-2.5 rounded-xl bg-amber-50 text-amber-600 hover:bg-amber-100 transition-all"
+            className="p-2.5 rounded-xl bg-amber-50 dark:bg-amber-900/20 text-amber-600 dark:text-amber-400 hover:bg-amber-100 dark:hover:bg-amber-900/40 transition-all"
             title="Исправить данные"
           >
             <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13 10V3L4 14h7v7l9-11h-7z" /></svg>
@@ -1174,7 +1175,7 @@ const EmployerView: React.FC<EmployerViewProps> = ({
               <button 
                 onClick={() => onRefresh()} 
                 disabled={isSyncing}
-                className={`p-2.5 rounded-xl transition-all ${isSyncing ? 'bg-slate-100 text-slate-400' : 'bg-blue-50 text-blue-600 hover:bg-blue-100'}`} 
+                className={`p-2.5 rounded-xl transition-all ${isSyncing ? 'bg-slate-100 dark:bg-slate-800 text-slate-400' : 'bg-blue-50 dark:bg-blue-900/20 text-blue-600 dark:text-blue-400 hover:bg-blue-100 dark:hover:bg-blue-900/40'}`} 
                 title="Обновить данные"
               >
                 <svg className={`w-5 h-5 ${isSyncing ? 'animate-spin' : ''}`} fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -1186,31 +1187,34 @@ const EmployerView: React.FC<EmployerViewProps> = ({
              <select 
                value={selectedBranchId || ''} 
                onChange={(e) => setSelectedBranchId(e.target.value || null)}
-               className="border border-slate-200 rounded-xl px-4 py-2 text-sm font-bold outline-none focus:ring-2 focus:ring-blue-500 bg-white"
+               className="border border-slate-200 dark:border-slate-800 rounded-xl px-4 py-2 text-sm font-bold outline-none focus:ring-2 focus:ring-blue-500 bg-white dark:bg-slate-900 dark:text-slate-100"
              >
                <option value="">Все филиалы</option>
                {branches.map(b => <option key={b.id} value={b.id}>{b.name}</option>)}
              </select>
            )}
-           <input type="month" value={filterMonth} onChange={(e) => {
-             setFilterMonth(e.target.value);
-             if (onMonthChange) onMonthChange(e.target.value);
-           }} className="border border-slate-200 rounded-xl px-4 py-2 text-sm font-bold outline-none focus:ring-2 focus:ring-blue-500" />
+            {(viewMode === 'matrix' || viewMode === 'payroll') && (
+              <input type="month" value={filterMonth} onChange={(e) => {
+                setFilterMonth(e.target.value);
+                if (onMonthChange) onMonthChange(e.target.value);
+              }} className="border border-slate-200 dark:border-slate-800 rounded-xl px-4 py-2 text-sm font-bold outline-none focus:ring-2 focus:ring-blue-500 bg-white dark:bg-slate-900 dark:text-slate-100" />
+            )}
            <button onClick={downloadExcel} className="p-2.5 bg-green-600 text-white rounded-xl hover:bg-green-700 transition-colors" title="Скачать Excel">
               <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 17v-2m3 2v-4m3 4v-6m2 10H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" /></svg>
            </button>
-           <button onClick={downloadPDF} className="p-2.5 bg-slate-900 text-white rounded-xl hover:bg-slate-800 transition-colors" title="Скачать PDF">
+           <button onClick={downloadPDF} className="p-2.5 bg-slate-900 dark:bg-blue-600 text-white rounded-xl hover:bg-slate-800 dark:hover:bg-blue-700 transition-colors" title="Скачать PDF">
               <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 10v6m0 0l-3-3m3 3l3-3m2 8H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" /></svg>
            </button>
         </div>
       </div>
+
 
       {viewMode === 'analytics' && (
         <>
           {unreadSupportMessages > 0 && (
             <div 
               onClick={() => setViewMode('support')}
-              className="mb-6 bg-indigo-600 text-white p-4 rounded-2xl shadow-lg shadow-indigo-100 flex items-center justify-between cursor-pointer hover:bg-indigo-700 transition-all animate-pulse"
+              className="mb-6 bg-indigo-600 text-white p-4 rounded-2xl shadow-xl dark:shadow-slate-900/20 shadow-indigo-100 flex items-center justify-between cursor-pointer hover:bg-indigo-700 transition-all animate-pulse"
             >
               <div className="flex items-center gap-3">
                 <div className="p-2 bg-white/20 rounded-lg">
@@ -1221,7 +1225,7 @@ const EmployerView: React.FC<EmployerViewProps> = ({
                   <p className="text-xs text-indigo-100">Нажмите, чтобы прочитать</p>
                 </div>
               </div>
-              <div className="bg-white text-indigo-600 px-3 py-1 rounded-full font-black text-xs">
+              <div className="bg-white text-indigo-600 dark:text-indigo-400 px-3 py-1 rounded-full font-black text-xs">
                 +{unreadSupportMessages}
               </div>
             </div>
@@ -1378,7 +1382,7 @@ const EmployerView: React.FC<EmployerViewProps> = ({
       )}
       {/* Debug Info (Only for Super Admin or if enabled for Org) */}
       {(currentUser?.role === UserRole.SUPER_ADMIN || (currentUser?.isAdmin && currentOrg?.debugEnabled)) && (
-        <div className="mt-4 p-4 bg-slate-100 rounded-2xl text-[10px] font-mono text-slate-500 space-y-1 select-text">
+        <div className="mt-4 p-4 bg-slate-100 dark:bg-slate-800 rounded-2xl text-[10px] font-mono text-slate-500 dark:text-slate-400 space-y-1 select-text">
           <div className="flex justify-between items-start">
             <div id="debug-content" className="space-y-1">
               <p>Debug: OrgID: [{currentOrg?.id}] | Users: {users.length} | Logs: {logs.length}</p>
@@ -1398,50 +1402,50 @@ const EmployerView: React.FC<EmployerViewProps> = ({
               Copy
             </button>
           </div>
-          {users.length === 0 && <p className="text-rose-600 font-bold">ВНИМАНИЕ: Список сотрудников пуст. Попробуйте "Восстановить данные".</p>}
+          {users.length === 0 && <p className="text-rose-600 dark:text-rose-400 font-bold">ВНИМАНИЕ: Список сотрудников пуст. Попробуйте "Восстановить данные".</p>}
           <div className="flex gap-2 mt-2">
             <button 
               onClick={() => {
                 localStorage.clear();
                 window.location.reload();
               }} 
-              className="px-2 py-1 bg-slate-200 rounded hover:bg-slate-300"
+              className="px-2 py-1 bg-slate-200 dark:bg-slate-700 rounded hover:bg-slate-300 dark:hover:bg-slate-600"
             >
               Очистить кэш и перезагрузить
             </button>
             <button 
               onClick={() => onRunDiagnostics?.()} 
-              className="px-2 py-1 bg-green-100 text-green-600 rounded hover:bg-green-200"
+              className="px-2 py-1 bg-green-100 dark:bg-green-900/20 text-green-600 dark:text-green-400 rounded hover:bg-green-200 dark:hover:bg-green-900/40"
             >
               Диагностика БД
             </button>
             <button 
               onClick={() => onMergeDuplicates?.()} 
-              className="px-2 py-1 bg-orange-100 text-orange-600 rounded hover:bg-orange-200"
+              className="px-2 py-1 bg-orange-100 dark:bg-orange-900/20 text-orange-600 dark:text-orange-400 rounded hover:bg-orange-200 dark:hover:bg-orange-900/40"
             >
               Объединить дубликаты (по имени)
             </button>
             <button 
               onClick={() => onFixDbStructure?.()} 
-              className="px-2 py-1 bg-red-100 text-red-600 rounded hover:bg-red-200"
+              className="px-2 py-1 bg-red-100 dark:bg-red-900/20 text-red-600 dark:text-red-400 rounded hover:bg-red-200 dark:hover:bg-red-900/40"
             >
               Исправить структуру БД (дубликаты позиций)
             </button>
             <button 
               onClick={() => onRefresh?.()} 
-              className="px-2 py-1 bg-blue-100 text-blue-600 rounded hover:bg-blue-200"
+              className="px-2 py-1 bg-blue-100 dark:bg-blue-900/20 text-blue-600 dark:text-blue-400 rounded hover:bg-blue-200 dark:hover:bg-blue-900/40"
             >
               Обновить данные из БД
             </button>
             <button 
               onClick={() => forceCleanAll?.()} 
-              className="px-2 py-1 bg-amber-100 text-amber-600 rounded hover:bg-amber-200"
+              className="px-2 py-1 bg-amber-100 dark:bg-amber-900/20 text-amber-600 dark:text-amber-400 rounded hover:bg-amber-200 dark:hover:bg-amber-900/40"
             >
               Принудительная очистка $
             </button>
             <button 
               onClick={() => onCleanupDatabase?.()} 
-              className="px-2 py-1 bg-rose-100 text-rose-600 rounded hover:bg-rose-200"
+              className="px-2 py-1 bg-rose-100 dark:bg-rose-900/20 text-rose-600 dark:text-rose-400 rounded hover:bg-rose-200 dark:hover:bg-rose-900/40"
             >
               Исправить дубликаты в БД
             </button>
@@ -1472,13 +1476,14 @@ const EmployerView: React.FC<EmployerViewProps> = ({
                   alert('Фото в Base64 не найдено. Все отлично!');
                 }
               }} 
-              className="px-2 py-1 bg-purple-100 text-purple-600 rounded hover:bg-purple-200"
+              className="px-2 py-1 bg-purple-100 dark:bg-purple-900/20 text-purple-600 dark:text-purple-400 rounded hover:bg-purple-200 dark:hover:bg-purple-900/40"
             >
               Проверить и удалить Base64 фото
             </button>
           </div>
         </div>
       )}
+
     </div>
   );
 };

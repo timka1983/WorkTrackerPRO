@@ -46,10 +46,10 @@ export const AuditLogView: React.FC<AuditLogViewProps> = ({ currentOrg, users })
   }, [logs]);
 
   const getActionColor = (action: string) => {
-    if (action.includes('удаление') || action.includes('delete')) return 'text-red-600 bg-red-50 border-red-100';
-    if (action.includes('изменение') || action.includes('edit') || action.includes('update')) return 'text-amber-600 bg-amber-50 border-amber-100';
-    if (action.includes('добавление') || action.includes('create') || action.includes('add')) return 'text-emerald-600 bg-emerald-50 border-emerald-100';
-    return 'text-blue-600 bg-blue-50 border-blue-100';
+    if (action.includes('удаление') || action.includes('delete')) return 'text-red-600 dark:text-red-400 bg-red-50 border-red-100';
+    if (action.includes('изменение') || action.includes('edit') || action.includes('update')) return 'text-amber-600 dark:text-amber-400 bg-amber-50 border-amber-100';
+    if (action.includes('добавление') || action.includes('create') || action.includes('add')) return 'text-emerald-600 dark:text-emerald-400 bg-emerald-50 border-emerald-100';
+    return 'text-blue-600 dark:text-blue-400 bg-blue-50 border-blue-100';
   };
 
   const getActionLabel = (action: string) => {
@@ -68,21 +68,21 @@ export const AuditLogView: React.FC<AuditLogViewProps> = ({ currentOrg, users })
 
   return (
     <div className="space-y-6">
-      <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4 bg-white p-6 rounded-3xl border border-slate-200 shadow-sm">
+      <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4 bg-white dark:bg-slate-900 p-6 rounded-3xl border border-slate-200 dark:border-slate-800 shadow-md dark:shadow-slate-900/20">
         <div>
-          <h2 className="text-2xl font-black text-slate-900 flex items-center gap-3">
-            <div className="p-2 bg-indigo-50 text-indigo-600 rounded-xl">
+          <h2 className="text-2xl font-black text-slate-900 dark:text-slate-50 flex items-center gap-3">
+            <div className="p-2 bg-indigo-50 dark:bg-indigo-900/30 text-indigo-600 dark:text-indigo-400 rounded-xl">
               <History className="w-6 h-6" />
             </div>
             Журнал аудита
           </h2>
-          <p className="text-sm text-slate-500 mt-1">
+          <p className="text-sm text-slate-500 dark:text-slate-400 mt-1">
             История действий администраторов и изменений в системе
           </p>
         </div>
       </div>
 
-      <div className="bg-white p-6 rounded-3xl border border-slate-200 shadow-sm space-y-6">
+      <div className="bg-white dark:bg-slate-900 p-6 rounded-3xl border border-slate-200 dark:border-slate-800 shadow-md dark:shadow-slate-900/20 space-y-6">
         <div className="flex flex-col sm:flex-row gap-4">
           <div className="relative flex-1">
             <Search className="absolute left-4 top-1/2 -translate-y-1/2 w-5 h-5 text-slate-400" />
@@ -91,7 +91,7 @@ export const AuditLogView: React.FC<AuditLogViewProps> = ({ currentOrg, users })
               placeholder="Поиск по имени или деталям..."
               value={searchTerm}
               onChange={(e) => setSearchTerm(e.target.value)}
-              className="w-full pl-12 pr-4 py-3 bg-slate-50 border-none rounded-2xl text-sm font-medium focus:ring-2 focus:ring-indigo-500 transition-all"
+              className="w-full pl-12 pr-4 py-3 bg-slate-50 dark:bg-slate-800 border-none rounded-2xl text-sm font-medium text-slate-900 dark:text-slate-100 placeholder:text-slate-400 focus:ring-2 focus:ring-indigo-500 transition-all outline-none"
             />
           </div>
           <div className="relative min-w-[200px]">
@@ -99,7 +99,7 @@ export const AuditLogView: React.FC<AuditLogViewProps> = ({ currentOrg, users })
             <select
               value={filterAction}
               onChange={(e) => setFilterAction(e.target.value)}
-              className="w-full pl-12 pr-10 py-3 bg-slate-50 border-none rounded-2xl text-sm font-bold text-slate-700 appearance-none focus:ring-2 focus:ring-indigo-500 transition-all cursor-pointer"
+              className="w-full pl-12 pr-10 py-3 bg-slate-50 dark:bg-slate-800 border-none rounded-2xl text-sm font-bold text-slate-700 dark:text-slate-200 appearance-none focus:ring-2 focus:ring-indigo-500 transition-all cursor-pointer outline-none"
             >
               <option value="all">Все действия</option>
               {uniqueActions.map(action => (
@@ -111,24 +111,24 @@ export const AuditLogView: React.FC<AuditLogViewProps> = ({ currentOrg, users })
 
         <div className="space-y-3">
           {isLoading ? (
-            <div className="text-center py-12 bg-slate-50 rounded-2xl border border-dashed border-slate-200">
+            <div className="text-center py-12 bg-slate-50 dark:bg-slate-800/50 rounded-2xl border border-dashed border-slate-200 dark:border-slate-700">
               <div className="w-12 h-12 border-4 border-indigo-500 border-t-transparent rounded-full animate-spin mx-auto mb-3" />
-              <p className="text-slate-500 font-medium">Загрузка журнала...</p>
+              <p className="text-slate-500 dark:text-slate-400 font-medium">Загрузка журнала...</p>
             </div>
           ) : filteredLogs.length === 0 ? (
-            <div className="text-center py-12 bg-slate-50 rounded-2xl border border-dashed border-slate-200">
-              <History className="w-12 h-12 text-slate-300 mx-auto mb-3" />
-              <p className="text-slate-500 font-medium">Записи не найдены</p>
+            <div className="text-center py-12 bg-slate-50 dark:bg-slate-800/50 rounded-2xl border border-dashed border-slate-200 dark:border-slate-700">
+              <History className="w-12 h-12 text-slate-300 dark:text-slate-600 mx-auto mb-3" />
+              <p className="text-slate-500 dark:text-slate-400 font-medium">Записи не найдены</p>
             </div>
           ) : (
             filteredLogs.map((log) => (
-              <div key={log.id} className="p-4 bg-white border border-slate-100 rounded-2xl hover:shadow-md transition-all group flex flex-col sm:flex-row gap-4 sm:items-center">
+              <div key={log.id} className="p-4 bg-white dark:bg-slate-900 border border-slate-100 dark:border-slate-800 rounded-2xl hover:shadow-lg dark:shadow-slate-900/20 transition-all group flex flex-col sm:flex-row gap-4 sm:items-center">
                 <div className="flex items-center gap-4 min-w-[200px]">
-                  <div className="w-10 h-10 rounded-full bg-slate-100 flex items-center justify-center shrink-0">
-                    <UserIcon className="w-5 h-5 text-slate-500" />
+                  <div className="w-10 h-10 rounded-full bg-slate-100 dark:bg-slate-800 flex items-center justify-center shrink-0">
+                    <UserIcon className="w-5 h-5 text-slate-500 dark:text-slate-400" />
                   </div>
                   <div>
-                    <p className="text-sm font-bold text-slate-900">{log.adminName}</p>
+                    <p className="text-sm font-bold text-slate-900 dark:text-slate-50">{log.adminName}</p>
                     <div className="flex items-center gap-1 text-[10px] text-slate-400 font-medium mt-0.5">
                       <Clock className="w-3 h-3" />
                       {format(new Date(log.timestamp), 'dd MMM yyyy, HH:mm', { locale: ru })}
@@ -143,19 +143,19 @@ export const AuditLogView: React.FC<AuditLogViewProps> = ({ currentOrg, users })
                     </span>
                     {log.targetUserName && (
                       <>
-                        <ArrowRight className="w-3 h-3 text-slate-300" />
-                        <span className="text-xs font-bold text-slate-700 bg-slate-100 px-2 py-1 rounded-md">
+                        <ArrowRight className="w-3 h-3 text-slate-300 dark:text-slate-600" />
+                        <span className="text-xs font-bold text-slate-700 dark:text-slate-200 bg-slate-100 dark:bg-slate-800 px-2 py-1 rounded-md">
                           {log.targetUserName}
                         </span>
                       </>
                     )}
                   </div>
-                  <p className="text-sm text-slate-600 mt-2 leading-relaxed">
+                  <p className="text-sm text-slate-600 dark:text-slate-300 mt-2 leading-relaxed">
                     {log.details}
                   </p>
                   {log.changes && (
-                    <p className="text-xs text-slate-500 mt-2 bg-slate-50 p-2 rounded-lg font-mono">
-                      <span className="font-bold text-slate-700">Изменения:</span> {log.changes}
+                    <p className="text-xs text-slate-500 dark:text-slate-400 mt-2 bg-slate-50 dark:bg-slate-800/50 p-2 rounded-lg font-mono">
+                      <span className="font-bold text-slate-700 dark:text-slate-200">Изменения:</span> {log.changes}
                     </p>
                   )}
                 </div>

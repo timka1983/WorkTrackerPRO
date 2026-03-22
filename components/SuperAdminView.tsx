@@ -632,9 +632,9 @@ const SuperAdminView: React.FC<SuperAdminViewProps> = ({
 
       {/* Main Content */}
       <main className="flex-1 overflow-y-auto">
-        <header className="bg-white border-b border-slate-200 sticky top-0 z-10 shadow-sm">
+        <header className="bg-white border-b border-slate-200 sticky top-0 z-10 shadow-md dark:shadow-slate-900/20">
           <div className="max-w-7xl mx-auto px-8 h-16 flex items-center justify-between">
-            <h2 className="text-lg font-bold text-slate-900 uppercase tracking-tight">
+            <h2 className="text-lg font-bold text-slate-900 dark:text-slate-50 uppercase tracking-tight">
               {menuItems.find(i => i.id === activeTab)?.name}
             </h2>
           </div>
@@ -645,37 +645,37 @@ const SuperAdminView: React.FC<SuperAdminViewProps> = ({
           <>
             {/* Stats Grid */}
             <div className="grid grid-cols-1 md:grid-cols-3 gap-6 mb-8">
-              <div className="bg-white p-6 rounded-2xl shadow-sm border border-slate-200">
+              <div className="bg-white p-6 rounded-2xl shadow-md dark:shadow-slate-900/20 border border-slate-200">
                 <div className="flex items-center justify-between mb-4">
                   <div className="p-3 bg-blue-50 rounded-xl">
-                    <Building2 className="w-6 h-6 text-blue-600" />
+                    <Building2 className="w-6 h-6 text-blue-600 dark:text-blue-400" />
                   </div>
-                  <span className="text-xs font-bold text-blue-600 bg-blue-50 px-2 py-1 rounded-full">Total</span>
+                  <span className="text-xs font-bold text-blue-600 dark:text-blue-400 bg-blue-50 px-2 py-1 rounded-full">Total</span>
                 </div>
-                <p className="text-sm font-medium text-slate-500">Организаций</p>
-                <p className="text-3xl font-bold text-slate-900">{organizations.length}</p>
+                <p className="text-sm font-medium text-slate-500 dark:text-slate-400">Организаций</p>
+                <p className="text-3xl font-bold text-slate-900 dark:text-slate-50">{organizations.length}</p>
               </div>
 
-              <div className="bg-white p-6 rounded-2xl shadow-sm border border-slate-200">
+              <div className="bg-white p-6 rounded-2xl shadow-md dark:shadow-slate-900/20 border border-slate-200">
                 <div className="flex items-center justify-between mb-4">
                   <div className="p-3 bg-emerald-50 rounded-xl">
-                    <Users className="w-6 h-6 text-emerald-600" />
+                    <Users className="w-6 h-6 text-emerald-600 dark:text-emerald-400" />
                   </div>
-                  <span className="text-xs font-bold text-emerald-600 bg-emerald-50 px-2 py-1 rounded-full">Active</span>
+                  <span className="text-xs font-bold text-emerald-600 dark:text-emerald-400 bg-emerald-50 px-2 py-1 rounded-full">Active</span>
                 </div>
-                <p className="text-sm font-medium text-slate-500">Всего пользователей</p>
-                <p className="text-3xl font-bold text-slate-900">{totalUsers}</p>
+                <p className="text-sm font-medium text-slate-500 dark:text-slate-400">Всего пользователей</p>
+                <p className="text-3xl font-bold text-slate-900 dark:text-slate-50">{totalUsers}</p>
               </div>
 
-              <div className="bg-white p-6 rounded-2xl shadow-sm border border-slate-200">
+              <div className="bg-white p-6 rounded-2xl shadow-md dark:shadow-slate-900/20 border border-slate-200">
                 <div className="flex items-center justify-between mb-4">
                   <div className="p-3 bg-indigo-50 rounded-xl">
-                    <CreditCard className="w-6 h-6 text-indigo-600" />
+                    <CreditCard className="w-6 h-6 text-indigo-600 dark:text-indigo-400" />
                   </div>
-                  <span className="text-xs font-bold text-indigo-600 bg-indigo-50 px-2 py-1 rounded-full">Revenue</span>
+                  <span className="text-xs font-bold text-indigo-600 dark:text-indigo-400 bg-indigo-50 px-2 py-1 rounded-full">Revenue</span>
                 </div>
-                <p className="text-sm font-medium text-slate-500">Платные подписки</p>
-                <p className="text-3xl font-bold text-slate-900">
+                <p className="text-sm font-medium text-slate-500 dark:text-slate-400">Платные подписки</p>
+                <p className="text-3xl font-bold text-slate-900 dark:text-slate-50">
                   {organizations.filter(o => o.plan !== PlanType.FREE).length}
                 </p>
               </div>
@@ -691,13 +691,13 @@ const SuperAdminView: React.FC<SuperAdminViewProps> = ({
                     placeholder="Поиск по названию или ID..."
                     value={searchTerm}
                     onChange={(e) => setSearchTerm(e.target.value)}
-                    className="w-full pl-10 pr-4 py-2.5 bg-white border border-slate-200 rounded-xl focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 outline-none transition-all shadow-sm"
+                    className="w-full pl-10 pr-4 py-2.5 bg-white border border-slate-200 rounded-xl focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 outline-none transition-all shadow-md dark:shadow-slate-900/20"
                   />
                 </div>
                 <button 
                   onClick={handleRefresh}
                   disabled={refreshing}
-                  className="flex items-center gap-2 px-4 py-2.5 bg-white border border-slate-200 rounded-xl hover:bg-slate-50 transition-all shadow-sm disabled:opacity-50"
+                  className="flex items-center gap-2 px-4 py-2.5 bg-white border border-slate-200 rounded-xl hover:bg-slate-50 transition-all shadow-md dark:shadow-slate-900/20 disabled:opacity-50"
                 >
                   <RefreshCw className={`w-4 h-4 ${refreshing ? 'animate-spin' : ''}`} />
                   Обновить
@@ -705,7 +705,7 @@ const SuperAdminView: React.FC<SuperAdminViewProps> = ({
               </div>
               <button 
                 onClick={() => setIsCreating(true)}
-                className="w-full sm:w-auto flex items-center justify-center gap-2 px-6 py-2.5 bg-indigo-600 text-white rounded-xl hover:bg-indigo-700 transition-all shadow-lg shadow-indigo-100 font-bold"
+                className="w-full sm:w-auto flex items-center justify-center gap-2 px-6 py-2.5 bg-indigo-600 text-white rounded-xl hover:bg-indigo-700 transition-all shadow-xl dark:shadow-slate-900/20 shadow-indigo-100 font-bold"
               >
                 <Plus className="w-5 h-5" />
                 Создать организацию
@@ -713,18 +713,18 @@ const SuperAdminView: React.FC<SuperAdminViewProps> = ({
             </div>
 
             {/* Organizations Table */}
-            <div className="bg-white rounded-2xl shadow-sm border border-slate-200 overflow-hidden">
+            <div className="bg-white rounded-2xl shadow-md dark:shadow-slate-900/20 border border-slate-200 overflow-hidden">
               <div className="overflow-x-auto">
                 <table className="w-full text-left border-collapse">
                   <thead>
                     <tr className="bg-slate-50 border-bottom border-slate-200">
-                      <th className="px-6 py-4 text-xs font-bold text-slate-500 uppercase tracking-wider">Организация</th>
-                      <th className="px-6 py-4 text-xs font-bold text-slate-500 uppercase tracking-wider">Тариф</th>
-                      <th className="px-6 py-4 text-xs font-bold text-slate-500 uppercase tracking-wider">Статус</th>
-                      <th className="px-6 py-4 text-xs font-bold text-slate-500 uppercase tracking-wider">Пользователи</th>
-                      <th className="px-6 py-4 text-xs font-bold text-slate-500 uppercase tracking-wider">Создан</th>
-                      <th className="px-6 py-4 text-xs font-bold text-slate-500 uppercase tracking-wider">ID</th>
-                      <th className="px-6 py-4 text-xs font-bold text-slate-500 uppercase tracking-wider text-right">Действия</th>
+                      <th className="px-6 py-4 text-xs font-bold text-slate-500 dark:text-slate-400 uppercase tracking-wider">Организация</th>
+                      <th className="px-6 py-4 text-xs font-bold text-slate-500 dark:text-slate-400 uppercase tracking-wider">Тариф</th>
+                      <th className="px-6 py-4 text-xs font-bold text-slate-500 dark:text-slate-400 uppercase tracking-wider">Статус</th>
+                      <th className="px-6 py-4 text-xs font-bold text-slate-500 dark:text-slate-400 uppercase tracking-wider">Пользователи</th>
+                      <th className="px-6 py-4 text-xs font-bold text-slate-500 dark:text-slate-400 uppercase tracking-wider">Создан</th>
+                      <th className="px-6 py-4 text-xs font-bold text-slate-500 dark:text-slate-400 uppercase tracking-wider">ID</th>
+                      <th className="px-6 py-4 text-xs font-bold text-slate-500 dark:text-slate-400 uppercase tracking-wider text-right">Действия</th>
                     </tr>
                   </thead>
                   <tbody className="divide-y divide-slate-100">
@@ -738,7 +738,7 @@ const SuperAdminView: React.FC<SuperAdminViewProps> = ({
                       ))
                     ) : filteredOrgs.length === 0 ? (
                       <tr>
-                        <td colSpan={6} className="px-6 py-12 text-center text-slate-500">
+                        <td colSpan={6} className="px-6 py-12 text-center text-slate-500 dark:text-slate-400">
                           Организации не найдены
                         </td>
                       </tr>
@@ -747,27 +747,27 @@ const SuperAdminView: React.FC<SuperAdminViewProps> = ({
                         <tr key={org.id} className="hover:bg-slate-50 transition-colors">
                           <td className="px-6 py-4">
                             <div className="flex items-center gap-3">
-                              <div className="w-10 h-10 bg-indigo-100 rounded-lg flex items-center justify-center text-indigo-600 font-bold">
+                              <div className="w-10 h-10 bg-indigo-100 rounded-lg flex items-center justify-center text-indigo-600 dark:text-indigo-400 font-bold">
                                 {org.name.charAt(0)}
                               </div>
                               <div>
                                 <div className="flex items-center gap-2">
-                                  <div className="font-bold text-slate-900">{org.name}</div>
+                                  <div className="font-bold text-slate-900 dark:text-slate-50">{org.name}</div>
                                   {unreadByOrg[org.id] > 0 && (
                                     <span className="flex h-5 w-5 items-center justify-center rounded-full bg-rose-500 text-[10px] font-bold text-white">
                                       {unreadByOrg[org.id] > 9 ? '9+' : unreadByOrg[org.id]}
                                     </span>
                                   )}
                                 </div>
-                                <div className="text-xs text-slate-500">Владелец: {org.ownerId}</div>
+                                <div className="text-xs text-slate-500 dark:text-slate-400">Владелец: {org.ownerId}</div>
                               </div>
                             </div>
                           </td>
                           <td className="px-6 py-4">
                             <span className={`inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-bold ${
                               org.plan === PlanType.BUSINESS ? 'bg-purple-100 text-purple-700' :
-                              org.plan === PlanType.PRO ? 'bg-blue-100 text-blue-700' :
-                              'bg-slate-100 text-slate-700'
+                              org.plan === PlanType.PRO ? 'bg-blue-100 text-blue-700 dark:text-blue-300' :
+                              'bg-slate-100 text-slate-700 dark:text-slate-200'
                             }`}>
                               {org.plan}
                             </span>
@@ -779,27 +779,27 @@ const SuperAdminView: React.FC<SuperAdminViewProps> = ({
                                 org.status === 'trial' ? 'bg-amber-500' :
                                 'bg-rose-500'
                               }`} />
-                              <span className="text-sm font-medium text-slate-700 capitalize">{org.status}</span>
+                              <span className="text-sm font-medium text-slate-700 dark:text-slate-200 capitalize">{org.status}</span>
                             </div>
                           </td>
                           <td className="px-6 py-4">
                             <div className="flex items-center gap-2">
                               <Users className="w-4 h-4 text-slate-400" />
-                              <span className="text-sm font-bold text-slate-900">{stats[org.id] || 0}</span>
+                              <span className="text-sm font-bold text-slate-900 dark:text-slate-50">{stats[org.id] || 0}</span>
                             </div>
                           </td>
                           <td className="px-6 py-4">
-                            <div className="text-xs text-slate-500 font-medium">
+                            <div className="text-xs text-slate-500 dark:text-slate-400 font-medium">
                               {org.createdAt ? new Date(org.createdAt).toLocaleDateString() : '—'}
                             </div>
                           </td>
                           <td className="px-6 py-4">
                             <div className="flex flex-col gap-1">
-                              <code className={`text-xs px-2 py-1 rounded font-mono w-fit ${org.id === 'demo_org' ? 'bg-amber-100 text-amber-700 border border-amber-200' : 'bg-slate-100 text-slate-600'}`}>
+                              <code className={`text-xs px-2 py-1 rounded font-mono w-fit ${org.id === 'demo_org' ? 'bg-amber-100 text-amber-700 border border-amber-200' : 'bg-slate-100 text-slate-600 dark:text-slate-300'}`}>
                                 {org.id}
                               </code>
                               {org.id === 'demo_org' && (
-                                <span className="text-[8px] font-black text-amber-600 uppercase tracking-tighter">Demo System ID</span>
+                                <span className="text-[8px] font-black text-amber-600 dark:text-amber-400 uppercase tracking-tighter">Demo System ID</span>
                               )}
                             </div>
                           </td>
@@ -807,35 +807,35 @@ const SuperAdminView: React.FC<SuperAdminViewProps> = ({
                             <div className="flex items-center justify-end gap-1">
                               <button 
                                 onClick={() => handleViewUsers(org)}
-                                className="p-2 text-slate-400 hover:text-emerald-600 transition-colors rounded-lg hover:bg-emerald-50"
+                                className="p-2 text-slate-400 hover:text-emerald-600 dark:text-emerald-400 transition-colors rounded-lg hover:bg-emerald-50"
                                 title="Посмотреть сотрудников"
                               >
                                 <Users className="w-4 h-4" />
                               </button>
                               <button 
                                 onClick={() => handleResetAdminPin(org.id)}
-                                className="p-2 text-slate-400 hover:text-amber-600 transition-colors rounded-lg hover:bg-amber-50"
+                                className="p-2 text-slate-400 hover:text-amber-600 dark:text-amber-400 transition-colors rounded-lg hover:bg-amber-50"
                                 title="Сбросить пароль админа"
                               >
                                 <RefreshCw className="w-4 h-4" />
                               </button>
                               <button 
                                 onClick={() => setEditingOrg(org)}
-                                className="p-2 text-slate-400 hover:text-indigo-600 transition-colors rounded-lg hover:bg-indigo-50"
+                                className="p-2 text-slate-400 hover:text-indigo-600 dark:text-indigo-400 transition-colors rounded-lg hover:bg-indigo-50"
                                 title="Управление тарифом"
                               >
                                 <Settings2 className="w-4 h-4" />
                               </button>
                               <button 
                                 onClick={() => handleSwitchToOrg(org.id)}
-                                className="p-2 text-slate-400 hover:text-indigo-600 transition-colors rounded-lg hover:bg-indigo-50"
+                                className="p-2 text-slate-400 hover:text-indigo-600 dark:text-indigo-400 transition-colors rounded-lg hover:bg-indigo-50"
                                 title="Войти в организацию"
                               >
                                 <ExternalLink className="w-4 h-4" />
                               </button>
                               <button 
                                 onClick={() => setConfirmDeleteOrg(org)}
-                                className="p-2 text-slate-400 hover:text-rose-600 transition-colors rounded-lg hover:bg-rose-50"
+                                className="p-2 text-slate-400 hover:text-rose-600 dark:text-rose-400 transition-colors rounded-lg hover:bg-rose-50"
                                 title="Удалить организацию"
                               >
                                 <Trash2 className="w-4 h-4" />
@@ -854,7 +854,7 @@ const SuperAdminView: React.FC<SuperAdminViewProps> = ({
               <p className="text-[10px] text-slate-400 font-bold uppercase mb-4">Проблемы с синхронизацией на мобильном?</p>
               <button 
                 onClick={handleHardReset}
-                className="flex items-center gap-2 px-6 py-3 bg-slate-100 text-slate-600 rounded-2xl hover:bg-rose-50 hover:text-rose-600 transition-all text-xs font-black uppercase tracking-widest border border-slate-200"
+                className="flex items-center gap-2 px-6 py-3 bg-slate-100 text-slate-600 dark:text-slate-300 rounded-2xl hover:bg-rose-50 hover:text-rose-600 dark:text-rose-400 transition-all text-xs font-black uppercase tracking-widest border border-slate-200"
               >
                 <Trash2 className="w-4 h-4" />
                 Очистить кэш и перезагрузить
@@ -876,10 +876,10 @@ const SuperAdminView: React.FC<SuperAdminViewProps> = ({
           </div>
         ) : activeTab === ('system' as any) ? (
           <div className="max-w-2xl mx-auto space-y-8 animate-fadeIn">
-            <div className="bg-white rounded-[2.5rem] shadow-sm border border-slate-200 overflow-hidden">
+            <div className="bg-white rounded-[2.5rem] shadow-md dark:shadow-slate-900/20 border border-slate-200 overflow-hidden">
               <div className="p-8 border-b border-slate-100 bg-slate-50/50">
-                <h3 className="text-xl font-black text-slate-900 uppercase tracking-tight">Безопасность системы</h3>
-                <p className="text-sm text-slate-500">Настройки доступа к панели Супер-Администратора</p>
+                <h3 className="text-xl font-black text-slate-900 dark:text-slate-50 uppercase tracking-tight">Безопасность системы</h3>
+                <p className="text-sm text-slate-500 dark:text-slate-400">Настройки доступа к панели Супер-Администратора</p>
               </div>
               <div className="p-8 space-y-6">
                 <div>
@@ -890,13 +890,13 @@ const SuperAdminView: React.FC<SuperAdminViewProps> = ({
                       maxLength={4}
                       value={newSuperAdminPin}
                       onChange={(e) => setNewSuperAdminPin(e.target.value.replace(/\D/g, ''))}
-                      className="flex-1 bg-slate-50 border-2 border-slate-100 rounded-2xl px-6 py-4 text-2xl font-black text-indigo-600 tracking-[0.5em] outline-none focus:border-indigo-500 transition-all"
+                      className="flex-1 bg-slate-50 border-2 border-slate-100 rounded-2xl px-6 py-4 text-2xl font-black text-indigo-600 dark:text-indigo-400 tracking-[0.5em] outline-none focus:border-indigo-500 transition-all"
                       placeholder="7777"
                     />
                     <button 
                       onClick={handleUpdateSystemConfig}
                       disabled={saving}
-                      className="px-8 bg-indigo-600 text-white rounded-2xl font-black uppercase text-xs tracking-widest hover:bg-indigo-700 transition-all shadow-lg shadow-indigo-100 disabled:opacity-50"
+                      className="px-8 bg-indigo-600 text-white rounded-2xl font-black uppercase text-xs tracking-widest hover:bg-indigo-700 transition-all shadow-xl dark:shadow-slate-900/20 shadow-indigo-100 disabled:opacity-50"
                     >
                       {saving ? '...' : 'Сохранить'}
                     </button>
@@ -914,7 +914,7 @@ const SuperAdminView: React.FC<SuperAdminViewProps> = ({
                       maxLength={4}
                       value={newGlobalAdminPin}
                       onChange={(e) => setNewGlobalAdminPin(e.target.value.replace(/\D/g, ''))}
-                      className="flex-1 bg-slate-50 border-2 border-slate-100 rounded-2xl px-6 py-4 text-2xl font-black text-emerald-600 tracking-[0.5em] outline-none focus:border-emerald-500 transition-all"
+                      className="flex-1 bg-slate-50 border-2 border-slate-100 rounded-2xl px-6 py-4 text-2xl font-black text-emerald-600 dark:text-emerald-400 tracking-[0.5em] outline-none focus:border-emerald-500 transition-all"
                       placeholder="0000"
                     />
                     <div className="w-[140px]"></div> {/* Spacer to align with button above if needed, or just leave empty */}
@@ -930,7 +930,7 @@ const SuperAdminView: React.FC<SuperAdminViewProps> = ({
           <div className="space-y-8 animate-fadeIn">
             <div className="grid grid-cols-1 md:grid-cols-3 gap-8">
               {plans.map((plan) => (
-                <div key={plan.type} className="bg-white rounded-3xl shadow-sm border border-slate-200 overflow-hidden flex flex-col">
+                <div key={plan.type} className="bg-white rounded-3xl shadow-md dark:shadow-slate-900/20 border border-slate-200 overflow-hidden flex flex-col">
                   <div className={`p-6 text-white ${
                     plan.type === PlanType.BUSINESS ? 'bg-purple-600' :
                     plan.type === PlanType.PRO ? 'bg-indigo-600' :
@@ -954,69 +954,69 @@ const SuperAdminView: React.FC<SuperAdminViewProps> = ({
                   <div className="p-6 flex-1 space-y-6">
                     <div className="space-y-4">
                       <div className="flex items-center justify-between text-sm">
-                        <span className="text-slate-500 font-medium">Сотрудников:</span>
-                        <span className="font-bold text-slate-900">{plan.limits.maxUsers === 1000 ? 'Безлимит' : plan.limits.maxUsers}</span>
+                        <span className="text-slate-500 dark:text-slate-400 font-medium">Сотрудников:</span>
+                        <span className="font-bold text-slate-900 dark:text-slate-50">{plan.limits.maxUsers === 1000 ? 'Безлимит' : plan.limits.maxUsers}</span>
                       </div>
                       <div className="flex items-center justify-between text-sm">
-                        <span className="text-slate-500 font-medium">Оборудования:</span>
-                        <span className="font-bold text-slate-900">{plan.limits.maxMachines === 1000 ? 'Безлимит' : plan.limits.maxMachines}</span>
+                        <span className="text-slate-500 dark:text-slate-400 font-medium">Оборудования:</span>
+                        <span className="font-bold text-slate-900 dark:text-slate-50">{plan.limits.maxMachines === 1000 ? 'Безлимит' : plan.limits.maxMachines}</span>
                       </div>
                     </div>
 
                     <div className="pt-4 border-t border-slate-100 space-y-3">
                       <div className="flex items-center gap-3 text-sm">
-                        <div className={`p-1 rounded-md ${plan.limits.features.photoCapture ? 'bg-emerald-100 text-emerald-600' : 'bg-slate-100 text-slate-400'}`}>
+                        <div className={`p-1 rounded-md ${plan.limits.features.photoCapture ? 'bg-emerald-100 text-emerald-600 dark:text-emerald-400' : 'bg-slate-100 text-slate-400'}`}>
                           <Camera className="w-4 h-4" />
                         </div>
-                        <span className={plan.limits.features.photoCapture ? 'text-slate-700 font-medium' : 'text-slate-400'}>Фотофиксация</span>
+                        <span className={plan.limits.features.photoCapture ? 'text-slate-700 dark:text-slate-200 font-medium' : 'text-slate-400'}>Фотофиксация</span>
                       </div>
                       <div className="flex items-center gap-3 text-sm">
-                        <div className={`p-1 rounded-md ${plan.limits.features.nightShift ? 'bg-emerald-100 text-emerald-600' : 'bg-slate-100 text-slate-400'}`}>
+                        <div className={`p-1 rounded-md ${plan.limits.features.nightShift ? 'bg-emerald-100 text-emerald-600 dark:text-emerald-400' : 'bg-slate-100 text-slate-400'}`}>
                           <Moon className="w-4 h-4" />
                         </div>
-                        <span className={plan.limits.features.nightShift ? 'text-slate-700 font-medium' : 'text-slate-400'}>Ночные смены</span>
+                        <span className={plan.limits.features.nightShift ? 'text-slate-700 dark:text-slate-200 font-medium' : 'text-slate-400'}>Ночные смены</span>
                       </div>
                       <div className="flex items-center gap-3 text-sm">
-                        <div className={`p-1 rounded-md ${plan.limits.features.advancedAnalytics ? 'bg-emerald-100 text-emerald-600' : 'bg-slate-100 text-slate-400'}`}>
+                        <div className={`p-1 rounded-md ${plan.limits.features.advancedAnalytics ? 'bg-emerald-100 text-emerald-600 dark:text-emerald-400' : 'bg-slate-100 text-slate-400'}`}>
                           <BarChart3 className="w-4 h-4" />
                         </div>
-                        <span className={plan.limits.features.advancedAnalytics ? 'text-slate-700 font-medium' : 'text-slate-400'}>Аналитика</span>
+                        <span className={plan.limits.features.advancedAnalytics ? 'text-slate-700 dark:text-slate-200 font-medium' : 'text-slate-400'}>Аналитика</span>
                       </div>
                       <div className="flex items-center gap-3 text-sm">
-                        <div className={`p-1 rounded-md ${plan.limits.features.payroll ? 'bg-emerald-100 text-emerald-600' : 'bg-slate-100 text-slate-400'}`}>
+                        <div className={`p-1 rounded-md ${plan.limits.features.payroll ? 'bg-emerald-100 text-emerald-600 dark:text-emerald-400' : 'bg-slate-100 text-slate-400'}`}>
                           <CreditCard className="w-4 h-4" />
                         </div>
-                        <span className={plan.limits.features.payroll ? 'text-slate-700 font-medium' : 'text-slate-400'}>Зарплата</span>
+                        <span className={plan.limits.features.payroll ? 'text-slate-700 dark:text-slate-200 font-medium' : 'text-slate-400'}>Зарплата</span>
                       </div>
                       <div className="flex items-center gap-3 text-sm">
-                        <div className={`p-1 rounded-md ${plan.limits.features.shiftMonitoring ? 'bg-emerald-100 text-emerald-600' : 'bg-slate-100 text-slate-400'}`}>
+                        <div className={`p-1 rounded-md ${plan.limits.features.shiftMonitoring ? 'bg-emerald-100 text-emerald-600 dark:text-emerald-400' : 'bg-slate-100 text-slate-400'}`}>
                           <Bell className="w-4 h-4" />
                         </div>
-                        <span className={plan.limits.features.shiftMonitoring ? 'text-slate-700 font-medium' : 'text-slate-400'}>Мониторинг смен</span>
+                        <span className={plan.limits.features.shiftMonitoring ? 'text-slate-700 dark:text-slate-200 font-medium' : 'text-slate-400'}>Мониторинг смен</span>
                       </div>
                       <div className="flex items-center gap-3 text-sm">
-                        <div className={`p-1 rounded-md ${plan.limits.features.multipleBranches ? 'bg-emerald-100 text-emerald-600' : 'bg-slate-100 text-slate-400'}`}>
+                        <div className={`p-1 rounded-md ${plan.limits.features.multipleBranches ? 'bg-emerald-100 text-emerald-600 dark:text-emerald-400' : 'bg-slate-100 text-slate-400'}`}>
                           <Building2 className="w-4 h-4" />
                         </div>
-                        <span className={plan.limits.features.multipleBranches ? 'text-slate-700 font-medium' : 'text-slate-400'}>Филиалы</span>
+                        <span className={plan.limits.features.multipleBranches ? 'text-slate-700 dark:text-slate-200 font-medium' : 'text-slate-400'}>Филиалы</span>
                       </div>
                       <div className="flex items-center gap-3 text-sm">
-                        <div className={`p-1 rounded-md ${plan.limits.features.auditLog ? 'bg-emerald-100 text-emerald-600' : 'bg-slate-100 text-slate-400'}`}>
+                        <div className={`p-1 rounded-md ${plan.limits.features.auditLog ? 'bg-emerald-100 text-emerald-600 dark:text-emerald-400' : 'bg-slate-100 text-slate-400'}`}>
                           <History className="w-4 h-4" />
                         </div>
-                        <span className={plan.limits.features.auditLog ? 'text-slate-700 font-medium' : 'text-slate-400'}>Журнал аудита</span>
+                        <span className={plan.limits.features.auditLog ? 'text-slate-700 dark:text-slate-200 font-medium' : 'text-slate-400'}>Журнал аудита</span>
                       </div>
                       <div className="flex items-center gap-3 text-sm">
-                        <div className={`p-1 rounded-md ${plan.limits.features.payments ? 'bg-emerald-100 text-emerald-600' : 'bg-slate-100 text-slate-400'}`}>
+                        <div className={`p-1 rounded-md ${plan.limits.features.payments ? 'bg-emerald-100 text-emerald-600 dark:text-emerald-400' : 'bg-slate-100 text-slate-400'}`}>
                           <CreditCard className="w-4 h-4" />
                         </div>
-                        <span className={plan.limits.features.payments ? 'text-slate-700 font-medium' : 'text-slate-400'}>Выплаты</span>
+                        <span className={plan.limits.features.payments ? 'text-slate-700 dark:text-slate-200 font-medium' : 'text-slate-400'}>Выплаты</span>
                       </div>
                     </div>
 
                     <button 
                       onClick={() => setEditingPlan(plan)}
-                      className="w-full py-3 bg-slate-50 text-slate-600 rounded-xl font-bold hover:bg-slate-100 transition-all border border-slate-200 flex items-center justify-center gap-2"
+                      className="w-full py-3 bg-slate-50 text-slate-600 dark:text-slate-300 rounded-xl font-bold hover:bg-slate-100 transition-all border border-slate-200 flex items-center justify-center gap-2"
                     >
                       <Settings2 className="w-4 h-4" />
                       Редактировать
@@ -1027,8 +1027,8 @@ const SuperAdminView: React.FC<SuperAdminViewProps> = ({
             </div>
 
             <div className="bg-indigo-50 p-6 rounded-3xl border border-indigo-100 flex items-start gap-4">
-              <div className="p-3 bg-white rounded-2xl shadow-sm">
-                <ShieldCheck className="w-6 h-6 text-indigo-600" />
+              <div className="p-3 bg-white rounded-2xl shadow-md dark:shadow-slate-900/20">
+                <ShieldCheck className="w-6 h-6 text-indigo-600 dark:text-indigo-400" />
               </div>
               <div>
                 <h4 className="font-bold text-indigo-900 mb-1">Совет супер-админу</h4>
@@ -1041,16 +1041,16 @@ const SuperAdminView: React.FC<SuperAdminViewProps> = ({
           </div>
         ) : activeTab === 'app_diagnostics' ? (
           <div className="space-y-8 animate-fadeIn">
-            <div className="bg-white p-8 rounded-3xl border border-slate-200 shadow-sm">
+            <div className="bg-white p-8 rounded-3xl border border-slate-200 shadow-md dark:shadow-slate-900/20">
               <div className="flex justify-between items-center mb-8">
                 <div>
-                  <h3 className="text-xl font-bold text-slate-900">Диагностика функций приложения</h3>
-                  <p className="text-sm text-slate-500">Проверка работоспособности основных модулей системы</p>
+                  <h3 className="text-xl font-bold text-slate-900 dark:text-slate-50">Диагностика функций приложения</h3>
+                  <p className="text-sm text-slate-500 dark:text-slate-400">Проверка работоспособности основных модулей системы</p>
                 </div>
                 <button 
                   onClick={runAppTests}
                   disabled={runningAppTests}
-                  className="flex items-center gap-2 px-6 py-2.5 bg-indigo-600 text-white rounded-xl hover:bg-indigo-700 transition-all shadow-lg shadow-indigo-100 font-bold disabled:opacity-50"
+                  className="flex items-center gap-2 px-6 py-2.5 bg-indigo-600 text-white rounded-xl hover:bg-indigo-700 transition-all shadow-xl dark:shadow-slate-900/20 shadow-indigo-100 font-bold disabled:opacity-50"
                 >
                   <PlayCircle className={`w-4 h-4 ${runningAppTests ? 'animate-spin' : ''}`} />
                   Запустить тесты
@@ -1068,8 +1068,8 @@ const SuperAdminView: React.FC<SuperAdminViewProps> = ({
                       <div className="flex items-center justify-between mb-2">
                         <div className="flex items-center gap-3">
                           <div className={`p-2 rounded-lg ${
-                            test.status === 'success' ? 'bg-emerald-100 text-emerald-600' : 
-                            test.status === 'error' ? 'bg-rose-100 text-rose-600' : 
+                            test.status === 'success' ? 'bg-emerald-100 text-emerald-600 dark:text-emerald-400' : 
+                            test.status === 'error' ? 'bg-rose-100 text-rose-600 dark:text-rose-400' : 
                             'bg-white text-slate-400'
                           }`}>
                             {test.status === 'success' ? <Check className="w-4 h-4" /> : 
@@ -1077,22 +1077,22 @@ const SuperAdminView: React.FC<SuperAdminViewProps> = ({
                              <RefreshCw className={`w-4 h-4 ${runningAppTests ? 'animate-spin' : ''}`} />}
                           </div>
                           <div>
-                            <h4 className="font-bold text-slate-900 text-sm">{test.name}</h4>
-                            <p className="text-[10px] text-slate-500 uppercase font-bold tracking-wider">{test.id}</p>
+                            <h4 className="font-bold text-slate-900 dark:text-slate-50 text-sm">{test.name}</h4>
+                            <p className="text-[10px] text-slate-500 dark:text-slate-400 uppercase font-bold tracking-wider">{test.id}</p>
                           </div>
                         </div>
                         <div className={`px-2 py-1 rounded-md text-[10px] font-bold uppercase tracking-wider ${
                           test.status === 'success' ? 'bg-emerald-200 text-emerald-700' : 
                           test.status === 'error' ? 'bg-rose-200 text-rose-700' : 
-                          'bg-slate-200 text-slate-500'
+                          'bg-slate-200 text-slate-500 dark:text-slate-400'
                         }`}>
                           {test.status === 'success' ? 'OK' : test.status === 'error' ? 'Ошибка' : 'Ожидание'}
                         </div>
                       </div>
-                      <p className="text-xs text-slate-600 mb-2">{test.description}</p>
+                      <p className="text-xs text-slate-600 dark:text-slate-300 mb-2">{test.description}</p>
                       {test.error && (
                         <div className="mt-2 p-2 bg-white/50 rounded-lg border border-rose-200">
-                          <p className="text-[10px] text-rose-600 font-mono break-all">{test.error}</p>
+                          <p className="text-[10px] text-rose-600 dark:text-rose-400 font-mono break-all">{test.error}</p>
                         </div>
                       )}
                     </div>
@@ -1107,8 +1107,8 @@ const SuperAdminView: React.FC<SuperAdminViewProps> = ({
             </div>
 
             <div className="bg-amber-50 p-6 rounded-3xl border border-amber-100 flex items-start gap-4">
-              <div className="p-3 bg-white rounded-2xl shadow-sm">
-                <AlertCircle className="w-6 h-6 text-amber-600" />
+              <div className="p-3 bg-white rounded-2xl shadow-md dark:shadow-slate-900/20">
+                <AlertCircle className="w-6 h-6 text-amber-600 dark:text-amber-400" />
               </div>
               <div>
                 <h4 className="font-bold text-amber-900 mb-1">О диагностике функций</h4>
@@ -1122,11 +1122,11 @@ const SuperAdminView: React.FC<SuperAdminViewProps> = ({
           </div>
         ) : activeTab === 'diagnostics' ? (
           <div className="space-y-8 animate-fadeIn">
-            <div className="bg-white p-8 rounded-3xl border border-slate-200 shadow-sm">
+            <div className="bg-white p-8 rounded-3xl border border-slate-200 shadow-md dark:shadow-slate-900/20">
               <div className="flex justify-between items-center mb-8">
                 <div>
-                  <h3 className="text-xl font-bold text-slate-900">Диагностика Supabase</h3>
-                  <p className="text-sm text-slate-500">Проверка подключения и целостности таблиц</p>
+                  <h3 className="text-xl font-bold text-slate-900 dark:text-slate-50">Диагностика Supabase</h3>
+                  <p className="text-sm text-slate-500 dark:text-slate-400">Проверка подключения и целостности таблиц</p>
                 </div>
                 <div className="flex items-center gap-3">
                   <button 
@@ -1153,7 +1153,7 @@ const SuperAdminView: React.FC<SuperAdminViewProps> = ({
                         alert('Все ошибки скопированы в буфер обмена');
                       }
                     }}
-                    className="flex items-center gap-2 px-4 py-2.5 bg-slate-100 text-slate-600 rounded-xl hover:bg-slate-200 transition-all font-bold text-sm"
+                    className="flex items-center gap-2 px-4 py-2.5 bg-slate-100 text-slate-600 dark:text-slate-300 rounded-xl hover:bg-slate-200 transition-all font-bold text-sm"
                   >
                     <Save className="w-4 h-4" />
                     Скопировать ошибки
@@ -1161,7 +1161,7 @@ const SuperAdminView: React.FC<SuperAdminViewProps> = ({
                   <button 
                     onClick={runDiagnostics}
                     disabled={checkingDiagnostics}
-                    className="flex items-center gap-2 px-6 py-2.5 bg-indigo-600 text-white rounded-xl hover:bg-indigo-700 transition-all shadow-lg shadow-indigo-100 font-bold disabled:opacity-50"
+                    className="flex items-center gap-2 px-6 py-2.5 bg-indigo-600 text-white rounded-xl hover:bg-indigo-700 transition-all shadow-xl dark:shadow-slate-900/20 shadow-indigo-100 font-bold disabled:opacity-50"
                   >
                     <RefreshCw className={`w-4 h-4 ${checkingDiagnostics ? 'animate-spin' : ''}`} />
                     Запустить проверку
@@ -1175,24 +1175,24 @@ const SuperAdminView: React.FC<SuperAdminViewProps> = ({
                   <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
                     <div className={`p-6 rounded-2xl border ${diagnostics.config.urlSet ? 'bg-emerald-50 border-emerald-100' : 'bg-rose-50 border-rose-100'}`}>
                       <div className="flex items-center gap-3 mb-2">
-                        {diagnostics.config.urlSet ? <Check className="w-5 h-5 text-emerald-600" /> : <X className="w-5 h-5 text-rose-600" />}
-                        <span className="font-bold text-slate-900">VITE_SUPABASE_URL</span>
+                        {diagnostics.config.urlSet ? <Check className="w-5 h-5 text-emerald-600 dark:text-emerald-400" /> : <X className="w-5 h-5 text-rose-600 dark:text-rose-400" />}
+                        <span className="font-bold text-slate-900 dark:text-slate-50">VITE_SUPABASE_URL</span>
                       </div>
-                      <p className="text-xs text-slate-500">{diagnostics.config.urlSet ? 'Настроен корректно' : 'Не найден или содержит значение по умолчанию'}</p>
+                      <p className="text-xs text-slate-500 dark:text-slate-400">{diagnostics.config.urlSet ? 'Настроен корректно' : 'Не найден или содержит значение по умолчанию'}</p>
                     </div>
                     <div className={`p-6 rounded-2xl border ${diagnostics.config.keySet ? 'bg-emerald-50 border-emerald-100' : 'bg-rose-50 border-rose-100'}`}>
                       <div className="flex items-center gap-3 mb-2">
-                        {diagnostics.config.keySet ? <Check className="w-5 h-5 text-emerald-600" /> : <X className="w-5 h-5 text-rose-600" />}
-                        <span className="font-bold text-slate-900">VITE_SUPABASE_ANON_KEY</span>
+                        {diagnostics.config.keySet ? <Check className="w-5 h-5 text-emerald-600 dark:text-emerald-400" /> : <X className="w-5 h-5 text-rose-600 dark:text-rose-400" />}
+                        <span className="font-bold text-slate-900 dark:text-slate-50">VITE_SUPABASE_ANON_KEY</span>
                       </div>
-                      <p className="text-xs text-slate-500">{diagnostics.config.keySet ? 'Настроен корректно' : 'Не найден или содержит значение по умолчанию'}</p>
+                      <p className="text-xs text-slate-500 dark:text-slate-400">{diagnostics.config.keySet ? 'Настроен корректно' : 'Не найден или содержит значение по умолчанию'}</p>
                     </div>
                   </div>
 
                   {/* Overall Status */}
                   {diagnostics.status === 'error' && (
                     <div className="p-6 bg-rose-50 border border-rose-200 rounded-2xl flex items-start gap-4">
-                      <X className="w-6 h-6 text-rose-600 flex-shrink-0" />
+                      <X className="w-6 h-6 text-rose-600 dark:text-rose-400 flex-shrink-0" />
                       <div>
                         <h4 className="font-bold text-rose-900">Критическая ошибка</h4>
                         <p className="text-sm text-rose-700">{diagnostics.message}</p>
@@ -1202,16 +1202,16 @@ const SuperAdminView: React.FC<SuperAdminViewProps> = ({
 
                   {/* Tables Section */}
                   <div>
-                    <h4 className="text-sm font-bold text-slate-900 mb-4 uppercase tracking-wider">Статус таблиц</h4>
+                    <h4 className="text-sm font-bold text-slate-900 dark:text-slate-50 mb-4 uppercase tracking-wider">Статус таблиц</h4>
                     <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
                       {Object.entries(diagnostics.tables || {}).map(([table, status]: [string, any]) => (
                         <div key={table} className={`p-4 rounded-xl border ${status.status === 'ok' ? 'bg-white border-slate-200' : 'bg-rose-50 border-rose-200'}`}>
                           <div className="flex items-center justify-between mb-2">
-                            <span className="text-xs font-mono font-bold text-slate-700">{table}</span>
+                            <span className="text-xs font-mono font-bold text-slate-700 dark:text-slate-200">{table}</span>
                             {status.status === 'ok' ? <Check className="w-4 h-4 text-emerald-500" /> : <X className="w-4 h-4 text-rose-500" />}
                           </div>
                           {status.status !== 'ok' && (
-                            <p className="text-[10px] text-rose-600 leading-tight">{status.message}</p>
+                            <p className="text-[10px] text-rose-600 dark:text-rose-400 leading-tight">{status.message}</p>
                           )}
                         </div>
                       ))}
@@ -1221,19 +1221,19 @@ const SuperAdminView: React.FC<SuperAdminViewProps> = ({
                   {/* Storage Section */}
                   {diagnostics.storage && (
                     <div>
-                      <h4 className="text-sm font-bold text-slate-900 mb-4 uppercase tracking-wider">Хранилище (Storage)</h4>
+                      <h4 className="text-sm font-bold text-slate-900 dark:text-slate-50 mb-4 uppercase tracking-wider">Хранилище (Storage)</h4>
                       <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
                         {Object.entries(diagnostics.storage).map(([bucket, status]: [string, any]) => (
                           <div key={bucket} className={`p-4 rounded-xl border ${status.status === 'ok' ? 'bg-white border-slate-200' : 'bg-rose-50 border-rose-200'}`}>
                             <div className="flex items-center justify-between mb-2">
-                              <span className="text-xs font-mono font-bold text-slate-700">Bucket: {bucket}</span>
+                              <span className="text-xs font-mono font-bold text-slate-700 dark:text-slate-200">Bucket: {bucket}</span>
                               {status.status === 'ok' ? <Check className="w-4 h-4 text-emerald-500" /> : <X className="w-4 h-4 text-rose-500" />}
                             </div>
                             {status.status === 'ok' ? (
-                              <p className="text-[10px] text-emerald-600 leading-tight">Доступен (Public: {status.public ? 'Да' : 'Нет'})</p>
+                              <p className="text-[10px] text-emerald-600 dark:text-emerald-400 leading-tight">Доступен (Public: {status.public ? 'Да' : 'Нет'})</p>
                             ) : (
                               <div className="space-y-2">
-                                <p className="text-[10px] text-rose-600 leading-tight">{status.message}</p>
+                                <p className="text-[10px] text-rose-600 dark:text-rose-400 leading-tight">{status.message}</p>
                                 <div className="flex gap-2">
                                   <button
                                     onClick={async () => {
@@ -1263,18 +1263,18 @@ const SuperAdminView: React.FC<SuperAdminViewProps> = ({
                   {/* Columns Section */}
                   {diagnostics.columns && Object.keys(diagnostics.columns).length > 0 && (
                     <div>
-                      <h4 className="text-sm font-bold text-slate-900 mb-4 uppercase tracking-wider">Статус полей (колонок)</h4>
+                      <h4 className="text-sm font-bold text-slate-900 dark:text-slate-50 mb-4 uppercase tracking-wider">Статус полей (колонок)</h4>
                       {Object.values(diagnostics.columns).every(status => status === 'ok') && 
                        Object.values(diagnostics.tables).every((status: any) => status.status === 'ok') ? (
                         <div className="p-4 rounded-xl border bg-emerald-50 border-emerald-200 flex items-center gap-3">
-                          <Check className="w-5 h-5 text-emerald-600" />
+                          <Check className="w-5 h-5 text-emerald-600 dark:text-emerald-400" />
                           <span className="text-sm font-bold text-emerald-900">Диагностика проведена - все поля и колонки в порядке</span>
                         </div>
                       ) : (
                         <div className="space-y-4">
                           {Object.values(diagnostics.columns).every(status => status === 'ok') && (
                              <div className="p-4 rounded-xl border bg-amber-50 border-amber-200 flex items-center gap-3">
-                               <AlertCircle className="w-5 h-5 text-amber-600" />
+                               <AlertCircle className="w-5 h-5 text-amber-600 dark:text-amber-400" />
                                <span className="text-sm font-bold text-amber-900">Колонки в существующих таблицах в порядке, но обнаружены ошибки в таблицах выше.</span>
                              </div>
                           )}
@@ -1284,10 +1284,10 @@ const SuperAdminView: React.FC<SuperAdminViewProps> = ({
                               .map(([col, status]: [string, any]) => (
                               <div key={col} className="p-4 rounded-xl border bg-amber-50 border-amber-200">
                                 <div className="flex items-center justify-between">
-                                  <span className="text-[10px] font-mono font-bold text-slate-700">{col}</span>
+                                  <span className="text-[10px] font-mono font-bold text-slate-700 dark:text-slate-200">{col}</span>
                                   <X className="w-3 h-3 text-amber-500" />
                                 </div>
-                                <p className="text-[9px] text-amber-600 mt-1">Поле отсутствует</p>
+                                <p className="text-[9px] text-amber-600 dark:text-amber-400 mt-1">Поле отсутствует</p>
                               </div>
                             ))}
                           </div>
@@ -1299,7 +1299,7 @@ const SuperAdminView: React.FC<SuperAdminViewProps> = ({
                   {/* SQL Fixes Section */}
                   <div className="space-y-4">
                     <div className="flex items-center justify-between">
-                      <h4 className="text-sm font-bold text-slate-900 uppercase tracking-wider">SQL для исправления</h4>
+                      <h4 className="text-sm font-bold text-slate-900 dark:text-slate-50 uppercase tracking-wider">SQL для исправления</h4>
                       <button 
                         onClick={() => {
                           const fullSchema = db.getFullSqlSchema();
@@ -1308,7 +1308,7 @@ const SuperAdminView: React.FC<SuperAdminViewProps> = ({
                             sqlFixes: [fullSchema]
                           }));
                         }}
-                        className="text-[10px] bg-slate-100 hover:bg-slate-200 text-slate-600 px-3 py-1 rounded-lg font-bold transition-all"
+                        className="text-[10px] bg-slate-100 hover:bg-slate-200 text-slate-600 dark:text-slate-300 px-3 py-1 rounded-lg font-bold transition-all"
                       >
                         Сформировать полный SQL запрос
                       </button>
@@ -1341,7 +1341,7 @@ const SuperAdminView: React.FC<SuperAdminViewProps> = ({
 
                   {diagnostics.status === 'partial' && (
                     <div className="p-6 bg-amber-50 border border-amber-200 rounded-2xl flex items-start gap-4">
-                      <Activity className="w-6 h-6 text-amber-600 flex-shrink-0" />
+                      <Activity className="w-6 h-6 text-amber-600 dark:text-amber-400 flex-shrink-0" />
                       <div>
                         <h4 className="font-bold text-amber-900">Частичная доступность</h4>
                         <p className="text-sm text-amber-700">Некоторые таблицы отсутствуют или недоступны. Убедитесь, что вы выполнили все SQL-миграции в панели Supabase.</p>
@@ -1359,8 +1359,8 @@ const SuperAdminView: React.FC<SuperAdminViewProps> = ({
 
             <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
               <div className="bg-indigo-50 p-6 rounded-3xl border border-indigo-100 flex items-start gap-4">
-                <div className="p-3 bg-white rounded-2xl shadow-sm">
-                  <ShieldCheck className="w-6 h-6 text-indigo-600" />
+                <div className="p-3 bg-white rounded-2xl shadow-md dark:shadow-slate-900/20">
+                  <ShieldCheck className="w-6 h-6 text-indigo-600 dark:text-indigo-400" />
                 </div>
                 <div>
                   <h4 className="font-bold text-indigo-900 mb-1">Как исправить ошибки?</h4>
@@ -1374,8 +1374,8 @@ const SuperAdminView: React.FC<SuperAdminViewProps> = ({
               </div>
 
               <div className="bg-amber-50 p-6 rounded-3xl border border-amber-100 flex items-start gap-4">
-                <div className="p-3 bg-white rounded-2xl shadow-sm">
-                  <AlertCircle className="w-6 h-6 text-amber-600" />
+                <div className="p-3 bg-white rounded-2xl shadow-md dark:shadow-slate-900/20">
+                  <AlertCircle className="w-6 h-6 text-amber-600 dark:text-amber-400" />
                 </div>
                 <div>
                   <h4 className="font-bold text-amber-900 mb-1">Советы по SQL</h4>
@@ -1393,17 +1393,17 @@ const SuperAdminView: React.FC<SuperAdminViewProps> = ({
             <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
               {/* Promo Code Creation */}
               <div className="lg:col-span-1">
-                <div className="bg-white p-6 rounded-3xl shadow-sm border border-slate-200 sticky top-24">
+                <div className="bg-white p-6 rounded-3xl shadow-md dark:shadow-slate-900/20 border border-slate-200 sticky top-24">
                   <div className="flex items-center gap-3 mb-6">
                     <div className="p-2 bg-indigo-50 rounded-lg">
-                      <Ticket className="w-5 h-5 text-indigo-600" />
+                      <Ticket className="w-5 h-5 text-indigo-600 dark:text-indigo-400" />
                     </div>
-                    <h3 className="font-bold text-slate-900">Создать промокод</h3>
+                    <h3 className="font-bold text-slate-900 dark:text-slate-50">Создать промокод</h3>
                   </div>
 
                   <form onSubmit={handleCreatePromo} className="space-y-4">
                     <div>
-                      <label className="block text-xs font-bold text-slate-500 uppercase tracking-wider mb-1.5">Код (напр. SUMMER24)</label>
+                      <label className="block text-xs font-bold text-slate-500 dark:text-slate-400 uppercase tracking-wider mb-1.5">Код (напр. SUMMER24)</label>
                       <input 
                         type="text"
                         required
@@ -1416,7 +1416,7 @@ const SuperAdminView: React.FC<SuperAdminViewProps> = ({
 
                     <div className="grid grid-cols-2 gap-4">
                       <div>
-                        <label className="block text-xs font-bold text-slate-500 uppercase tracking-wider mb-1.5">Тариф</label>
+                        <label className="block text-xs font-bold text-slate-500 dark:text-slate-400 uppercase tracking-wider mb-1.5">Тариф</label>
                         <select 
                           value={newPromo.planType}
                           onChange={(e) => setNewPromo({...newPromo, planType: e.target.value as PlanType})}
@@ -1427,7 +1427,7 @@ const SuperAdminView: React.FC<SuperAdminViewProps> = ({
                         </select>
                       </div>
                       <div>
-                        <label className="block text-xs font-bold text-slate-500 uppercase tracking-wider mb-1.5">Дней</label>
+                        <label className="block text-xs font-bold text-slate-500 dark:text-slate-400 uppercase tracking-wider mb-1.5">Дней</label>
                         <input 
                           type="number"
                           required
@@ -1440,7 +1440,7 @@ const SuperAdminView: React.FC<SuperAdminViewProps> = ({
                     </div>
 
                     <div>
-                      <label className="block text-xs font-bold text-slate-500 uppercase tracking-wider mb-1.5">Макс. использований</label>
+                      <label className="block text-xs font-bold text-slate-500 dark:text-slate-400 uppercase tracking-wider mb-1.5">Макс. использований</label>
                       <input 
                         type="number"
                         required
@@ -1454,7 +1454,7 @@ const SuperAdminView: React.FC<SuperAdminViewProps> = ({
                     <button 
                       type="submit"
                       disabled={saving}
-                      className="w-full py-3 bg-indigo-600 text-white rounded-xl font-bold hover:bg-indigo-700 transition-all shadow-lg shadow-indigo-100 flex items-center justify-center gap-2"
+                      className="w-full py-3 bg-indigo-600 text-white rounded-xl font-bold hover:bg-indigo-700 transition-all shadow-xl dark:shadow-slate-900/20 shadow-indigo-100 flex items-center justify-center gap-2"
                     >
                       {saving ? <RefreshCw className="w-4 h-4 animate-spin" /> : <Plus className="w-4 h-4" />}
                       Сгенерировать
@@ -1466,27 +1466,27 @@ const SuperAdminView: React.FC<SuperAdminViewProps> = ({
               {/* Promo Codes List & Trial Activation */}
               <div className="lg:col-span-2 space-y-8">
                 {/* Active Promo Codes */}
-                <div className="bg-white rounded-3xl shadow-sm border border-slate-200 overflow-hidden">
+                <div className="bg-white rounded-3xl shadow-md dark:shadow-slate-900/20 border border-slate-200 overflow-hidden">
                   <div className="px-6 py-4 border-b border-slate-100 bg-slate-50/50 flex justify-between items-center">
-                    <h3 className="font-bold text-slate-900 flex items-center gap-2">
-                      <Ticket className="w-5 h-5 text-indigo-600" />
+                    <h3 className="font-bold text-slate-900 dark:text-slate-50 flex items-center gap-2">
+                      <Ticket className="w-5 h-5 text-indigo-600 dark:text-indigo-400" />
                       Активные промокоды
                     </h3>
-                    <span className="text-xs font-bold text-slate-500 bg-slate-100 px-2 py-1 rounded-full">{promoCodes.length}</span>
+                    <span className="text-xs font-bold text-slate-500 dark:text-slate-400 bg-slate-100 px-2 py-1 rounded-full">{promoCodes.length}</span>
                   </div>
                   <div className="divide-y divide-slate-100">
                     {promoCodes.length === 0 ? (
-                      <div className="p-12 text-center text-slate-500">Промокоды не созданы</div>
+                      <div className="p-12 text-center text-slate-500 dark:text-slate-400">Промокоды не созданы</div>
                     ) : (
                       promoCodes.map((promo) => (
                         <div key={promo.id} className="p-4 hover:bg-slate-50 transition-colors flex items-center justify-between">
                           <div className="flex items-center gap-4">
-                            <div className="w-12 h-12 bg-indigo-100 rounded-xl flex items-center justify-center text-indigo-600 font-black text-xs">
+                            <div className="w-12 h-12 bg-indigo-100 rounded-xl flex items-center justify-center text-indigo-600 dark:text-indigo-400 font-black text-xs">
                               {promo.code.substring(0, 3)}
                             </div>
                             <div>
-                              <div className="font-mono font-bold text-slate-900">{promo.code}</div>
-                              <div className="text-xs text-slate-500">
+                              <div className="font-mono font-bold text-slate-900 dark:text-slate-50">{promo.code}</div>
+                              <div className="text-xs text-slate-500 dark:text-slate-400">
                                 {promo.planType} • {promo.durationDays} дн. • Исп: {promo.usedCount}/{promo.maxUses}
                               </div>
                               {promo.usedCount > 0 && promo.lastUsedBy && (
@@ -1499,7 +1499,7 @@ const SuperAdminView: React.FC<SuperAdminViewProps> = ({
                           </div>
                           <button 
                             onClick={() => handleDeletePromo(promo.id)}
-                            className="p-2 text-slate-400 hover:text-rose-600 transition-colors"
+                            className="p-2 text-slate-400 hover:text-rose-600 dark:text-rose-400 transition-colors"
                           >
                             <Trash2 className="w-5 h-5" />
                           </button>
@@ -1510,9 +1510,9 @@ const SuperAdminView: React.FC<SuperAdminViewProps> = ({
                 </div>
 
                 {/* Trial Activation for Clients */}
-                <div className="bg-white rounded-3xl shadow-sm border border-slate-200 overflow-hidden">
+                <div className="bg-white rounded-3xl shadow-md dark:shadow-slate-900/20 border border-slate-200 overflow-hidden">
                   <div className="px-6 py-4 border-b border-slate-100 bg-slate-50/50">
-                    <h3 className="font-bold text-slate-900 flex items-center gap-2">
+                    <h3 className="font-bold text-slate-900 dark:text-slate-50 flex items-center gap-2">
                       <Zap className="w-5 h-5 text-amber-500" />
                       Быстрая активация Trial
                     </h3>
@@ -1532,19 +1532,19 @@ const SuperAdminView: React.FC<SuperAdminViewProps> = ({
                       {filteredOrgs.slice(0, 5).map(org => (
                         <div key={org.id} className="flex items-center justify-between p-3 bg-slate-50 rounded-2xl border border-slate-100">
                           <div>
-                            <div className="font-bold text-sm text-slate-900">{org.name}</div>
-                            <div className="text-[10px] text-slate-500">Текущий: {org.plan} • {org.status}</div>
+                            <div className="font-bold text-sm text-slate-900 dark:text-slate-50">{org.name}</div>
+                            <div className="text-[10px] text-slate-500 dark:text-slate-400">Текущий: {org.plan} • {org.status}</div>
                           </div>
                           <div className="flex gap-2">
                             <button 
                               onClick={() => handleActivateTrial(org.id, 7, PlanType.PRO)}
-                              className="px-3 py-1.5 bg-white border border-slate-200 text-indigo-600 rounded-lg text-xs font-bold hover:bg-indigo-50 transition-all"
+                              className="px-3 py-1.5 bg-white border border-slate-200 text-indigo-600 dark:text-indigo-400 rounded-lg text-xs font-bold hover:bg-indigo-50 transition-all"
                             >
                               +7д PRO
                             </button>
                             <button 
                               onClick={() => handleActivateTrial(org.id, 14, PlanType.BUSINESS)}
-                              className="px-3 py-1.5 bg-indigo-600 text-white rounded-lg text-xs font-bold hover:bg-indigo-700 transition-all shadow-sm"
+                              className="px-3 py-1.5 bg-indigo-600 text-white rounded-lg text-xs font-bold hover:bg-indigo-700 transition-all shadow-md dark:shadow-slate-900/20"
                             >
                               +14д BIZ
                             </button>
@@ -1564,7 +1564,7 @@ const SuperAdminView: React.FC<SuperAdminViewProps> = ({
       {/* Edit Plan Modal */}
       {editingPlan && (
         <div className="fixed inset-0 z-[100] flex items-center justify-center p-4 bg-slate-900/60 backdrop-blur-sm animate-fadeIn">
-          <div className="bg-white rounded-3xl shadow-2xl w-full max-w-lg overflow-hidden border border-slate-200 max-h-[90vh] flex flex-col">
+          <div className="bg-white rounded-3xl shadow-2xl dark:shadow-slate-900/40 w-full max-w-lg overflow-hidden border border-slate-200 max-h-[90vh] flex flex-col">
             <div className="bg-slate-900 px-6 py-4 flex justify-between items-center shrink-0">
               <h3 className="text-white font-bold">Настройка тарифа: {editingPlan.name}</h3>
               <button onClick={() => setEditingPlan(null)} className="text-slate-400 hover:text-white transition-colors">
@@ -1576,7 +1576,7 @@ const SuperAdminView: React.FC<SuperAdminViewProps> = ({
               <div className="p-6 space-y-6 overflow-y-auto flex-1 custom-scrollbar">
               <div className="grid grid-cols-2 gap-4">
                 <div>
-                  <label className="block text-xs font-bold text-slate-500 uppercase tracking-wider mb-2">Название тарифа</label>
+                  <label className="block text-xs font-bold text-slate-500 dark:text-slate-400 uppercase tracking-wider mb-2">Название тарифа</label>
                   <input 
                     type="text"
                     value={editingPlan.name}
@@ -1585,7 +1585,7 @@ const SuperAdminView: React.FC<SuperAdminViewProps> = ({
                   />
                 </div>
                 <div>
-                  <label className="block text-xs font-bold text-slate-500 uppercase tracking-wider mb-2">Цена (₽/мес)</label>
+                  <label className="block text-xs font-bold text-slate-500 dark:text-slate-400 uppercase tracking-wider mb-2">Цена (₽/мес)</label>
                   <input 
                     type="number"
                     value={editingPlan.price}
@@ -1597,7 +1597,7 @@ const SuperAdminView: React.FC<SuperAdminViewProps> = ({
 
               <div className="grid grid-cols-2 gap-4">
                 <div>
-                  <label className="block text-xs font-bold text-slate-500 uppercase tracking-wider mb-2">Макс. сотрудников</label>
+                  <label className="block text-xs font-bold text-slate-500 dark:text-slate-400 uppercase tracking-wider mb-2">Макс. сотрудников</label>
                   <input 
                     type="number"
                     value={editingPlan.limits.maxUsers}
@@ -1609,7 +1609,7 @@ const SuperAdminView: React.FC<SuperAdminViewProps> = ({
                   />
                 </div>
                 <div>
-                  <label className="block text-xs font-bold text-slate-500 uppercase tracking-wider mb-2">Макс. оборудования</label>
+                  <label className="block text-xs font-bold text-slate-500 dark:text-slate-400 uppercase tracking-wider mb-2">Макс. оборудования</label>
                   <input 
                     type="number"
                     value={editingPlan.limits.maxMachines}
@@ -1623,14 +1623,14 @@ const SuperAdminView: React.FC<SuperAdminViewProps> = ({
               </div>
 
               <div className="space-y-4">
-                <label className="block text-xs font-bold text-slate-500 uppercase tracking-wider">Доступные функции</label>
+                <label className="block text-xs font-bold text-slate-500 dark:text-slate-400 uppercase tracking-wider">Доступные функции</label>
                 <div className="grid grid-cols-1 gap-3">
                   <label className="flex items-center justify-between p-4 bg-slate-50 rounded-2xl border border-slate-200 cursor-pointer hover:bg-slate-100 transition-all">
                     <div className="flex items-center gap-3">
-                      <Camera className="w-5 h-5 text-indigo-600" />
+                      <Camera className="w-5 h-5 text-indigo-600 dark:text-indigo-400" />
                       <div>
-                        <p className="text-sm font-bold text-slate-900">Фотофиксация</p>
-                        <p className="text-xs text-slate-500">Обязательное фото при входе/выходе</p>
+                        <p className="text-sm font-bold text-slate-900 dark:text-slate-50">Фотофиксация</p>
+                        <p className="text-xs text-slate-500 dark:text-slate-400">Обязательное фото при входе/выходе</p>
                       </div>
                     </div>
                     <input 
@@ -1643,16 +1643,16 @@ const SuperAdminView: React.FC<SuperAdminViewProps> = ({
                           features: { ...editingPlan.limits.features, photoCapture: e.target.checked }
                         }
                       })}
-                      className="w-5 h-5 rounded border-slate-300 text-indigo-600 focus:ring-indigo-500"
+                      className="w-5 h-5 rounded border-slate-300 text-indigo-600 dark:text-indigo-400 focus:ring-indigo-500"
                     />
                   </label>
 
                   <label className="flex items-center justify-between p-4 bg-slate-50 rounded-2xl border border-slate-200 cursor-pointer hover:bg-slate-100 transition-all">
                     <div className="flex items-center gap-3">
-                      <Moon className="w-5 h-5 text-indigo-600" />
+                      <Moon className="w-5 h-5 text-indigo-600 dark:text-indigo-400" />
                       <div>
-                        <p className="text-sm font-bold text-slate-900">Ночные смены</p>
-                        <p className="text-xs text-slate-500">Учет работы в ночное время с бонусом</p>
+                        <p className="text-sm font-bold text-slate-900 dark:text-slate-50">Ночные смены</p>
+                        <p className="text-xs text-slate-500 dark:text-slate-400">Учет работы в ночное время с бонусом</p>
                       </div>
                     </div>
                     <input 
@@ -1665,16 +1665,16 @@ const SuperAdminView: React.FC<SuperAdminViewProps> = ({
                           features: { ...editingPlan.limits.features, nightShift: e.target.checked }
                         }
                       })}
-                      className="w-5 h-5 rounded border-slate-300 text-indigo-600 focus:ring-indigo-500"
+                      className="w-5 h-5 rounded border-slate-300 text-indigo-600 dark:text-indigo-400 focus:ring-indigo-500"
                     />
                   </label>
 
                   <label className="flex items-center justify-between p-4 bg-slate-50 rounded-2xl border border-slate-200 cursor-pointer hover:bg-slate-100 transition-all">
                     <div className="flex items-center gap-3">
-                      <BarChart3 className="w-5 h-5 text-indigo-600" />
+                      <BarChart3 className="w-5 h-5 text-indigo-600 dark:text-indigo-400" />
                       <div>
-                        <p className="text-sm font-bold text-slate-900">Продвинутая аналитика</p>
-                        <p className="text-xs text-slate-500">Графики, отчеты и экспорт в PDF/Excel</p>
+                        <p className="text-sm font-bold text-slate-900 dark:text-slate-50">Продвинутая аналитика</p>
+                        <p className="text-xs text-slate-500 dark:text-slate-400">Графики, отчеты и экспорт в PDF/Excel</p>
                       </div>
                     </div>
                     <input 
@@ -1687,16 +1687,16 @@ const SuperAdminView: React.FC<SuperAdminViewProps> = ({
                           features: { ...editingPlan.limits.features, advancedAnalytics: e.target.checked }
                         }
                       })}
-                      className="w-5 h-5 rounded border-slate-300 text-indigo-600 focus:ring-indigo-500"
+                      className="w-5 h-5 rounded border-slate-300 text-indigo-600 dark:text-indigo-400 focus:ring-indigo-500"
                     />
                   </label>
 
                   <label className="flex items-center justify-between p-4 bg-slate-50 rounded-2xl border border-slate-200 cursor-pointer hover:bg-slate-100 transition-all">
                     <div className="flex items-center gap-3">
-                      <CreditCard className="w-5 h-5 text-indigo-600" />
+                      <CreditCard className="w-5 h-5 text-indigo-600 dark:text-indigo-400" />
                       <div>
-                        <p className="text-sm font-bold text-slate-900">Модуль "Зарплата"</p>
-                        <p className="text-xs text-slate-500">Расчет ставок, смен и штрафов</p>
+                        <p className="text-sm font-bold text-slate-900 dark:text-slate-50">Модуль "Зарплата"</p>
+                        <p className="text-xs text-slate-500 dark:text-slate-400">Расчет ставок, смен и штрафов</p>
                       </div>
                     </div>
                     <input 
@@ -1709,16 +1709,16 @@ const SuperAdminView: React.FC<SuperAdminViewProps> = ({
                           features: { ...editingPlan.limits.features, payroll: e.target.checked }
                         }
                       })}
-                      className="w-5 h-5 rounded border-slate-300 text-indigo-600 focus:ring-indigo-500"
+                      className="w-5 h-5 rounded border-slate-300 text-indigo-600 dark:text-indigo-400 focus:ring-indigo-500"
                     />
                   </label>
 
                   <label className="flex items-center justify-between p-4 bg-slate-50 rounded-2xl border border-slate-200 cursor-pointer hover:bg-slate-100 transition-all">
                     <div className="flex items-center gap-3">
-                      <Bell className="w-5 h-5 text-indigo-600" />
+                      <Bell className="w-5 h-5 text-indigo-600 dark:text-indigo-400" />
                       <div>
-                        <p className="text-sm font-bold text-slate-900">Мониторинг смен</p>
-                        <p className="text-xs text-slate-500">Уведомления о просроченных сменах в Telegram</p>
+                        <p className="text-sm font-bold text-slate-900 dark:text-slate-50">Мониторинг смен</p>
+                        <p className="text-xs text-slate-500 dark:text-slate-400">Уведомления о просроченных сменах в Telegram</p>
                       </div>
                     </div>
                     <input 
@@ -1731,16 +1731,16 @@ const SuperAdminView: React.FC<SuperAdminViewProps> = ({
                           features: { ...editingPlan.limits.features, shiftMonitoring: e.target.checked }
                         }
                       })}
-                      className="w-5 h-5 rounded border-slate-300 text-indigo-600 focus:ring-indigo-500"
+                      className="w-5 h-5 rounded border-slate-300 text-indigo-600 dark:text-indigo-400 focus:ring-indigo-500"
                     />
                   </label>
 
                   <label className="flex items-center justify-between p-4 bg-slate-50 rounded-2xl border border-slate-200 cursor-pointer hover:bg-slate-100 transition-all">
                     <div className="flex items-center gap-3">
-                      <Building2 className="w-5 h-5 text-indigo-600" />
+                      <Building2 className="w-5 h-5 text-indigo-600 dark:text-indigo-400" />
                       <div>
-                        <p className="text-sm font-bold text-slate-900">Филиалы</p>
-                        <p className="text-xs text-slate-500">Поддержка нескольких локаций</p>
+                        <p className="text-sm font-bold text-slate-900 dark:text-slate-50">Филиалы</p>
+                        <p className="text-xs text-slate-500 dark:text-slate-400">Поддержка нескольких локаций</p>
                       </div>
                     </div>
                     <input 
@@ -1753,16 +1753,16 @@ const SuperAdminView: React.FC<SuperAdminViewProps> = ({
                           features: { ...editingPlan.limits.features, multipleBranches: e.target.checked }
                         }
                       })}
-                      className="w-5 h-5 rounded border-slate-300 text-indigo-600 focus:ring-indigo-500"
+                      className="w-5 h-5 rounded border-slate-300 text-indigo-600 dark:text-indigo-400 focus:ring-indigo-500"
                     />
                   </label>
 
                   <label className="flex items-center justify-between p-4 bg-slate-50 rounded-2xl border border-slate-200 cursor-pointer hover:bg-slate-100 transition-all">
                     <div className="flex items-center gap-3">
-                      <History className="w-5 h-5 text-indigo-600" />
+                      <History className="w-5 h-5 text-indigo-600 dark:text-indigo-400" />
                       <div>
-                        <p className="text-sm font-bold text-slate-900">Журнал аудита</p>
-                        <p className="text-xs text-slate-500">Фиксация действий администраторов</p>
+                        <p className="text-sm font-bold text-slate-900 dark:text-slate-50">Журнал аудита</p>
+                        <p className="text-xs text-slate-500 dark:text-slate-400">Фиксация действий администраторов</p>
                       </div>
                     </div>
                     <input 
@@ -1775,16 +1775,16 @@ const SuperAdminView: React.FC<SuperAdminViewProps> = ({
                           features: { ...editingPlan.limits.features, auditLog: e.target.checked }
                         }
                       })}
-                      className="w-5 h-5 rounded border-slate-300 text-indigo-600 focus:ring-indigo-500"
+                      className="w-5 h-5 rounded border-slate-300 text-indigo-600 dark:text-indigo-400 focus:ring-indigo-500"
                     />
                   </label>
 
                   <label className="flex items-center justify-between p-4 bg-slate-50 rounded-2xl border border-slate-200 cursor-pointer hover:bg-slate-100 transition-all">
                     <div className="flex items-center gap-3">
-                      <CreditCard className="w-5 h-5 text-indigo-600" />
+                      <CreditCard className="w-5 h-5 text-indigo-600 dark:text-indigo-400" />
                       <div>
-                        <p className="text-sm font-bold text-slate-900">Выплаты</p>
-                        <p className="text-xs text-slate-500">Учет выплат сотрудникам</p>
+                        <p className="text-sm font-bold text-slate-900 dark:text-slate-50">Выплаты</p>
+                        <p className="text-xs text-slate-500 dark:text-slate-400">Учет выплат сотрудникам</p>
                       </div>
                     </div>
                     <input 
@@ -1797,7 +1797,7 @@ const SuperAdminView: React.FC<SuperAdminViewProps> = ({
                           features: { ...editingPlan.limits.features, payments: e.target.checked }
                         }
                       })}
-                      className="w-5 h-5 rounded border-slate-300 text-indigo-600 focus:ring-indigo-500"
+                      className="w-5 h-5 rounded border-slate-300 text-indigo-600 dark:text-indigo-400 focus:ring-indigo-500"
                     />
                   </label>
                 </div>
@@ -1808,14 +1808,14 @@ const SuperAdminView: React.FC<SuperAdminViewProps> = ({
                 <button 
                   type="button"
                   onClick={() => setEditingPlan(null)}
-                  className="flex-1 py-3 bg-white border border-slate-200 text-slate-600 rounded-xl font-bold hover:bg-slate-200 transition-all"
+                  className="flex-1 py-3 bg-white border border-slate-200 text-slate-600 dark:text-slate-300 rounded-xl font-bold hover:bg-slate-200 transition-all"
                 >
                   Отмена
                 </button>
                 <button 
                   type="submit"
                   disabled={saving}
-                  className="flex-1 py-3 bg-indigo-600 text-white rounded-xl font-bold hover:bg-indigo-700 transition-all shadow-lg shadow-indigo-100 disabled:opacity-50 flex items-center justify-center gap-2"
+                  className="flex-1 py-3 bg-indigo-600 text-white rounded-xl font-bold hover:bg-indigo-700 transition-all shadow-xl dark:shadow-slate-900/20 shadow-indigo-100 disabled:opacity-50 flex items-center justify-center gap-2"
                 >
                   {saving ? <RefreshCw className="w-4 h-4 animate-spin" /> : <Save className="w-4 h-4" />}
                   Сохранить тариф
@@ -1830,15 +1830,15 @@ const SuperAdminView: React.FC<SuperAdminViewProps> = ({
       {/* Modals */}
       {confirmDeleteOrg && (
         <div className="fixed inset-0 z-[150] bg-slate-900/80 backdrop-blur-md flex items-center justify-center p-4 animate-fadeIn">
-          <div className="bg-white rounded-[2.5rem] shadow-2xl p-8 w-full max-w-md border border-slate-200">
+          <div className="bg-white rounded-[2.5rem] shadow-2xl dark:shadow-slate-900/40 p-8 w-full max-w-md border border-slate-200">
             <div className="flex justify-between items-center mb-6">
               <div className="flex items-center gap-3">
-                <div className="p-2 bg-rose-100 text-rose-600 rounded-xl">
+                <div className="p-2 bg-rose-100 text-rose-600 dark:text-rose-400 rounded-xl">
                   <Trash2 className="w-6 h-6" />
                 </div>
-                <h3 className="text-lg font-black text-slate-900 uppercase tracking-tight">Удаление организации</h3>
+                <h3 className="text-lg font-black text-slate-900 dark:text-slate-50 uppercase tracking-tight">Удаление организации</h3>
               </div>
-              <button onClick={() => { setConfirmDeleteOrg(null); setDeletePinInput(''); setDeleteError(null); }} className="text-slate-400 hover:text-slate-900 text-2xl">&times;</button>
+              <button onClick={() => { setConfirmDeleteOrg(null); setDeletePinInput(''); setDeleteError(null); }} className="text-slate-400 hover:text-slate-900 dark:text-slate-50 text-2xl">&times;</button>
             </div>
             
             <div className="space-y-6">
@@ -1861,20 +1861,20 @@ const SuperAdminView: React.FC<SuperAdminViewProps> = ({
                   placeholder="****"
                   className="w-full bg-slate-50 border-2 border-slate-100 rounded-2xl px-5 py-3 text-center text-2xl font-black tracking-[0.5em] focus:border-rose-500 outline-none transition-all"
                 />
-                {deleteError && <p className="text-rose-600 text-[10px] font-bold mt-2 text-center uppercase">{deleteError}</p>}
+                {deleteError && <p className="text-rose-600 dark:text-rose-400 text-[10px] font-bold mt-2 text-center uppercase">{deleteError}</p>}
               </div>
 
               <div className="flex gap-3 pt-2">
                 <button 
                   onClick={() => { setConfirmDeleteOrg(null); setDeletePinInput(''); setDeleteError(null); }}
-                  className="flex-1 py-4 bg-slate-100 text-slate-600 rounded-2xl font-black uppercase text-xs tracking-widest hover:bg-slate-200 transition-all"
+                  className="flex-1 py-4 bg-slate-100 text-slate-600 dark:text-slate-300 rounded-2xl font-black uppercase text-xs tracking-widest hover:bg-slate-200 transition-all"
                 >
                   Отмена
                 </button>
                 <button 
                   onClick={handleDeleteOrg}
                   disabled={saving || deletePinInput.length < 4}
-                  className="flex-1 py-4 bg-rose-600 text-white rounded-2xl font-black uppercase text-xs tracking-widest shadow-xl shadow-rose-100 hover:bg-rose-700 transition-all active:scale-95 disabled:opacity-50"
+                  className="flex-1 py-4 bg-rose-600 text-white rounded-2xl font-black uppercase text-xs tracking-widest shadow-2xl dark:shadow-slate-900/20 shadow-rose-100 hover:bg-rose-700 transition-all active:scale-95 disabled:opacity-50"
                 >
                   {saving ? 'Удаление...' : 'Удалить всё'}
                 </button>
@@ -1886,7 +1886,7 @@ const SuperAdminView: React.FC<SuperAdminViewProps> = ({
 
       {editingOrg && (
         <div className="fixed inset-0 z-[100] flex items-center justify-center p-4 bg-slate-900/60 backdrop-blur-sm animate-fadeIn">
-          <div className="bg-white rounded-3xl shadow-2xl w-full max-w-md overflow-hidden border border-slate-200 max-h-[90vh] flex flex-col">
+          <div className="bg-white rounded-3xl shadow-2xl dark:shadow-slate-900/40 w-full max-w-md overflow-hidden border border-slate-200 max-h-[90vh] flex flex-col">
             <div className="bg-slate-900 px-6 py-4 flex justify-between items-center shrink-0">
               <h3 className="text-white font-bold">Управление организацией</h3>
               <button onClick={() => setEditingOrg(null)} className="text-slate-400 hover:text-white transition-colors">
@@ -1897,7 +1897,7 @@ const SuperAdminView: React.FC<SuperAdminViewProps> = ({
             <form onSubmit={handleUpdateOrg} className="flex flex-col flex-1 min-h-0">
               <div className="p-6 space-y-6 overflow-y-auto flex-1 custom-scrollbar">
                 <div>
-                  <label className="block text-xs font-bold text-slate-500 uppercase tracking-wider mb-2">Название компании</label>
+                  <label className="block text-xs font-bold text-slate-500 dark:text-slate-400 uppercase tracking-wider mb-2">Название компании</label>
                   <input 
                     type="text"
                     value={editingOrg.name}
@@ -1907,7 +1907,7 @@ const SuperAdminView: React.FC<SuperAdminViewProps> = ({
                 </div>
 
                 <div>
-                  <label className="block text-xs font-bold text-slate-500 uppercase tracking-wider mb-2">Email организации</label>
+                  <label className="block text-xs font-bold text-slate-500 dark:text-slate-400 uppercase tracking-wider mb-2">Email организации</label>
                   <input 
                     type="email"
                     value={editingOrg.email || ''}
@@ -1918,7 +1918,7 @@ const SuperAdminView: React.FC<SuperAdminViewProps> = ({
 
                 <div className="grid grid-cols-2 gap-4">
                   <div>
-                    <label className="block text-xs font-bold text-slate-500 uppercase tracking-wider mb-2">Тарифный план</label>
+                    <label className="block text-xs font-bold text-slate-500 dark:text-slate-400 uppercase tracking-wider mb-2">Тарифный план</label>
                     <select 
                       value={editingOrg.plan}
                       onChange={(e) => {
@@ -1950,7 +1950,7 @@ const SuperAdminView: React.FC<SuperAdminViewProps> = ({
                     </select>
                   </div>
                   <div>
-                    <label className="block text-xs font-bold text-slate-500 uppercase tracking-wider mb-2">Статус</label>
+                    <label className="block text-xs font-bold text-slate-500 dark:text-slate-400 uppercase tracking-wider mb-2">Статус</label>
                     <select 
                       value={editingOrg.status}
                       onChange={(e) => setEditingOrg({...editingOrg, status: e.target.value as any})}
@@ -1967,11 +1967,11 @@ const SuperAdminView: React.FC<SuperAdminViewProps> = ({
                   <div className="flex items-center justify-between">
                     <div className="flex items-center gap-3">
                       <div className="p-2 bg-amber-100 rounded-lg">
-                        <Activity className="w-5 h-5 text-amber-600" />
+                        <Activity className="w-5 h-5 text-amber-600 dark:text-amber-400" />
                       </div>
                       <div>
-                        <p className="text-sm font-bold text-slate-900">Режим отладки (Debug)</p>
-                        <p className="text-[10px] text-slate-500">Показывать техническую информацию работодателю</p>
+                        <p className="text-sm font-bold text-slate-900 dark:text-slate-50">Режим отладки (Debug)</p>
+                        <p className="text-[10px] text-slate-500 dark:text-slate-400">Показывать техническую информацию работодателю</p>
                       </div>
                     </div>
                     <label className="relative inline-flex items-center cursor-pointer">
@@ -1987,7 +1987,7 @@ const SuperAdminView: React.FC<SuperAdminViewProps> = ({
                 </div>
 
                 <div>
-                  <label className="block text-xs font-bold text-slate-500 uppercase tracking-wider mb-2">Дата истечения (Expiry Date)</label>
+                  <label className="block text-xs font-bold text-slate-500 dark:text-slate-400 uppercase tracking-wider mb-2">Дата истечения (Expiry Date)</label>
                   <div className="flex gap-2">
                     <input 
                       type="date"
@@ -2001,7 +2001,7 @@ const SuperAdminView: React.FC<SuperAdminViewProps> = ({
                     <button 
                       type="button"
                       onClick={() => setEditingOrg({...editingOrg, expiryDate: undefined})}
-                      className="px-4 py-2 bg-slate-100 text-slate-600 rounded-xl text-xs font-bold hover:bg-slate-200"
+                      className="px-4 py-2 bg-slate-100 text-slate-600 dark:text-slate-300 rounded-xl text-xs font-bold hover:bg-slate-200"
                     >
                       Сбросить
                     </button>
@@ -2017,8 +2017,8 @@ const SuperAdminView: React.FC<SuperAdminViewProps> = ({
 
                 {editingAdmin && (
                   <div className="pt-4 border-t border-slate-100 space-y-4">
-                    <h4 className="text-xs font-black text-slate-900 uppercase tracking-widest flex items-center gap-2">
-                      <ShieldCheck className="w-4 h-4 text-emerald-600" />
+                    <h4 className="text-xs font-black text-slate-900 dark:text-slate-50 uppercase tracking-widest flex items-center gap-2">
+                      <ShieldCheck className="w-4 h-4 text-emerald-600 dark:text-emerald-400" />
                       Данные администратора
                     </h4>
                     <div className="grid grid-cols-2 gap-4">
@@ -2050,14 +2050,14 @@ const SuperAdminView: React.FC<SuperAdminViewProps> = ({
                 <button 
                   type="button"
                   onClick={() => setEditingOrg(null)}
-                  className="flex-1 py-3 bg-white border border-slate-200 text-slate-600 rounded-xl font-bold hover:bg-slate-200 transition-all"
+                  className="flex-1 py-3 bg-white border border-slate-200 text-slate-600 dark:text-slate-300 rounded-xl font-bold hover:bg-slate-200 transition-all"
                 >
                   Отмена
                 </button>
                 <button 
                   type="submit"
                   disabled={saving}
-                  className="flex-1 py-3 bg-indigo-600 text-white rounded-xl font-bold hover:bg-indigo-700 transition-all shadow-lg shadow-indigo-100 disabled:opacity-50 flex items-center justify-center gap-2"
+                  className="flex-1 py-3 bg-indigo-600 text-white rounded-xl font-bold hover:bg-indigo-700 transition-all shadow-xl dark:shadow-slate-900/20 shadow-indigo-100 disabled:opacity-50 flex items-center justify-center gap-2"
                 >
                   {saving ? <RefreshCw className="w-4 h-4 animate-spin" /> : <Check className="w-4 h-4" />}
                   Сохранить
@@ -2071,7 +2071,7 @@ const SuperAdminView: React.FC<SuperAdminViewProps> = ({
       {/* Create Modal */}
       {isCreating && (
         <div className="fixed inset-0 z-[100] flex items-center justify-center p-4 bg-slate-900/60 backdrop-blur-sm animate-fadeIn">
-          <div className="bg-white rounded-3xl shadow-2xl w-full max-w-md overflow-hidden border border-slate-200 max-h-[90vh] flex flex-col">
+          <div className="bg-white rounded-3xl shadow-2xl dark:shadow-slate-900/40 w-full max-w-md overflow-hidden border border-slate-200 max-h-[90vh] flex flex-col">
             <div className="bg-indigo-600 px-6 py-4 flex justify-between items-center shrink-0">
               <h3 className="text-white font-bold">Новая организация</h3>
               <button onClick={() => setIsCreating(false)} className="text-indigo-100 hover:text-white transition-colors">
@@ -2083,7 +2083,7 @@ const SuperAdminView: React.FC<SuperAdminViewProps> = ({
               <div className="p-6 space-y-4 overflow-y-auto flex-1 custom-scrollbar">
               <div className="grid grid-cols-2 gap-4">
                 <div>
-                  <label className="block text-xs font-bold text-slate-500 uppercase tracking-wider mb-1.5">Название компании *</label>
+                  <label className="block text-xs font-bold text-slate-500 dark:text-slate-400 uppercase tracking-wider mb-1.5">Название компании *</label>
                   <input 
                     type="text"
                     required
@@ -2094,7 +2094,7 @@ const SuperAdminView: React.FC<SuperAdminViewProps> = ({
                   />
                 </div>
                 <div>
-                  <label className="block text-xs font-bold text-slate-500 uppercase tracking-wider mb-1.5">Email организации</label>
+                  <label className="block text-xs font-bold text-slate-500 dark:text-slate-400 uppercase tracking-wider mb-1.5">Email организации</label>
                   <input 
                     type="email"
                     placeholder="admin@company.com"
@@ -2106,7 +2106,7 @@ const SuperAdminView: React.FC<SuperAdminViewProps> = ({
               </div>
 
               <div>
-                <label className="block text-xs font-bold text-slate-500 uppercase tracking-wider mb-1.5">Уникальный ID (slug) *</label>
+                <label className="block text-xs font-bold text-slate-500 dark:text-slate-400 uppercase tracking-wider mb-1.5">Уникальный ID (slug) *</label>
                 <input 
                   type="text"
                   required
@@ -2116,13 +2116,13 @@ const SuperAdminView: React.FC<SuperAdminViewProps> = ({
                   className={`w-full px-4 py-2.5 border rounded-xl focus:ring-2 focus:ring-indigo-500 outline-none transition-all font-mono text-sm ${newOrg.id === 'demo_org' ? 'border-amber-500 bg-amber-50' : 'bg-slate-50 border-slate-200'}`}
                 />
                 {newOrg.id === 'demo_org' && (
-                  <p className="text-[9px] text-amber-600 font-bold mt-1 uppercase">⚠️ Внимание: Этот ID зарезервирован для демо-данных</p>
+                  <p className="text-[9px] text-amber-600 dark:text-amber-400 font-bold mt-1 uppercase">⚠️ Внимание: Этот ID зарезервирован для демо-данных</p>
                 )}
                 <p className="text-[10px] text-slate-400 mt-1">Будет использоваться в URL и для входа</p>
               </div>
 
               <div>
-                <label className="block text-xs font-bold text-slate-500 uppercase tracking-wider mb-1.5">ID Владельца (Admin ID) *</label>
+                <label className="block text-xs font-bold text-slate-500 dark:text-slate-400 uppercase tracking-wider mb-1.5">ID Владельца (Admin ID) *</label>
                 <input 
                   type="text"
                   required
@@ -2135,7 +2135,7 @@ const SuperAdminView: React.FC<SuperAdminViewProps> = ({
 
               <div className="grid grid-cols-2 gap-4">
                 <div>
-                  <label className="block text-xs font-bold text-slate-500 uppercase tracking-wider mb-1.5">Тариф</label>
+                  <label className="block text-xs font-bold text-slate-500 dark:text-slate-400 uppercase tracking-wider mb-1.5">Тариф</label>
                   <select 
                     value={newOrg.plan}
                     onChange={(e) => setNewOrg({...newOrg, plan: e.target.value as PlanType})}
@@ -2147,7 +2147,7 @@ const SuperAdminView: React.FC<SuperAdminViewProps> = ({
                   </select>
                 </div>
                 <div>
-                  <label className="block text-xs font-bold text-slate-500 uppercase tracking-wider mb-1.5">Статус</label>
+                  <label className="block text-xs font-bold text-slate-500 dark:text-slate-400 uppercase tracking-wider mb-1.5">Статус</label>
                   <select 
                     value={newOrg.status}
                     onChange={(e) => setNewOrg({...newOrg, status: e.target.value as any})}
@@ -2165,14 +2165,14 @@ const SuperAdminView: React.FC<SuperAdminViewProps> = ({
                 <button 
                   type="button"
                   onClick={() => setIsCreating(false)}
-                  className="flex-1 py-3 bg-white border border-slate-200 text-slate-600 rounded-xl font-bold hover:bg-slate-200 transition-all"
+                  className="flex-1 py-3 bg-white border border-slate-200 text-slate-600 dark:text-slate-300 rounded-xl font-bold hover:bg-slate-200 transition-all"
                 >
                   Отмена
                 </button>
                 <button 
                   type="submit"
                   disabled={saving}
-                  className="flex-1 py-3 bg-indigo-600 text-white rounded-xl font-bold hover:bg-indigo-700 transition-all shadow-lg shadow-indigo-100 disabled:opacity-50 flex items-center justify-center gap-2"
+                  className="flex-1 py-3 bg-indigo-600 text-white rounded-xl font-bold hover:bg-indigo-700 transition-all shadow-xl dark:shadow-slate-900/20 shadow-indigo-100 disabled:opacity-50 flex items-center justify-center gap-2"
                 >
                   {saving ? <RefreshCw className="w-4 h-4 animate-spin" /> : <Check className="w-4 h-4" />}
                   Создать
@@ -2186,7 +2186,7 @@ const SuperAdminView: React.FC<SuperAdminViewProps> = ({
       {/* View Users Modal */}
       {viewingUsersOrg && (
         <div className="fixed inset-0 z-[120] flex items-center justify-center p-4 bg-slate-900/60 backdrop-blur-sm animate-fadeIn">
-          <div className="bg-white rounded-3xl shadow-2xl w-full max-w-2xl overflow-hidden border border-slate-200">
+          <div className="bg-white rounded-3xl shadow-2xl dark:shadow-slate-900/40 w-full max-w-2xl overflow-hidden border border-slate-200">
             <div className="bg-emerald-600 px-6 py-4 flex justify-between items-center">
               <div>
                 <h3 className="text-white font-bold">Сотрудники: {viewingUsersOrg.name}</h3>
@@ -2200,27 +2200,27 @@ const SuperAdminView: React.FC<SuperAdminViewProps> = ({
             <div className="p-6 max-h-[60vh] overflow-y-auto">
               {loadingUsers ? (
                 <div className="py-12 text-center">
-                  <RefreshCw className="w-8 h-8 text-emerald-600 animate-spin mx-auto mb-4" />
-                  <p className="text-slate-500">Загрузка списка сотрудников...</p>
+                  <RefreshCw className="w-8 h-8 text-emerald-600 dark:text-emerald-400 animate-spin mx-auto mb-4" />
+                  <p className="text-slate-500 dark:text-slate-400">Загрузка списка сотрудников...</p>
                 </div>
               ) : orgUsers.length === 0 ? (
-                <div className="py-12 text-center text-slate-500">
+                <div className="py-12 text-center text-slate-500 dark:text-slate-400">
                   В этой организации пока нет сотрудников
                 </div>
               ) : (
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                   {orgUsers.map(user => (
                     <div key={user.id} className="p-4 bg-slate-50 rounded-2xl border border-slate-200 flex items-center gap-4">
-                      <div className="w-10 h-10 bg-white rounded-xl flex items-center justify-center text-emerald-600 font-bold shadow-sm border border-slate-100">
+                      <div className="w-10 h-10 bg-white rounded-xl flex items-center justify-center text-emerald-600 dark:text-emerald-400 font-bold shadow-md dark:shadow-slate-900/20 border border-slate-100">
                         {user.name.charAt(0)}
                       </div>
                       <div className="flex-1 min-w-0">
-                        <p className="text-sm font-bold text-slate-900 truncate">{user.name}</p>
-                        <p className="text-[10px] text-slate-500 uppercase font-bold tracking-wider">{user.position} • {user.role}</p>
+                        <p className="text-sm font-bold text-slate-900 dark:text-slate-50 truncate">{user.name}</p>
+                        <p className="text-[10px] text-slate-500 dark:text-slate-400 uppercase font-bold tracking-wider">{user.position} • {user.role}</p>
                       </div>
                       <div className="text-right">
                         <p className="text-[10px] font-mono text-slate-400">ID: {user.id}</p>
-                        <p className="text-xs font-bold text-indigo-600">PIN: {user.pin}</p>
+                        <p className="text-xs font-bold text-indigo-600 dark:text-indigo-400">PIN: {user.pin}</p>
                       </div>
                     </div>
                   ))}
@@ -2231,7 +2231,7 @@ const SuperAdminView: React.FC<SuperAdminViewProps> = ({
             <div className="p-6 bg-slate-50 border-t border-slate-200 flex justify-end">
               <button 
                 onClick={() => setViewingUsersOrg(null)}
-                className="px-6 py-2.5 bg-white border border-slate-200 text-slate-600 rounded-xl font-bold hover:bg-slate-100 transition-all"
+                className="px-6 py-2.5 bg-white border border-slate-200 text-slate-600 dark:text-slate-300 rounded-xl font-bold hover:bg-slate-100 transition-all"
               >
                 Закрыть
               </button>
@@ -2243,31 +2243,31 @@ const SuperAdminView: React.FC<SuperAdminViewProps> = ({
       {/* PIN Reset Confirmation Modal */}
       {resetPinConfirm && (
         <div className="fixed inset-0 z-[110] flex items-center justify-center p-4 bg-slate-900/80 backdrop-blur-md animate-fadeIn">
-          <div className="bg-white rounded-[2.5rem] shadow-2xl w-full max-w-sm overflow-hidden border border-slate-200 p-8 text-center">
-            <div className="w-16 h-16 bg-amber-100 text-amber-600 rounded-2xl flex items-center justify-center mx-auto mb-6">
+          <div className="bg-white rounded-[2.5rem] shadow-2xl dark:shadow-slate-900/40 w-full max-w-sm overflow-hidden border border-slate-200 p-8 text-center">
+            <div className="w-16 h-16 bg-amber-100 text-amber-600 dark:text-amber-400 rounded-2xl flex items-center justify-center mx-auto mb-6">
               <RefreshCw className="w-8 h-8" />
             </div>
-            <h3 className="text-xl font-black text-slate-900 uppercase tracking-tight mb-2">Сброс пароля</h3>
-            <p className="text-sm text-slate-500 mb-6">
-              Вы уверены, что хотите сбросить пароль администратора для организации <span className="font-bold text-slate-900">{resetPinConfirm.orgId}</span>?
+            <h3 className="text-xl font-black text-slate-900 dark:text-slate-50 uppercase tracking-tight mb-2">Сброс пароля</h3>
+            <p className="text-sm text-slate-500 dark:text-slate-400 mb-6">
+              Вы уверены, что хотите сбросить пароль администратора для организации <span className="font-bold text-slate-900 dark:text-slate-50">{resetPinConfirm.orgId}</span>?
             </p>
             
             <div className="bg-slate-50 rounded-2xl p-4 mb-8 border border-slate-100">
               <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest mb-1">Новый PIN-код</p>
-              <p className="text-4xl font-black text-indigo-600 tracking-[0.2em]">{resetPinConfirm.pin}</p>
+              <p className="text-4xl font-black text-indigo-600 dark:text-indigo-400 tracking-[0.2em]">{resetPinConfirm.pin}</p>
             </div>
 
             <div className="flex gap-3">
               <button 
                 onClick={() => setResetPinConfirm(null)}
-                className="flex-1 py-4 bg-slate-100 text-slate-600 rounded-2xl font-black uppercase tracking-widest text-xs hover:bg-slate-200 transition-all"
+                className="flex-1 py-4 bg-slate-100 text-slate-600 dark:text-slate-300 rounded-2xl font-black uppercase tracking-widest text-xs hover:bg-slate-200 transition-all"
               >
                 Отмена
               </button>
               <button 
                 onClick={confirmResetPin}
                 disabled={saving}
-                className="flex-1 py-4 bg-indigo-600 text-white rounded-2xl font-black uppercase tracking-widest text-xs shadow-xl shadow-indigo-100 hover:bg-indigo-700 transition-all disabled:opacity-50"
+                className="flex-1 py-4 bg-indigo-600 text-white rounded-2xl font-black uppercase tracking-widest text-xs shadow-2xl dark:shadow-slate-900/20 shadow-indigo-100 hover:bg-indigo-700 transition-all disabled:opacity-50"
               >
                 {saving ? '...' : 'Подтвердить'}
               </button>

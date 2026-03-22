@@ -8,7 +8,11 @@
 
 body {
   font-family: var(--font-sans);
-  @apply bg-slate-50 text-slate-900;
+  @apply bg-slate-50 text-slate-900 transition-colors duration-200;
+}
+
+.dark body {
+  @apply bg-slate-950 text-slate-100;
 }
 
 /* Custom scrollbar */
@@ -22,6 +26,12 @@ body {
   background: #e2e8f0;
   border-radius: 10px;
 }
+.dark .custom-scrollbar::-webkit-scrollbar-thumb {
+  background: #1e293b;
+}
 .custom-scrollbar::-webkit-scrollbar-thumb:hover {
   background: #cbd5e1;
+}
+.dark .custom-scrollbar::-webkit-scrollbar-thumb:hover {
+  background: #334155;
 }

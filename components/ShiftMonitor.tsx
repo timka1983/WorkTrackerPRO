@@ -179,7 +179,7 @@ export const ShiftMonitor: React.FC<ShiftMonitorProps> = ({
   if (status === 'normal' || !message) return null;
 
   return (
-    <div className={`fixed bottom-4 left-4 right-4 z-50 p-4 rounded-2xl shadow-2xl border-2 animate-bounce-slow flex items-center gap-4 ${
+    <div className={`fixed bottom-4 left-4 right-4 z-50 p-4 rounded-2xl shadow-2xl dark:shadow-slate-900/40 border-2 animate-bounce-slow flex items-center gap-4 ${
       status === 'critical' || status === 'expired' ? 'bg-red-50 border-red-200 text-red-800' : 'bg-amber-50 border-amber-200 text-amber-800'
     }`}>
       <div className={`p-3 rounded-xl ${status === 'critical' ? 'bg-red-100' : 'bg-amber-100'}`}>

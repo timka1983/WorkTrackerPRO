@@ -19,14 +19,14 @@ export const DocumentationView: React.FC = () => {
       icon: <HelpCircle className="w-5 h-5" />,
       content: (
         <div className="space-y-4">
-          <p className="text-slate-600 leading-relaxed">
+          <p className="text-slate-600 dark:text-slate-300 leading-relaxed">
             WorkTracker PRO — это комплексная PWA-платформа для автоматизации учета рабочего времени на производственных предприятиях. 
             Система построена на стеке React + Supabase и работает по модели SaaS.
           </p>
           <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mt-6">
             <div className="p-4 bg-blue-50 rounded-2xl border border-blue-100">
               <h4 className="font-bold text-blue-900 mb-2">Для сотрудников</h4>
-              <p className="text-xs text-blue-700">Простая регистрация смен через смартфон, фотофиксация, просмотр своей статистики и начислений.</p>
+              <p className="text-xs text-blue-700 dark:text-blue-300">Простая регистрация смен через смартфон, фотофиксация, просмотр своей статистики и начислений.</p>
             </div>
             <div className="p-4 bg-indigo-50 rounded-2xl border border-indigo-100">
               <h4 className="font-bold text-indigo-900 mb-2">Для работодателей</h4>
@@ -42,14 +42,14 @@ export const DocumentationView: React.FC = () => {
       icon: <Users className="w-5 h-5" />,
       content: (
         <div className="space-y-4">
-          <h4 className="font-bold text-slate-900">Сотрудники и Должности</h4>
-          <p className="text-sm text-slate-600">
+          <h4 className="font-bold text-slate-900 dark:text-slate-50">Сотрудники и Должности</h4>
+          <p className="text-sm text-slate-600 dark:text-slate-300">
             Раздел позволяет добавлять сотрудников, назначать им роли и привязывать к конкретным филиалам.
           </p>
-          <ul className="list-disc list-inside text-sm text-slate-600 space-y-2 ml-2">
-            <li><b className="text-slate-900">Матрица компетенций</b>: Визуальное отображение навыков и допусков сотрудников к оборудованию.</li>
-            <li><b className="text-slate-900">Конструктор функций</b>: Гибкая настройка прав доступа для каждой должности.</li>
-            <li><b className="text-slate-900">Архивация</b>: Сотрудников нельзя удалить полностью, если у них есть история смен — их можно только архивировать для сохранения отчетности.</li>
+          <ul className="list-disc list-inside text-sm text-slate-600 dark:text-slate-300 space-y-2 ml-2">
+            <li><b className="text-slate-900 dark:text-slate-50">Матрица компетенций</b>: Визуальное отображение навыков и допусков сотрудников к оборудованию.</li>
+            <li><b className="text-slate-900 dark:text-slate-50">Конструктор функций</b>: Гибкая настройка прав доступа для каждой должности.</li>
+            <li><b className="text-slate-900 dark:text-slate-50">Архивация</b>: Сотрудников нельзя удалить полностью, если у них есть история смен — их можно только архивировать для сохранения отчетности.</li>
           </ul>
         </div>
       )
@@ -60,16 +60,16 @@ export const DocumentationView: React.FC = () => {
       icon: <Clock className="w-5 h-5" />,
       content: (
         <div className="space-y-4">
-          <h4 className="font-bold text-slate-900">Контроль в реальном времени</h4>
-          <p className="text-sm text-slate-600">
+          <h4 className="font-bold text-slate-900 dark:text-slate-50">Контроль в реальном времени</h4>
+          <p className="text-sm text-slate-600 dark:text-slate-300">
             Модуль «Монитор» отображает всех сотрудников, находящихся на смене в данный момент.
           </p>
           <div className="p-4 bg-slate-50 rounded-2xl border border-slate-200">
             <h5 className="text-xs font-black uppercase tracking-widest text-slate-400 mb-3">Технические особенности:</h5>
-            <ul className="text-xs space-y-2 text-slate-600">
-              <li>• <b className="text-slate-900">Авто-завершение</b>: Если сотрудник забыл закрыть смену, система автоматически закроет её через заданные интервалы (настраивается в Настройках).</li>
-              <li>• <b className="text-slate-900">Фотофиксация</b>: Принудительное селфи при входе и выходе для исключения подмены (требует разрешения камеры).</li>
-              <li>• <b className="text-slate-900">Геолокация</b>: Проверка координат устройства относительно центральной точки филиала.</li>
+            <ul className="text-xs space-y-2 text-slate-600 dark:text-slate-300">
+              <li>• <b className="text-slate-900 dark:text-slate-50">Авто-завершение</b>: Если сотрудник забыл закрыть смену, система автоматически закроет её через заданные интервалы (настраивается в Настройках).</li>
+              <li>• <b className="text-slate-900 dark:text-slate-50">Фотофиксация</b>: Принудительное селфи при входе и выходе для исключения подмены (требует разрешения камеры).</li>
+              <li>• <b className="text-slate-900 dark:text-slate-50">Геолокация</b>: Проверка координат устройства относительно центральной точки филиала.</li>
             </ul>
           </div>
         </div>
@@ -81,34 +81,34 @@ export const DocumentationView: React.FC = () => {
       icon: <CreditCard className="w-5 h-5" />,
       content: (
         <div className="space-y-4">
-          <h4 className="font-bold text-slate-900">Автоматизация расчетов и взаиморасчеты</h4>
-          <p className="text-sm text-slate-600 leading-relaxed">
+          <h4 className="font-bold text-slate-900 dark:text-slate-50">Автоматизация расчетов и взаиморасчеты</h4>
+          <p className="text-sm text-slate-600 dark:text-slate-300 leading-relaxed">
             Модуль «Зарплата» — это полноценная финансовая система, которая не только считает начисления, но и отслеживает реальный баланс задолженности перед сотрудниками.
           </p>
           
           <div className="space-y-4">
             <div className="p-4 bg-slate-50 rounded-2xl border border-slate-200">
               <h5 className="text-xs font-black uppercase tracking-widest text-slate-400 mb-3">Как работают взаиморасчеты:</h5>
-              <ul className="text-xs space-y-3 text-slate-600">
+              <ul className="text-xs space-y-3 text-slate-600 dark:text-slate-300">
                 <li>
-                  <b className="text-slate-900">Автоматический расчет</b>: 
+                  <b className="text-slate-900 dark:text-slate-50">Автоматический расчет</b>: 
                   Система суммирует заработок на основе часов (по общим или станочным ставкам), сверхурочных, ночных смен, премий и штрафов.
                 </li>
                 <li>
-                  <b className="text-slate-900">Учет выплат (Авансы)</b>: 
+                  <b className="text-slate-900 dark:text-slate-50">Учет выплат (Авансы)</b>: 
                   Вы можете фиксировать выдачу авансов и зарплат. Каждая операция сохраняется в «Истории выплат» сотрудника.
                 </li>
                 <li>
-                  <b className="text-slate-900">Контроль баланса («К выплате»)</b>: 
+                  <b className="text-slate-900 dark:text-slate-50">Контроль баланса («К выплате»)</b>: 
                   Ключевой показатель, который показывает разницу между начисленной суммой и уже выданными деньгами. 
                   Красный цвет суммы сигнализирует о переплате.
                 </li>
                 <li>
-                  <b className="text-slate-900">Финансовые периоды</b>: 
+                  <b className="text-slate-900 dark:text-slate-50">Финансовые периоды</b>: 
                   Статусы «Черновик», «Утверждено» и «Оплачено» позволяют защитить данные от изменений после закрытия месяца.
                 </li>
                 <li>
-                  <b className="text-slate-900">Расчетные листки</b>: 
+                  <b className="text-slate-900 dark:text-slate-50">Расчетные листки</b>: 
                   Возможность генерации PDF-документа для сотрудника со всеми деталями начислений и удержаний.
                 </li>
               </ul>
@@ -124,10 +124,10 @@ export const DocumentationView: React.FC = () => {
 
           <div className="p-4 bg-slate-50 rounded-2xl border border-slate-200">
             <h5 className="text-xs font-black uppercase tracking-widest text-slate-400 mb-3">Правила начислений:</h5>
-            <ul className="text-xs space-y-2 text-slate-600">
-              <li>• <b className="text-slate-900">Ночные смены</b>: Автоматическое добавление бонусных минут (процент настраивается).</li>
-              <li>• <b className="text-slate-900">Округление</b>: Правило 15 минут (до 15 мин — в пользу часа, после 15 мин — по факту).</li>
-              <li>• <b className="text-slate-900">Штрафы</b>: Возможность ручной корректировки суммы к выплате за конкретные смены.</li>
+            <ul className="text-xs space-y-2 text-slate-600 dark:text-slate-300">
+              <li>• <b className="text-slate-900 dark:text-slate-50">Ночные смены</b>: Автоматическое добавление бонусных минут (процент настраивается).</li>
+              <li>• <b className="text-slate-900 dark:text-slate-50">Округление</b>: Правило 15 минут (до 15 мин — в пользу часа, после 15 мин — по факту).</li>
+              <li>• <b className="text-slate-900 dark:text-slate-50">Штрафы</b>: Возможность ручной корректировки суммы к выплате за конкретные смены.</li>
             </ul>
           </div>
         </div>
@@ -139,7 +139,7 @@ export const DocumentationView: React.FC = () => {
       icon: <Archive className="w-5 h-5" />,
       content: (
         <div className="space-y-4">
-          <h4 className="font-bold text-slate-900">Сохранность данных</h4>
+          <h4 className="font-bold text-slate-900 dark:text-slate-50">Сохранность данных</h4>
           <div className="p-4 bg-amber-50 rounded-2xl border border-amber-100">
             <p className="text-sm text-amber-900 font-bold mb-2">Важное правило оборудования:</p>
             <p className="text-xs text-amber-800 leading-relaxed">
@@ -148,7 +148,7 @@ export const DocumentationView: React.FC = () => {
               Связь между логами смен и ID оборудования не разрывается, даже если станок больше не используется.
             </p>
           </div>
-          <p className="text-sm text-slate-600">
+          <p className="text-sm text-slate-600 dark:text-slate-300">
             Архивация позволяет поддерживать список активных элементов в чистоте, не теряя при этом юридически значимую информацию о прошлых периодах работы.
           </p>
         </div>
@@ -162,17 +162,17 @@ export const DocumentationView: React.FC = () => {
         <div className="space-y-4">
           <div className="grid grid-cols-1 gap-4">
             <div className="flex gap-4 p-4 bg-slate-50 rounded-2xl">
-              <MapPin className="w-8 h-8 text-blue-600 shrink-0" />
+              <MapPin className="w-8 h-8 text-blue-600 dark:text-blue-400 shrink-0" />
               <div>
                 <h5 className="font-bold text-sm">Геолокация (Анти-фрод)</h5>
-                <p className="text-xs text-slate-500">Настройка координат и радиуса допустимой зоны работы. Блокирует вход в смену, если сотрудник вне зоны.</p>
+                <p className="text-xs text-slate-500 dark:text-slate-400">Настройка координат и радиуса допустимой зоны работы. Блокирует вход в смену, если сотрудник вне зоны.</p>
               </div>
             </div>
             <div className="flex gap-4 p-4 bg-slate-50 rounded-2xl">
-              <Bell className="w-8 h-8 text-indigo-600 shrink-0" />
+              <Bell className="w-8 h-8 text-indigo-600 dark:text-indigo-400 shrink-0" />
               <div>
                 <h5 className="font-bold text-sm">Telegram Уведомления</h5>
-                <p className="text-xs text-slate-500">Интеграция через Bot API. Позволяет получать мгновенные отчеты о начале/конце смен и переработках в групповой чат.</p>
+                <p className="text-xs text-slate-500 dark:text-slate-400">Интеграция через Bot API. Позволяет получать мгновенные отчеты о начале/конце смен и переработках в групповой чат.</p>
               </div>
             </div>
           </div>
@@ -185,8 +185,8 @@ export const DocumentationView: React.FC = () => {
       icon: <Activity className="w-5 h-5" />,
       content: (
         <div className="space-y-4">
-          <h4 className="font-bold text-slate-900">Инструменты обслуживания и диагностики</h4>
-          <p className="text-sm text-slate-600 leading-relaxed">
+          <h4 className="font-bold text-slate-900 dark:text-slate-50">Инструменты обслуживания и диагностики</h4>
+          <p className="text-sm text-slate-600 dark:text-slate-300 leading-relaxed">
             Блок отладки — это мощный инструмент для администраторов, позволяющий контролировать состояние системы «под капотом» и исправлять редкие технические коллизии.
           </p>
           
@@ -238,17 +238,17 @@ export const DocumentationView: React.FC = () => {
       icon: <Shield className="w-5 h-5" />,
       content: (
         <div className="space-y-4">
-          <h4 className="font-bold text-slate-900">Логирование действий</h4>
-          <p className="text-sm text-slate-600">
+          <h4 className="font-bold text-slate-900 dark:text-slate-50">Логирование действий</h4>
+          <p className="text-sm text-slate-600 dark:text-slate-300">
             Система фиксирует каждое значимое действие администратора для обеспечения прозрачности и безопасности.
           </p>
           <div className="p-4 bg-slate-50 rounded-2xl border border-slate-200">
             <h5 className="text-xs font-black uppercase tracking-widest text-slate-400 mb-3">Что записывается:</h5>
-            <ul className="text-xs space-y-2 text-slate-600">
-              <li>• <b className="text-slate-900">Изменение зарплат</b>: Кто, когда и на сколько изменил ставку или сумму выплаты.</li>
-              <li>• <b className="text-slate-900">Редактирование смен</b>: Фиксация ручных правок времени входа/выхода.</li>
-              <li>• <b className="text-slate-900">Управление доступом</b>: Создание новых админов и изменение их прав.</li>
-              <li>• <b className="text-slate-900">Удаление данных</b>: Любые операции по архивации или удалению объектов.</li>
+            <ul className="text-xs space-y-2 text-slate-600 dark:text-slate-300">
+              <li>• <b className="text-slate-900 dark:text-slate-50">Изменение зарплат</b>: Кто, когда и на сколько изменил ставку или сумму выплаты.</li>
+              <li>• <b className="text-slate-900 dark:text-slate-50">Редактирование смен</b>: Фиксация ручных правок времени входа/выхода.</li>
+              <li>• <b className="text-slate-900 dark:text-slate-50">Управление доступом</b>: Создание новых админов и изменение их прав.</li>
+              <li>• <b className="text-slate-900 dark:text-slate-50">Удаление данных</b>: Любые операции по архивации или удалению объектов.</li>
             </ul>
           </div>
           <p className="text-xs text-slate-400 italic">
@@ -263,29 +263,29 @@ export const DocumentationView: React.FC = () => {
       icon: <Activity className="w-5 h-5" />,
       content: (
         <div className="space-y-4">
-          <h4 className="font-bold text-slate-900">Синхронизация и Оффлайн-режим</h4>
-          <p className="text-sm text-slate-600 leading-relaxed">
+          <h4 className="font-bold text-slate-900 dark:text-slate-50">Синхронизация и Оффлайн-режим</h4>
+          <p className="text-sm text-slate-600 dark:text-slate-300 leading-relaxed">
             Приложение использует гибридную модель хранения данных (IndexedDB + Supabase Realtime).
           </p>
           <div className="space-y-4">
             <div className="p-4 bg-slate-50 rounded-2xl border border-slate-200">
               <h5 className="text-xs font-black uppercase tracking-widest text-slate-400 mb-3">Механизмы работы:</h5>
-              <ul className="text-xs space-y-3 text-slate-600">
+              <ul className="text-xs space-y-3 text-slate-600 dark:text-slate-300">
                 <li>
-                  <b className="text-slate-900">Оптимистичные обновления</b>: 
+                  <b className="text-slate-900 dark:text-slate-50">Оптимистичные обновления</b>: 
                   Когда вы нажимаете кнопку, изменения сначала применяются в локальном кэше, а затем отправляются на сервер. Это обеспечивает мгновенный отклик интерфейса.
                 </li>
                 <li>
-                  <b className="text-slate-900">Lazy Cleanup (Серверная очистка)</b>: 
+                  <b className="text-slate-900 dark:text-slate-50">Lazy Cleanup (Серверная очистка)</b>: 
                   Раз в 5 минут система проверяет наличие «зависших» смен (если вкладка была закрыта или пропал интернет). 
                   Если время смены превысило лимит, она закрывается автоматически с пометкой «Auto-close».
                 </li>
                 <li>
-                  <b className="text-slate-900">Realtime Subscriptions</b>: 
+                  <b className="text-slate-900 dark:text-slate-50">Realtime Subscriptions</b>: 
                   Изменения, сделанные одним администратором, мгновенно отображаются у других без перезагрузки страницы (используется Supabase Realtime).
                 </li>
                 <li>
-                  <b className="text-slate-900">PWA (Progressive Web App)</b>: 
+                  <b className="text-slate-900 dark:text-slate-50">PWA (Progressive Web App)</b>: 
                   Приложение можно установить на рабочий стол смартфона. Оно кэширует статические ресурсы, позволяя интерфейсу загружаться даже без интернета.
                 </li>
               </ul>
@@ -297,12 +297,12 @@ export const DocumentationView: React.FC = () => {
   ];
 
   return (
-    <div className="flex h-full bg-white rounded-[2.5rem] border border-slate-200 overflow-hidden shadow-sm no-print">
+    <div className="flex h-full bg-white rounded-[2.5rem] border border-slate-200 overflow-hidden shadow-md dark:shadow-slate-900/20 no-print">
       {/* Sidebar */}
       <div className="w-72 border-r border-slate-100 bg-slate-50/50 flex flex-col">
         <div className="p-6 border-b border-slate-100">
-          <h2 className="text-lg font-black text-slate-900 flex items-center gap-2">
-            <HelpCircle className="w-5 h-5 text-blue-600" />
+          <h2 className="text-lg font-black text-slate-900 dark:text-slate-50 flex items-center gap-2">
+            <HelpCircle className="w-5 h-5 text-blue-600 dark:text-blue-400" />
             Инструкция
           </h2>
           <p className="text-[10px] text-slate-400 font-bold uppercase tracking-widest mt-1">Документация системы</p>
@@ -314,8 +314,8 @@ export const DocumentationView: React.FC = () => {
               onClick={() => setActiveSection(section.id)}
               className={`w-full flex items-center gap-3 px-4 py-3 rounded-2xl text-sm font-bold transition-all ${
                 activeSection === section.id
-                  ? 'bg-blue-600 text-white shadow-lg shadow-blue-100'
-                  : 'text-slate-500 hover:bg-white hover:text-slate-900'
+                  ? 'bg-blue-600 text-white shadow-xl dark:shadow-slate-900/20 shadow-blue-100'
+                  : 'text-slate-500 dark:text-slate-400 hover:bg-white hover:text-slate-900 dark:text-slate-50'
               }`}
             >
               {section.icon}
@@ -333,12 +333,12 @@ export const DocumentationView: React.FC = () => {
           
           <div className="mt-12 pt-8 border-t border-slate-100">
             <div className="flex items-center gap-4 p-6 bg-blue-50 rounded-[2rem] border border-blue-100">
-              <div className="p-3 bg-white rounded-2xl shadow-sm">
-                <Bell className="w-6 h-6 text-blue-600" />
+              <div className="p-3 bg-white rounded-2xl shadow-md dark:shadow-slate-900/20">
+                <Bell className="w-6 h-6 text-blue-600 dark:text-blue-400" />
               </div>
               <div>
                 <h5 className="font-bold text-blue-900">Нужна помощь?</h5>
-                <p className="text-xs text-blue-700">Если вы не нашли ответ на свой вопрос, обратитесь в чат поддержки или к вашему персональному менеджеру.</p>
+                <p className="text-xs text-blue-700 dark:text-blue-300">Если вы не нашли ответ на свой вопрос, обратитесь в чат поддержки или к вашему персональному менеджеру.</p>
               </div>
             </div>
           </div>

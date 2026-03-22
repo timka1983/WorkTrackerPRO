@@ -95,30 +95,30 @@ const RegistrationForm: React.FC<RegistrationFormProps> = ({ onSuccess, onBack }
   if (step === 'success') {
     return (
       <div className="min-h-screen bg-slate-50 flex items-center justify-center p-4">
-        <div className="bg-white rounded-[2.5rem] shadow-2xl border border-slate-200 p-10 w-full max-w-md text-center space-y-6 animate-fadeIn">
-          <div className="w-20 h-20 bg-emerald-100 text-emerald-600 rounded-3xl flex items-center justify-center mx-auto shadow-xl shadow-emerald-50">
+        <div className="bg-white rounded-[2.5rem] shadow-2xl dark:shadow-slate-900/40 border border-slate-200 p-10 w-full max-w-md text-center space-y-6 animate-fadeIn">
+          <div className="w-20 h-20 bg-emerald-100 text-emerald-600 dark:text-emerald-400 rounded-3xl flex items-center justify-center mx-auto shadow-2xl dark:shadow-slate-900/20 shadow-emerald-50">
             <CheckCircle2 className="w-10 h-10" />
           </div>
           <div>
-            <h2 className="text-2xl font-black text-slate-900 uppercase tracking-tight mb-2">Готово!</h2>
-            <p className="text-sm text-slate-500 font-medium leading-relaxed">
-              Организация <span className="font-bold text-slate-900">{formData.orgName}</span> успешно создана. 
+            <h2 className="text-2xl font-black text-slate-900 dark:text-slate-50 uppercase tracking-tight mb-2">Готово!</h2>
+            <p className="text-sm text-slate-500 dark:text-slate-400 font-medium leading-relaxed">
+              Организация <span className="font-bold text-slate-900 dark:text-slate-50">{formData.orgName}</span> успешно создана. 
               Теперь вы можете войти в систему, используя ID организации и ваш PIN.
             </p>
           </div>
           <div className="bg-slate-50 p-4 rounded-2xl border border-slate-100 text-left space-y-2">
             <div className="flex justify-between text-xs font-bold">
               <span className="text-slate-400 uppercase">ID организации:</span>
-              <code className="text-blue-600">{generatedOrgId}</code>
+              <code className="text-blue-600 dark:text-blue-400">{generatedOrgId}</code>
             </div>
             <div className="flex justify-between text-xs font-bold">
               <span className="text-slate-400 uppercase">Ваш PIN:</span>
-              <code className="text-blue-600">{formData.adminPin}</code>
+              <code className="text-blue-600 dark:text-blue-400">{formData.adminPin}</code>
             </div>
           </div>
           <button 
             onClick={() => onSuccess(generatedOrgId)}
-            className="w-full py-4 bg-blue-600 text-white rounded-2xl font-black uppercase tracking-widest text-xs shadow-xl shadow-blue-100 active:scale-95 transition-all flex items-center justify-center gap-2"
+            className="w-full py-4 bg-blue-600 text-white rounded-2xl font-black uppercase tracking-widest text-xs shadow-2xl dark:shadow-slate-900/20 shadow-blue-100 active:scale-95 transition-all flex items-center justify-center gap-2"
           >
             Войти в систему
             <ArrowRight className="w-4 h-4" />
@@ -130,20 +130,20 @@ const RegistrationForm: React.FC<RegistrationFormProps> = ({ onSuccess, onBack }
 
   return (
     <div className="min-h-screen bg-slate-50 flex items-center justify-center p-4">
-      <div className="bg-white rounded-[2.5rem] shadow-2xl border border-slate-200 p-8 w-full max-w-md relative overflow-hidden">
+      <div className="bg-white rounded-[2.5rem] shadow-2xl dark:shadow-slate-900/40 border border-slate-200 p-8 w-full max-w-md relative overflow-hidden">
         <button 
           onClick={onBack}
-          className="absolute top-4 left-4 text-slate-400 hover:text-slate-900 transition-colors"
+          className="absolute top-4 left-4 text-slate-400 hover:text-slate-900 dark:text-slate-50 transition-colors"
         >
           <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M10 19l-7-7m0 0l7-7m-7 7h18" /></svg>
         </button>
 
         <div className="text-center mb-8">
-          <div className="bg-blue-600 text-white p-4 rounded-3xl inline-block mb-4 shadow-xl shadow-blue-100">
+          <div className="bg-blue-600 text-white p-4 rounded-3xl inline-block mb-4 shadow-2xl dark:shadow-slate-900/20 shadow-blue-100">
             <Building2 className="w-8 h-8" />
           </div>
-          <h1 className="text-2xl font-black text-slate-900 tracking-tight uppercase">Регистрация</h1>
-          <p className="text-xs text-slate-500 font-bold mt-1 uppercase tracking-widest">Создайте аккаунт для вашей компании</p>
+          <h1 className="text-2xl font-black text-slate-900 dark:text-slate-50 tracking-tight uppercase">Регистрация</h1>
+          <p className="text-xs text-slate-500 dark:text-slate-400 font-bold mt-1 uppercase tracking-widest">Создайте аккаунт для вашей компании</p>
         </div>
 
         <form onSubmit={handleSubmit} className="space-y-5">
@@ -211,7 +211,7 @@ const RegistrationForm: React.FC<RegistrationFormProps> = ({ onSuccess, onBack }
           </div>
 
           {error && (
-            <div className="p-3 bg-rose-50 border border-rose-100 rounded-xl text-rose-600 text-[10px] font-bold uppercase text-center">
+            <div className="p-3 bg-rose-50 border border-rose-100 rounded-xl text-rose-600 dark:text-rose-400 text-[10px] font-bold uppercase text-center">
               {error}
             </div>
           )}
@@ -219,7 +219,7 @@ const RegistrationForm: React.FC<RegistrationFormProps> = ({ onSuccess, onBack }
           <button 
             type="submit"
             disabled={loading}
-            className="w-full py-4 bg-blue-600 text-white rounded-2xl font-black uppercase tracking-widest text-xs shadow-xl shadow-blue-100 active:scale-95 transition-all disabled:opacity-50 flex items-center justify-center gap-2"
+            className="w-full py-4 bg-blue-600 text-white rounded-2xl font-black uppercase tracking-widest text-xs shadow-2xl dark:shadow-slate-900/20 shadow-blue-100 active:scale-95 transition-all disabled:opacity-50 flex items-center justify-center gap-2"
           >
             {loading ? 'Создание...' : 'Зарегистрироваться'}
             {!loading && <ArrowRight className="w-4 h-4" />}

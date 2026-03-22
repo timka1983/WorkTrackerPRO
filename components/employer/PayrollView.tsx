@@ -199,32 +199,32 @@ export const PayrollView: React.FC<PayrollViewProps> = ({
   };
 
   return (
-    <div className="bg-white rounded-[2.5rem] shadow-xl border border-slate-200 overflow-hidden relative">
-      <div className="p-8 border-b border-slate-100 flex justify-between items-center bg-slate-50/50 flex-wrap gap-4">
+    <div className="bg-white dark:bg-slate-900 rounded-[2.5rem] shadow-2xl dark:shadow-slate-900/20 border border-slate-200 dark:border-slate-800 overflow-hidden relative">
+      <div className="p-8 border-b border-slate-100 dark:border-slate-800 flex justify-between items-center bg-slate-50/50 dark:bg-slate-800/50 flex-wrap gap-4">
           <div className="flex flex-col">
-            <h2 className="text-2xl font-black text-slate-900 uppercase tracking-tight">Расчет зарплаты</h2>
+            <h2 className="text-2xl font-black text-slate-900 dark:text-slate-100 uppercase tracking-tight">Расчет зарплаты</h2>
             <div className="flex items-center gap-3 mt-1">
-              <p className="text-[10px] font-bold text-slate-400 uppercase tracking-widest">Отчетный период: {filterMonth}</p>
+              <p className="text-[10px] font-bold text-slate-400 dark:text-slate-400 uppercase tracking-widest">Отчетный период: {filterMonth}</p>
             </div>
-            <div className="flex items-center bg-white rounded-lg border border-slate-200 p-1 mt-2">
+            <div className="flex items-center bg-white dark:bg-slate-900 rounded-lg border border-slate-200 dark:border-slate-800 p-1 mt-2">
               <button 
                 onClick={() => handleStatusChange(PayrollStatus.DRAFT)}
                 disabled={isChangingStatus || isPaid}
-                className={`px-3 py-1 text-[10px] font-black uppercase tracking-widest rounded-md transition-all ${(!payrollPeriod || payrollPeriod.status === PayrollStatus.DRAFT) ? 'bg-slate-800 text-white' : 'text-slate-400 hover:bg-slate-100'} ${isPaid ? 'opacity-50 cursor-not-allowed' : ''}`}
+                className={`px-3 py-1 text-[10px] font-black uppercase tracking-widest rounded-md transition-all ${(!payrollPeriod || payrollPeriod.status === PayrollStatus.DRAFT) ? 'bg-slate-800 dark:bg-slate-700 text-white' : 'text-slate-400 dark:text-slate-400 hover:bg-slate-100 dark:hover:bg-slate-800'} ${isPaid ? 'opacity-50 cursor-not-allowed' : ''}`}
               >
                 Черновик
               </button>
               <button 
                 onClick={() => handleStatusChange(PayrollStatus.APPROVED)}
                 disabled={isChangingStatus || isPaid}
-                className={`px-3 py-1 text-[10px] font-black uppercase tracking-widest rounded-md transition-all ${payrollPeriod?.status === PayrollStatus.APPROVED ? 'bg-blue-600 text-white' : 'text-slate-400 hover:bg-slate-100'} ${isPaid ? 'opacity-50 cursor-not-allowed' : ''}`}
+                className={`px-3 py-1 text-[10px] font-black uppercase tracking-widest rounded-md transition-all ${payrollPeriod?.status === PayrollStatus.APPROVED ? 'bg-blue-600 text-white' : 'text-slate-400 dark:text-slate-400 hover:bg-slate-100 dark:hover:bg-slate-800'} ${isPaid ? 'opacity-50 cursor-not-allowed' : ''}`}
               >
                 Утверждено
               </button>
               <button 
                 onClick={() => handleStatusChange(PayrollStatus.PAID)}
                 disabled={isChangingStatus || isPaid}
-                className={`px-3 py-1 text-[10px] font-black uppercase tracking-widest rounded-md transition-all ${payrollPeriod?.status === PayrollStatus.PAID ? 'bg-green-600 text-white' : 'text-slate-400 hover:bg-slate-100'} ${isPaid ? 'opacity-50 cursor-not-allowed' : ''}`}
+                className={`px-3 py-1 text-[10px] font-black uppercase tracking-widest rounded-md transition-all ${payrollPeriod?.status === PayrollStatus.PAID ? 'bg-green-600 text-white' : 'text-slate-400 dark:text-slate-400 hover:bg-slate-100 dark:hover:bg-slate-800'} ${isPaid ? 'opacity-50 cursor-not-allowed' : ''}`}
               >
                 Оплачено
               </button>
@@ -234,16 +234,16 @@ export const PayrollView: React.FC<PayrollViewProps> = ({
            <button 
              onClick={handleRecalculate} 
              disabled={isRecalculating || isPaid}
-             className="flex items-center gap-2 px-6 py-3 bg-indigo-600 text-white rounded-2xl font-black text-xs uppercase tracking-widest hover:bg-indigo-700 transition-all shadow-lg shadow-indigo-100 hover:shadow-indigo-200 active:scale-95 disabled:opacity-50 disabled:cursor-not-allowed"
+             className="flex items-center gap-2 px-6 py-3 bg-indigo-600 text-white rounded-2xl font-black text-xs uppercase tracking-widest hover:bg-indigo-700 transition-all shadow-xl dark:shadow-slate-900/20 shadow-indigo-100 dark:shadow-none hover:shadow-indigo-200 active:scale-95 disabled:opacity-50 disabled:cursor-not-allowed"
            >
              <RefreshCw className={`w-4 h-4 ${isRecalculating ? 'animate-spin' : ''}`} />
              Пересчитать табель
            </button>
-           <button onClick={() => setShowBonusModal(true)} disabled={isPaid} className="px-3 py-3 md:px-6 md:py-3 bg-green-600 text-white rounded-2xl font-black text-xs uppercase tracking-widest hover:bg-green-700 transition-all shadow-lg shadow-green-200 hover:shadow-green-300 active:scale-95 disabled:opacity-50 disabled:cursor-not-allowed">
+           <button onClick={() => setShowBonusModal(true)} disabled={isPaid} className="px-3 py-3 md:px-6 md:py-3 bg-green-600 text-white rounded-2xl font-black text-xs uppercase tracking-widest hover:bg-green-700 transition-all shadow-xl dark:shadow-slate-900/20 shadow-green-200 dark:shadow-none hover:shadow-green-300 active:scale-95 disabled:opacity-50 disabled:cursor-not-allowed">
             <span className="hidden md:inline">Общая премия</span>
             <Coins className="w-5 h-5 md:hidden" />
           </button>
-          <button onClick={handleExportAll} className="px-3 py-3 md:px-6 md:py-3 bg-slate-900 text-white rounded-2xl font-black text-xs uppercase tracking-widest hover:bg-blue-600 transition-all shadow-lg shadow-slate-200 hover:shadow-blue-200 active:scale-95">
+          <button onClick={handleExportAll} className="px-3 py-3 md:px-6 md:py-3 bg-slate-900 dark:bg-slate-700 text-white rounded-2xl font-black text-xs uppercase tracking-widest hover:bg-blue-600 transition-all shadow-xl dark:shadow-slate-900/20 shadow-slate-200 dark:shadow-none hover:shadow-blue-200 active:scale-95">
             <span className="hidden md:inline">Экспорт</span>
             <FileText className="w-5 h-5 md:hidden" />
           </button>
@@ -266,13 +266,13 @@ export const PayrollView: React.FC<PayrollViewProps> = ({
       <div className="overflow-x-auto hidden md:block">
         <table className="w-full text-left border-collapse">
           <thead>
-            <tr className="bg-slate-50 border-b border-slate-200 text-[10px] font-black text-slate-400 uppercase tracking-wider">
+            <tr className="bg-slate-50 dark:bg-slate-800 border-b border-slate-200 dark:border-slate-700 text-[10px] font-black text-slate-400 dark:text-slate-400 uppercase tracking-wider">
               <th className="p-4">
                 <div className="flex items-center gap-2">
                   <span>Сотрудник</span>
                   <button 
                     onClick={toggleAllRows}
-                    className="p-1 hover:bg-slate-200 rounded transition-colors text-slate-500"
+                    className="p-1 hover:bg-slate-200 dark:hover:bg-slate-700 rounded transition-colors text-slate-500 dark:text-slate-400"
                     title={expandedRows.size > 0 ? "Свернуть все" : "Раскрыть все"}
                   >
                     {expandedRows.size > 0 ? <ChevronUp size={14} /> : <ChevronDown size={14} />}
@@ -320,13 +320,13 @@ export const PayrollView: React.FC<PayrollViewProps> = ({
 
                return (
                  <React.Fragment key={emp.id}>
-                   <tr className={`border-b border-slate-100 hover:bg-slate-50/50 transition-colors ${snapshot ? 'bg-indigo-50/20' : ''}`}>
-                     <td className="p-4 text-sm font-bold text-slate-900">
+                   <tr className={`border-b border-slate-100 dark:border-slate-800 hover:bg-slate-50/50 dark:hover:bg-slate-800/50 transition-colors ${snapshot ? 'bg-indigo-50/20 dark:bg-indigo-900/10' : ''}`}>
+                     <td className="p-4 text-sm font-bold text-slate-900 dark:text-slate-50">
                         <div className="flex items-center gap-2">
-                          <div className="flex flex-col cursor-pointer hover:text-blue-600" onClick={() => setSelectedUserForSchedule(emp)}>
+                          <div className="flex flex-col cursor-pointer hover:text-blue-600 dark:hover:text-blue-400 transition-colors" onClick={() => setSelectedUserForSchedule(emp)}>
                             <div className="flex items-center gap-1">
                               <span>{emp.name}</span>
-                              {emp.isArchived && <span className="text-[10px] bg-slate-200 text-slate-600 px-2 py-0.5 rounded-full ml-1">Архив</span>}
+                              {emp.isArchived && <span className="text-[10px] bg-slate-200 dark:bg-slate-800 text-slate-600 dark:text-slate-400 px-2 py-0.5 rounded-full ml-1">Архив</span>}
                               {snapshot && (
                                 <span title={`Сохранено: ${format(new Date(snapshot.calculatedAt), 'dd.MM HH:mm')}`}>
                                   <CheckCircle2 size={12} className="text-indigo-500" />
@@ -342,14 +342,14 @@ export const PayrollView: React.FC<PayrollViewProps> = ({
                           {hasSubRows && (
                             <button 
                               onClick={() => toggleRow(emp.id)}
-                              className={`flex-shrink-0 p-1 rounded-md transition-all ${isExpanded ? 'bg-blue-600 text-white' : 'text-blue-500 hover:bg-blue-100'}`}
+                              className={`flex-shrink-0 p-1 rounded-md transition-all ${isExpanded ? 'bg-blue-600 text-white' : 'text-blue-500 hover:bg-blue-100 dark:hover:bg-blue-900/20'}`}
                             >
                               <svg className={`w-3 h-3 transition-transform ${isExpanded ? 'rotate-180' : ''}`} fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={3} d="M19 9l-7 7-7-7" /></svg>
                             </button>
                           )}
                         </div>
                      </td>
-                     <td className="p-4 text-xs font-bold text-slate-500">{emp.position}</td>
+                     <td className="p-4 text-xs font-bold text-slate-500 dark:text-slate-400">{emp.position}</td>
                      <td className="p-4 text-center">
                         <div className="flex items-center justify-center gap-1">
                           <button 
@@ -362,14 +362,14 @@ export const PayrollView: React.FC<PayrollViewProps> = ({
                               setShowPaymentModal(true); 
                             }}
                             disabled={isPaid}
-                            className={`p-2 rounded-xl transition-all ${planLimits.features.payments ? 'text-indigo-400 hover:text-indigo-600 hover:bg-indigo-50' : 'text-slate-300 hover:text-slate-400 hover:bg-slate-50'} ${isPaid ? 'opacity-50 cursor-not-allowed' : ''}`}
+                            className={`p-2 rounded-xl transition-all ${planLimits.features.payments ? 'text-indigo-400 hover:text-indigo-600 dark:text-indigo-400 hover:bg-indigo-50 dark:hover:bg-indigo-900/20' : 'text-slate-300 dark:text-slate-600 hover:text-slate-400 hover:bg-slate-50 dark:hover:bg-slate-800'} ${isPaid ? 'opacity-50 cursor-not-allowed' : ''}`}
                             title={isPaid ? "Финансовый период закрыт" : planLimits.features.payments ? "Внести выплату" : "Внести выплату (Требуется тариф BUSINESS)"}
                           >
                             <Coins size={18} />
                           </button>
                           <button 
                             onClick={() => setSelectedUserForPaymentHistory(emp)}
-                            className="p-2 rounded-xl text-slate-400 hover:text-indigo-600 hover:bg-indigo-50 transition-all"
+                            className="p-2 rounded-xl text-slate-400 hover:text-indigo-600 dark:text-indigo-400 hover:bg-indigo-50 dark:hover:bg-indigo-900/20 transition-all"
                             title="История выплат"
                           >
                             <History size={18} />
@@ -379,34 +379,34 @@ export const PayrollView: React.FC<PayrollViewProps> = ({
                               const userPayments = payments.filter(p => p.userId === emp.id && p.date.startsWith(filterMonth));
                               generatePayslipPDF(emp, payroll, filterMonth, userPayments, machines);
                             }}
-                            className="p-2 rounded-xl text-slate-400 hover:text-slate-600 hover:bg-slate-50 transition-all"
+                            className="p-2 rounded-xl text-slate-400 hover:text-slate-600 dark:text-slate-300 hover:bg-slate-50 dark:hover:bg-slate-800 transition-all"
                             title="Скачать расчетный листок"
                           >
                             <FileText size={18} />
                           </button>
                         </div>
                       </td>
-                     <td className="p-4 text-center text-xs font-mono text-slate-600">
+                     <td className="p-4 text-center text-xs font-mono text-slate-600 dark:text-slate-300">
                         {rate} ₽
-                        <span className="text-[8px] text-slate-400 block uppercase">
+                        <span className="text-[8px] text-slate-400 dark:text-slate-400 block uppercase">
                           {type === 'hourly' ? '/час' : type === 'fixed' ? '/мес' : '/смена'}
                         </span>
                      </td>
-                      <td className="p-4 text-center text-xs font-mono text-slate-600">
+                      <td className="p-4 text-center text-xs font-mono text-slate-600 dark:text-slate-300">
                         {formatMinsToHHMM(empLogs.filter(l => !l.machineId && l.entryType === EntryType.WORK).reduce((sum, l) => sum + l.durationMinutes, 0))}
                       </td>
-                      <td className="p-4 text-center text-xs font-mono text-amber-600">{payroll.details.overtimeHours > 0 ? payroll.details.overtimeHours.toFixed(2) : '-'}</td>
-                      <td className="p-4 text-center text-xs font-mono text-indigo-600">{payroll.details.nightShiftCount > 0 ? payroll.details.nightShiftCount : '-'}</td>
-                      <td className="p-4 text-center text-xs font-mono text-teal-600">{payroll.details.sickDays > 0 ? payroll.details.sickDays : '-'}</td>
-                      <td className="p-4 text-center text-xs font-mono text-green-600">{payroll.bonuses > 0 ? payroll.bonuses : '-'}</td>
-                      <td className="p-4 text-center text-xs font-mono text-red-600">{payroll.fines > 0 ? payroll.fines : '-'}</td>
-                      {planLimits.features.payments && <td className="p-4 text-center text-xs font-mono text-indigo-600">{totalPaid > 0 ? totalPaid : '-'}</td>}
-                      <td className="p-4 text-center text-xs font-mono text-slate-900 font-bold">
+                      <td className="p-4 text-center text-xs font-mono text-amber-600 dark:text-amber-400">{payroll.details.overtimeHours > 0 ? payroll.details.overtimeHours.toFixed(2) : '-'}</td>
+                      <td className="p-4 text-center text-xs font-mono text-indigo-600 dark:text-indigo-400">{payroll.details.nightShiftCount > 0 ? payroll.details.nightShiftCount : '-'}</td>
+                      <td className="p-4 text-center text-xs font-mono text-teal-600 dark:text-teal-400">{payroll.details.sickDays > 0 ? payroll.details.sickDays : '-'}</td>
+                      <td className="p-4 text-center text-xs font-mono text-green-600 dark:text-green-400">{payroll.bonuses > 0 ? payroll.bonuses : '-'}</td>
+                      <td className="p-4 text-center text-xs font-mono text-red-600 dark:text-red-400">{payroll.fines > 0 ? payroll.fines : '-'}</td>
+                      {planLimits.features.payments && <td className="p-4 text-center text-xs font-mono text-indigo-600 dark:text-indigo-400">{totalPaid > 0 ? totalPaid : '-'}</td>}
+                      <td className="p-4 text-center text-xs font-mono text-slate-900 dark:text-slate-100 font-bold">
                         {formatMinsToHHMM(empLogs.filter(l => l.entryType === EntryType.WORK).reduce((sum, l) => sum + l.durationMinutes, 0))}
                       </td>
-                      <td className="p-4 text-right font-bold text-slate-500 text-xs">{payroll.totalSalary.toLocaleString('ru-RU')} ₽</td>
+                      <td className="p-4 text-right font-bold text-slate-500 dark:text-slate-400 text-xs">{payroll.totalSalary.toLocaleString('ru-RU')} ₽</td>
                       {planLimits.features.payments && (
-                        <td className={`p-4 text-right font-black text-sm ${balance > 0 ? 'text-slate-900' : balance < 0 ? 'text-red-600' : 'text-slate-400'}`}>
+                        <td className={`p-4 text-right font-black text-sm ${balance > 0 ? 'text-slate-900 dark:text-slate-100' : balance < 0 ? 'text-red-600 dark:text-red-400' : 'text-slate-400 dark:text-slate-400'}`}>
                           {balance.toLocaleString('ru-RU')} ₽
                         </td>
                       )}
@@ -422,25 +422,25 @@ export const PayrollView: React.FC<PayrollViewProps> = ({
                      const mPay = Math.round((mMins / 60) * mRate);
 
                      return (
-                        <tr key={`${emp.id}-${mId}`} className="bg-slate-50/80 border-b border-slate-100">
-                          <td className="p-3 pl-12 text-xs font-bold text-slate-500 italic" colSpan={3}>↳ {machineName}</td>
-                          <td className="p-3 text-center text-xs font-mono text-slate-500">{mRate} ₽/час</td>
-                          <td className="p-3 text-center text-xs font-mono text-slate-500 font-bold">{mHours}</td>
+                        <tr key={`${emp.id}-${mId}`} className="bg-slate-50/80 dark:bg-slate-800/50 border-b border-slate-100 dark:border-slate-800">
+                          <td className="p-3 pl-12 text-xs font-bold text-slate-500 dark:text-slate-400 italic" colSpan={3}>↳ {machineName}</td>
+                          <td className="p-3 text-center text-xs font-mono text-slate-500 dark:text-slate-400">{mRate} ₽/час</td>
+                          <td className="p-3 text-center text-xs font-mono text-slate-500 dark:text-slate-400 font-bold">{mHours}</td>
                           <td colSpan={planLimits.features.payments ? 6 : 5}></td>
-                          <td className="p-3 text-center text-xs font-mono text-slate-300">-</td>
-                          <td className="p-3 text-right text-xs font-bold text-slate-600">{mPay.toLocaleString('ru-RU')} ₽</td>
+                          <td className="p-3 text-center text-xs font-mono text-slate-300 dark:text-slate-600">-</td>
+                          <td className="p-3 text-right text-xs font-bold text-slate-600 dark:text-slate-400">{mPay.toLocaleString('ru-RU')} ₽</td>
                           {planLimits.features.payments && <td></td>}
                         </tr>
                      );
                    })}
                    {isExpanded && userPayments.length > 0 && userPayments.map((p, idx) => (
-                     <tr key={`${emp.id}-pay-${idx}`} className="bg-indigo-50/30 border-b border-slate-100">
-                       <td className="p-3 pl-12 text-[10px] font-bold text-indigo-500 italic" colSpan={3}>
+                     <tr key={`${emp.id}-pay-${idx}`} className="bg-indigo-50/30 dark:bg-indigo-900/10 border-b border-slate-100 dark:border-slate-800">
+                       <td className="p-3 pl-12 text-[10px] font-bold text-indigo-500 dark:text-indigo-400 italic" colSpan={3}>
                          ↳ {p.type === 'advance' ? 'Аванс' : p.type === 'salary' ? 'Зарплата' : 'Выплата'} ({format(new Date(p.date), 'dd.MM')})
-                         {p.comment && <span className="ml-2 font-normal text-slate-400">({p.comment})</span>}
+                         {p.comment && <span className="ml-2 font-normal text-slate-400 dark:text-slate-400">({p.comment})</span>}
                        </td>
                        <td colSpan={planLimits.features.payments ? 7 : 6}></td>
-                       <td className="p-3 text-right text-[10px] font-bold text-indigo-600">-{p.amount.toLocaleString('ru-RU')} ₽</td>
+                       <td className="p-3 text-right text-[10px] font-bold text-indigo-600 dark:text-indigo-400">-{p.amount.toLocaleString('ru-RU')} ₽</td>
                        {planLimits.features.payments && <td></td>}
                      </tr>
                    ))}
@@ -465,17 +465,17 @@ export const PayrollView: React.FC<PayrollViewProps> = ({
            const payroll = snapshot ? snapshot.details : calculateMonthlyPayroll(emp, empLogs, positions, currentOrg || undefined);
            
            return (
-             <div key={emp.id} className="bg-white p-4 rounded-2xl border border-slate-200 shadow-sm space-y-3 cursor-pointer" onClick={() => setSelectedUserForDetails(emp)}>
+             <div key={emp.id} className="bg-white dark:bg-slate-900 p-4 rounded-2xl border border-slate-200 dark:border-slate-800 shadow-md dark:shadow-slate-900/20 space-y-3 cursor-pointer" onClick={() => setSelectedUserForDetails(emp)}>
                <div className="flex justify-between items-center">
                   <div className="flex items-center gap-2 min-w-0">
-                    <span className="text-sm font-bold text-slate-900 truncate">{emp.name}</span>
-                    {emp.isArchived && <span className="flex-shrink-0 text-[10px] bg-slate-200 text-slate-600 px-2 py-0.5 rounded-full">Архив</span>}
+                    <span className="text-sm font-bold text-slate-900 dark:text-slate-100 truncate">{emp.name}</span>
+                    {emp.isArchived && <span className="flex-shrink-0 text-[10px] bg-slate-200 dark:bg-slate-800 text-slate-600 dark:text-slate-400 px-2 py-0.5 rounded-full">Архив</span>}
                   </div>
-                 <span className="text-xs font-bold text-slate-500">{emp.position}</span>
+                 <span className="text-xs font-bold text-slate-500 dark:text-slate-400">{emp.position}</span>
                </div>
                <div className="flex justify-between items-center text-xs">
-                 <span className="text-slate-500">Начислено:</span>
-                 <span className="font-bold text-slate-900">{payroll.totalSalary.toLocaleString('ru-RU')} ₽</span>
+                 <span className="text-slate-500 dark:text-slate-400">Начислено:</span>
+                 <span className="font-bold text-slate-900 dark:text-slate-100">{payroll.totalSalary.toLocaleString('ru-RU')} ₽</span>
                </div>
              </div>
            );
@@ -484,13 +484,13 @@ export const PayrollView: React.FC<PayrollViewProps> = ({
 
       {selectedUserForDetails && (
         <div className="fixed inset-0 z-[160] bg-slate-900/60 backdrop-blur-sm flex items-center justify-center p-4">
-          <div className="bg-white rounded-[2.5rem] w-full max-w-md shadow-2xl border border-slate-200 overflow-hidden flex flex-col max-h-[90vh]">
-            <div className="p-6 border-b border-slate-100 flex justify-between items-center bg-slate-50/50">
+          <div className="bg-white dark:bg-slate-900 rounded-[2.5rem] w-full max-w-md shadow-2xl dark:shadow-slate-900/40 border border-slate-200 dark:border-slate-800 overflow-hidden flex flex-col max-h-[90vh]">
+            <div className="p-6 border-b border-slate-100 dark:border-slate-800 flex justify-between items-center bg-slate-50/50 dark:bg-slate-800/50">
               <div className="flex items-center gap-2">
-                <h3 className="font-black text-slate-900 uppercase tracking-tight text-lg">{selectedUserForDetails.name}</h3>
-                {selectedUserForDetails.isArchived && <span className="text-[10px] bg-slate-200 text-slate-600 px-2 py-0.5 rounded-full">Архив</span>}
+                <h3 className="font-black text-slate-900 dark:text-slate-100 uppercase tracking-tight text-lg">{selectedUserForDetails.name}</h3>
+                {selectedUserForDetails.isArchived && <span className="text-[10px] bg-slate-200 dark:bg-slate-800 text-slate-600 dark:text-slate-400 px-2 py-0.5 rounded-full">Архив</span>}
               </div>
-              <button onClick={() => setSelectedUserForDetails(null)} className="text-slate-400 hover:text-slate-900 text-3xl font-light transition-colors">&times;</button>
+              <button onClick={() => setSelectedUserForDetails(null)} className="text-slate-400 hover:text-slate-900 dark:text-slate-50 dark:hover:text-slate-100 text-3xl font-light transition-colors">&times;</button>
             </div>
             <div className="p-6 overflow-y-auto custom-scrollbar space-y-3">
               {(() => {
@@ -524,14 +524,14 @@ export const PayrollView: React.FC<PayrollViewProps> = ({
                   { 
                     label: 'Итого начислено', 
                     value: `${payroll.totalSalary.toLocaleString('ru-RU')} ₽`, 
-                    className: 'font-black text-slate-900 cursor-pointer hover:bg-slate-100 rounded-lg px-2 -mx-2 transition-colors text-[10px]',
+                    className: 'font-black text-slate-900 dark:text-slate-100 cursor-pointer hover:bg-slate-100 dark:hover:bg-slate-800 rounded-lg px-2 -mx-2 transition-colors text-[10px]',
                     onClick: () => {
                       const el = document.getElementById('payment-history-section');
                       if (el) el.scrollIntoView({ behavior: 'smooth' });
                     }
                   },
-                  { label: 'Выплачено', value: `${totalPaid.toLocaleString('ru-RU')} ₽`, className: 'text-indigo-600 text-[10px]' },
-                  { label: 'Остаток', value: `${balance.toLocaleString('ru-RU')} ₽`, className: `font-black ${balance > 0 ? 'text-green-600' : 'text-rose-600'}` }
+                  { label: 'Выплачено', value: `${totalPaid.toLocaleString('ru-RU')} ₽`, className: 'text-indigo-600 dark:text-indigo-400 text-[10px]' },
+                  { label: 'Остаток', value: `${balance.toLocaleString('ru-RU')} ₽`, className: `font-black ${balance > 0 ? 'text-green-600 dark:text-green-400' : 'text-rose-600 dark:text-rose-400'}` }
                 ];
 
                 const machineBreakdown = usedMachineIds.map(mId => {
@@ -549,10 +549,10 @@ export const PayrollView: React.FC<PayrollViewProps> = ({
                       <React.Fragment key={i}>
                         <div 
                           onClick={f.onClick}
-                          className={`flex justify-between text-xs py-2 border-b border-slate-100 ${f.className || ''}`}
+                          className={`flex justify-between text-xs py-2 border-b border-slate-100 dark:border-slate-800 ${f.className || ''}`}
                         >
-                          <span className="text-slate-500">{f.label}:</span>
-                          <span className="font-bold text-slate-900">{f.value}</span>
+                          <span className="text-slate-500 dark:text-slate-400">{f.label}:</span>
+                          <span className="font-bold text-slate-900 dark:text-slate-100">{f.value}</span>
                         </div>
                         {f.label === 'Часы' && machineBreakdown.length > 0 && (
                           <div className="py-1 space-y-1">
@@ -572,9 +572,9 @@ export const PayrollView: React.FC<PayrollViewProps> = ({
                         <p className="text-[9px] font-black text-slate-400 uppercase tracking-widest">История выплат</p>
                         <div className="max-h-24 overflow-y-auto custom-scrollbar pr-1">
                           {userPayments.map((p, idx) => (
-                            <div key={idx} className="flex justify-between text-[10px] py-1 border-b border-slate-50 last:border-0">
-                              <span className="text-slate-500">{p.type === 'advance' ? 'Аванс' : p.type === 'salary' ? 'Зарплата' : 'Выплата'} ({format(new Date(p.date), 'dd.MM')})</span>
-                              <span className="font-bold text-slate-700">-{p.amount} ₽</span>
+                            <div key={idx} className="flex justify-between text-[10px] py-1 border-b border-slate-50 dark:border-slate-800 last:border-0">
+                              <span className="text-slate-500 dark:text-slate-400">{p.type === 'advance' ? 'Аванс' : p.type === 'salary' ? 'Зарплата' : 'Выплата'} ({format(new Date(p.date), 'dd.MM')})</span>
+                              <span className="font-bold text-slate-700 dark:text-slate-300">-{p.amount} ₽</span>
                             </div>
                           ))}
                         </div>
@@ -586,7 +586,7 @@ export const PayrollView: React.FC<PayrollViewProps> = ({
                         setSelectedUserForSchedule(selectedUserForDetails);
                         setSelectedUserForDetails(null);
                       }}
-                      className="w-full py-3 bg-slate-100 text-slate-700 rounded-xl font-black text-[10px] uppercase tracking-widest hover:bg-slate-200 transition-all flex items-center justify-center gap-2 mt-4"
+                      className="w-full py-3 bg-slate-100 dark:bg-slate-800 text-slate-700 dark:text-slate-300 rounded-xl font-black text-[10px] uppercase tracking-widest hover:bg-slate-200 dark:hover:bg-slate-700 transition-all flex items-center justify-center gap-2 mt-4"
                     >
                       <svg className="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z" /></svg>
                       Табель
@@ -603,7 +603,7 @@ export const PayrollView: React.FC<PayrollViewProps> = ({
                           // Don't close details modal immediately to avoid focus loss/confusion
                           // setSelectedUserForDetails(null); 
                         }}
-                        className="py-3 bg-indigo-50 text-indigo-700 rounded-xl font-black text-[10px] uppercase tracking-widest hover:bg-indigo-100 transition-all"
+                        className="py-3 bg-indigo-50 dark:bg-indigo-900/20 text-indigo-700 dark:text-indigo-400 rounded-xl font-black text-[10px] uppercase tracking-widest hover:bg-indigo-100 dark:hover:bg-indigo-900/40 transition-all"
                       >
                         + Аванс
                       </button>
@@ -613,7 +613,7 @@ export const PayrollView: React.FC<PayrollViewProps> = ({
                           setShowBonusModal(true);
                           setSelectedUserForDetails(null);
                         }}
-                        className="py-3 bg-green-50 text-green-700 rounded-xl font-black text-[10px] uppercase tracking-widest hover:bg-green-100 transition-all"
+                        className="py-3 bg-green-50 dark:bg-green-900/20 text-green-700 dark:text-green-400 rounded-xl font-black text-[10px] uppercase tracking-widest hover:bg-green-100 dark:hover:bg-green-900/40 transition-all"
                       >
                         + Премия
                       </button>
@@ -632,7 +632,7 @@ export const PayrollView: React.FC<PayrollViewProps> = ({
                         const userPayments = payments.filter(p => p.userId === selectedUserForDetails.id && p.date.startsWith(filterMonth));
                         generatePayslipPDF(selectedUserForDetails, payroll, filterMonth, userPayments, machines);
                       }}
-                      className="w-full py-3 bg-slate-800 text-white rounded-xl font-black text-[10px] uppercase tracking-widest hover:bg-slate-900 transition-all flex items-center justify-center gap-2 mt-3"
+                      className="w-full py-3 bg-slate-800 dark:bg-slate-700 text-white rounded-xl font-black text-[10px] uppercase tracking-widest hover:bg-slate-900 dark:hover:bg-slate-600 transition-all flex items-center justify-center gap-2 mt-3"
                     >
                       <FileText size={14} />
                       Скачать расчетный листок
@@ -647,10 +647,10 @@ export const PayrollView: React.FC<PayrollViewProps> = ({
 
       {showBonusModal && (
         <div className="fixed inset-0 z-[150] bg-slate-900/60 backdrop-blur-sm flex items-center justify-center p-4">
-          <div className="bg-white rounded-[2.5rem] w-full max-w-md shadow-2xl border border-slate-200 overflow-hidden flex flex-col max-h-[90vh]">
-            <div className="p-6 border-b border-slate-100 flex justify-between items-center bg-slate-50/50 shrink-0">
-              <h3 className="font-black text-slate-900 uppercase tracking-tight text-lg">Общая премия</h3>
-              <button onClick={() => setShowBonusModal(false)} className="text-slate-400 hover:text-slate-900 text-3xl font-light transition-colors">&times;</button>
+          <div className="bg-white dark:bg-slate-900 rounded-[2.5rem] w-full max-w-md shadow-2xl dark:shadow-slate-900/40 border border-slate-200 dark:border-slate-800 overflow-hidden flex flex-col max-h-[90vh]">
+            <div className="p-6 border-b border-slate-100 dark:border-slate-800 flex justify-between items-center bg-slate-50/50 dark:bg-slate-800/50 shrink-0">
+              <h3 className="font-black text-slate-900 dark:text-slate-100 uppercase tracking-tight text-lg">Общая премия</h3>
+              <button onClick={() => setShowBonusModal(false)} className="text-slate-400 hover:text-slate-900 dark:text-slate-50 dark:hover:text-slate-100 text-3xl font-light transition-colors">&times;</button>
             </div>
             <form onSubmit={handleBonusSubmit} className="p-6 space-y-4 overflow-y-auto custom-scrollbar">
               <div className="space-y-1">
@@ -660,7 +660,7 @@ export const PayrollView: React.FC<PayrollViewProps> = ({
                   type="number" 
                   value={bonusAmount}
                   onChange={e => setBonusAmount(e.target.value)}
-                  className="w-full bg-slate-50 border-2 border-slate-100 rounded-xl px-4 py-3 text-sm font-black text-green-600 outline-none focus:border-green-500 focus:bg-white transition-all"
+                  className="w-full bg-slate-50 dark:bg-slate-800 border-2 border-slate-100 dark:border-slate-700 rounded-xl px-4 py-3 text-sm font-black text-green-600 dark:text-green-400 outline-none focus:border-green-500 focus:bg-white dark:focus:bg-slate-900 transition-all shadow-sm dark:shadow-none"
                 />
               </div>
               <div className="space-y-1">
@@ -670,7 +670,7 @@ export const PayrollView: React.FC<PayrollViewProps> = ({
                   type="date" 
                   value={bonusDate}
                   onChange={e => setBonusDate(e.target.value)}
-                  className="w-full bg-slate-50 border-2 border-slate-100 rounded-xl px-4 py-3 text-sm font-bold text-slate-900 outline-none focus:border-blue-500 focus:bg-white transition-all"
+                  className="w-full bg-slate-50 dark:bg-slate-800 border-2 border-slate-100 dark:border-slate-700 rounded-xl px-4 py-3 text-sm font-bold text-slate-900 dark:text-slate-100 outline-none focus:border-blue-500 focus:bg-white dark:focus:bg-slate-900 transition-all shadow-sm dark:shadow-none"
                 />
               </div>
               <div className="space-y-1">
@@ -679,7 +679,7 @@ export const PayrollView: React.FC<PayrollViewProps> = ({
                   type="text" 
                   value={bonusNote}
                   onChange={e => setBonusNote(e.target.value)}
-                  className="w-full bg-slate-50 border-2 border-slate-100 rounded-xl px-4 py-3 text-sm font-medium text-slate-900 outline-none focus:border-blue-500 focus:bg-white transition-all"
+                  className="w-full bg-slate-50 dark:bg-slate-800 border-2 border-slate-100 dark:border-slate-700 rounded-xl px-4 py-3 text-sm font-medium text-slate-900 dark:text-slate-100 outline-none focus:border-blue-500 focus:bg-white dark:focus:bg-slate-900 transition-all shadow-sm dark:shadow-none"
                 />
               </div>
               
@@ -695,21 +695,21 @@ export const PayrollView: React.FC<PayrollViewProps> = ({
                         setSelectedUsers(new Set(employees.map(e => e.id)));
                       }
                     }}
-                    className="text-[9px] font-black text-blue-600 uppercase hover:underline"
+                    className="text-[9px] font-black text-blue-600 dark:text-blue-400 uppercase hover:underline"
                   >
                     {selectedUsers.size === employees.length ? 'Снять выбор' : 'Выбрать всех'}
                   </button>
                 </div>
-                <div className="max-h-48 overflow-y-auto bg-slate-50 border-2 border-slate-100 rounded-xl p-2 space-y-1 custom-scrollbar">
+                <div className="max-h-48 overflow-y-auto bg-slate-50 dark:bg-slate-800 border-2 border-slate-100 dark:border-slate-700 rounded-xl p-2 space-y-1 custom-scrollbar shadow-sm dark:shadow-none">
                   {employees.map(emp => (
-                    <label key={emp.id} className="flex items-center gap-3 p-2 hover:bg-white rounded-lg cursor-pointer transition-colors">
+                    <label key={emp.id} className="flex items-center gap-3 p-2 hover:bg-white dark:hover:bg-slate-700 rounded-lg cursor-pointer transition-colors">
                       <input 
                         type="checkbox" 
                         checked={selectedUsers.has(emp.id)}
                         onChange={() => toggleUserSelection(emp.id)}
                         className="w-4 h-4 rounded accent-blue-600"
                       />
-                      <span className="text-xs font-bold text-slate-700">{emp.name}</span>
+                      <span className="text-xs font-bold text-slate-700 dark:text-slate-300">{emp.name}</span>
                     </label>
                   ))}
                 </div>
@@ -718,7 +718,7 @@ export const PayrollView: React.FC<PayrollViewProps> = ({
               <button 
                 type="submit" 
                 disabled={selectedUsers.size === 0 || !bonusAmount || !bonusDate}
-                className="w-full py-4 bg-green-600 text-white rounded-2xl font-black uppercase tracking-widest text-xs shadow-xl shadow-green-200 hover:bg-green-700 transition-all active:scale-95 disabled:opacity-50 disabled:cursor-not-allowed mt-4"
+                className="w-full py-4 bg-green-600 text-white rounded-2xl font-black uppercase tracking-widest text-xs shadow-2xl dark:shadow-slate-900/20 shadow-green-200 hover:bg-green-700 transition-all active:scale-95 disabled:opacity-50 disabled:cursor-not-allowed mt-4"
               >
                 Начислить премию
               </button>
@@ -728,20 +728,20 @@ export const PayrollView: React.FC<PayrollViewProps> = ({
       )}
       {showPaymentModal && selectedUserForPayment && (
         <div className="fixed inset-0 z-[210] bg-slate-900/60 backdrop-blur-sm flex items-center justify-center p-4">
-          <div className="bg-white rounded-[2.5rem] w-full max-w-md shadow-2xl border border-slate-200 overflow-hidden flex flex-col">
-            <div className="p-6 border-b border-slate-100 flex justify-between items-center bg-slate-50/50">
+          <div className="bg-white dark:bg-slate-900 rounded-[2.5rem] w-full max-w-md shadow-2xl dark:shadow-slate-900/40 border border-slate-200 dark:border-slate-800 overflow-hidden flex flex-col">
+            <div className="p-6 border-b border-slate-100 dark:border-slate-800 flex justify-between items-center bg-slate-50/50 dark:bg-slate-800/50">
               <div className="flex items-center gap-3">
-                <div className="p-2 bg-indigo-100 text-indigo-600 rounded-xl">
+                <div className="p-2 bg-indigo-100 dark:bg-indigo-900/40 text-indigo-600 dark:text-indigo-400 rounded-xl">
                   <Wallet size={20} />
                 </div>
-                <h3 className="font-black text-slate-900 uppercase tracking-tight text-lg">Внести выплату</h3>
+                <h3 className="font-black text-slate-900 dark:text-slate-100 uppercase tracking-tight text-lg">Внести выплату</h3>
               </div>
-              <button onClick={() => setShowPaymentModal(false)} className="text-slate-400 hover:text-slate-900 text-3xl font-light transition-colors">&times;</button>
+              <button onClick={() => setShowPaymentModal(false)} className="text-slate-400 hover:text-slate-900 dark:text-slate-50 dark:hover:text-slate-100 text-3xl font-light transition-colors">&times;</button>
             </div>
             <form onSubmit={handlePaymentSubmit} className="p-6 space-y-4">
-              <div className="p-3 bg-slate-50 rounded-2xl border border-slate-100 mb-2">
+              <div className="p-3 bg-slate-50 dark:bg-slate-800 rounded-2xl border border-slate-100 dark:border-slate-700 mb-2">
                 <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest">Сотрудник</p>
-                <p className="text-sm font-bold text-slate-900">{selectedUserForPayment.name}</p>
+                <p className="text-sm font-bold text-slate-900 dark:text-slate-100">{selectedUserForPayment.name}</p>
               </div>
 
               <div className="space-y-1">
@@ -751,7 +751,7 @@ export const PayrollView: React.FC<PayrollViewProps> = ({
                   type="number" 
                   value={paymentAmount}
                   onChange={e => setPaymentAmount(e.target.value)}
-                  className="w-full bg-slate-50 border-2 border-slate-100 rounded-xl px-4 py-3 text-sm font-black text-indigo-600 outline-none focus:border-indigo-500 focus:bg-white transition-all"
+                  className="w-full bg-slate-50 dark:bg-slate-800 border-2 border-slate-100 dark:border-slate-700 rounded-xl px-4 py-3 text-sm font-black text-indigo-600 dark:text-indigo-400 outline-none focus:border-indigo-500 focus:bg-white dark:focus:bg-slate-900 transition-all shadow-sm dark:shadow-none"
                   placeholder="0"
                 />
               </div>
@@ -764,7 +764,7 @@ export const PayrollView: React.FC<PayrollViewProps> = ({
                     type="date" 
                     value={paymentDate}
                     onChange={e => setPaymentDate(e.target.value)}
-                    className="w-full bg-slate-50 border-2 border-slate-100 rounded-xl px-4 py-3 text-sm font-bold text-slate-900 outline-none focus:border-blue-500 focus:bg-white transition-all"
+                    className="w-full bg-slate-50 dark:bg-slate-800 border-2 border-slate-100 dark:border-slate-700 rounded-xl px-4 py-3 text-sm font-bold text-slate-900 dark:text-slate-100 outline-none focus:border-blue-500 focus:bg-white dark:focus:bg-slate-900 transition-all shadow-sm dark:shadow-none"
                   />
                 </div>
                 <div className="space-y-1">
@@ -772,7 +772,7 @@ export const PayrollView: React.FC<PayrollViewProps> = ({
                   <select 
                     value={paymentType}
                     onChange={e => setPaymentType(e.target.value as PaymentType)}
-                    className="w-full bg-slate-50 border-2 border-slate-100 rounded-xl px-4 py-3 text-sm font-bold text-slate-900 outline-none focus:border-blue-500 focus:bg-white transition-all"
+                    className="w-full bg-slate-50 dark:bg-slate-800 border-2 border-slate-100 dark:border-slate-700 rounded-xl px-4 py-3 text-sm font-bold text-slate-900 dark:text-slate-100 outline-none focus:border-blue-500 focus:bg-white dark:focus:bg-slate-900 transition-all shadow-sm dark:shadow-none"
                   >
                     <option value={PaymentType.ADVANCE}>Аванс</option>
                     <option value={PaymentType.SALARY}>Зарплата</option>
@@ -789,14 +789,14 @@ export const PayrollView: React.FC<PayrollViewProps> = ({
                   type="text" 
                   value={paymentComment}
                   onChange={e => setPaymentComment(e.target.value)}
-                  className="w-full bg-slate-50 border-2 border-slate-100 rounded-xl px-4 py-3 text-sm font-medium text-slate-900 outline-none focus:border-blue-500 focus:bg-white transition-all"
+                  className="w-full bg-slate-50 dark:bg-slate-800 border-2 border-slate-100 dark:border-slate-700 rounded-xl px-4 py-3 text-sm font-medium text-slate-900 dark:text-slate-100 outline-none focus:border-blue-500 focus:bg-white dark:focus:bg-slate-900 transition-all shadow-sm dark:shadow-none"
                   placeholder="Например: Аванс за март"
                 />
               </div>
 
               <button 
                 type="submit" 
-                className="w-full py-4 bg-indigo-600 text-white rounded-2xl font-black uppercase tracking-widest text-xs shadow-xl shadow-indigo-200 hover:bg-indigo-700 transition-all active:scale-95 mt-4"
+                className="w-full py-4 bg-indigo-600 text-white rounded-2xl font-black uppercase tracking-widest text-xs shadow-2xl dark:shadow-slate-900/20 shadow-indigo-200 hover:bg-indigo-700 transition-all active:scale-95 mt-4"
               >
                 Сохранить выплату
               </button>
@@ -807,18 +807,18 @@ export const PayrollView: React.FC<PayrollViewProps> = ({
 
       {selectedUserForPaymentHistory && (
         <div className="fixed inset-0 z-[150] bg-slate-900/60 backdrop-blur-sm flex items-center justify-center p-4">
-          <div className="bg-white rounded-[2.5rem] w-full max-w-2xl shadow-2xl border border-slate-200 overflow-hidden flex flex-col max-h-[85vh]">
-            <div className="p-6 border-b border-slate-100 flex justify-between items-center bg-slate-50/50 shrink-0">
+          <div className="bg-white dark:bg-slate-900 rounded-[2.5rem] w-full max-w-2xl shadow-2xl dark:shadow-slate-900/40 border border-slate-200 dark:border-slate-800 overflow-hidden flex flex-col max-h-[85vh]">
+            <div className="p-6 border-b border-slate-100 dark:border-slate-800 flex justify-between items-center bg-slate-50/50 dark:bg-slate-800/50 shrink-0">
               <div className="flex items-center gap-3">
-                <div className="p-2 bg-indigo-100 text-indigo-600 rounded-xl">
+                <div className="p-2 bg-indigo-100 dark:bg-indigo-900/40 text-indigo-600 dark:text-indigo-400 rounded-xl">
                   <History size={20} />
                 </div>
                 <div>
-                  <h3 className="font-black text-slate-900 uppercase tracking-tight text-lg">История выплат</h3>
-                  <p className="text-[10px] font-bold text-slate-400 uppercase tracking-widest">{selectedUserForPaymentHistory.name} • {filterMonth}</p>
+                  <h3 className="font-black text-slate-900 dark:text-slate-100 uppercase tracking-tight text-lg">История выплат</h3>
+                  <p className="text-[10px] font-bold text-slate-400 dark:text-slate-400 uppercase tracking-widest">{selectedUserForPaymentHistory.name} • {filterMonth}</p>
                 </div>
               </div>
-              <button onClick={() => setSelectedUserForPaymentHistory(null)} className="text-slate-400 hover:text-slate-900 text-3xl font-light transition-colors">&times;</button>
+              <button onClick={() => setSelectedUserForPaymentHistory(null)} className="text-slate-400 hover:text-slate-900 dark:text-slate-50 dark:hover:text-slate-100 text-3xl font-light transition-colors">&times;</button>
             </div>
             
             <div className="p-6 overflow-y-auto custom-scrollbar">
@@ -828,14 +828,14 @@ export const PayrollView: React.FC<PayrollViewProps> = ({
                     .filter(p => p.userId === selectedUserForPaymentHistory.id && p.date.startsWith(filterMonth))
                     .sort((a, b) => b.date.localeCompare(a.date))
                     .map(payment => (
-                      <div key={payment.id} className="flex items-center justify-between p-4 bg-slate-50 rounded-2xl border border-slate-100 hover:border-indigo-200 transition-all group">
+                      <div key={payment.id} className="flex items-center justify-between p-4 bg-slate-50 dark:bg-slate-800 rounded-2xl border border-slate-100 dark:border-slate-700 hover:border-indigo-200 dark:hover:border-indigo-900 transition-all group">
                         <div className="flex items-center gap-4">
                           <div className={`w-10 h-10 rounded-xl flex items-center justify-center font-black text-xs ${
-                            payment.type === PaymentType.ADVANCE ? 'bg-amber-100 text-amber-600' :
-                            payment.type === PaymentType.BONUS ? 'bg-green-100 text-green-600' :
-                            payment.type === PaymentType.SALARY ? 'bg-blue-100 text-blue-600' :
-                            payment.type === PaymentType.FINE ? 'bg-red-100 text-red-600' :
-                            'bg-slate-100 text-slate-600'
+                            payment.type === PaymentType.ADVANCE ? 'bg-amber-100 dark:bg-amber-900/40 text-amber-600 dark:text-amber-400' :
+                            payment.type === PaymentType.BONUS ? 'bg-green-100 dark:bg-green-900/40 text-green-600 dark:text-green-400' :
+                            payment.type === PaymentType.SALARY ? 'bg-blue-100 dark:bg-blue-900/40 text-blue-600 dark:text-blue-400' :
+                            payment.type === PaymentType.FINE ? 'bg-red-100 dark:bg-red-900/40 text-red-600 dark:text-red-400' :
+                            'bg-slate-100 dark:bg-slate-800 text-slate-600 dark:text-slate-400'
                           }`}>
                             {payment.type === PaymentType.ADVANCE ? 'А' :
                              payment.type === PaymentType.BONUS ? 'П' :
@@ -844,19 +844,19 @@ export const PayrollView: React.FC<PayrollViewProps> = ({
                           </div>
                           <div>
                             <div className="flex items-center gap-2">
-                              <span className="text-xs font-black text-slate-900 uppercase tracking-tight">
+                              <span className="text-xs font-black text-slate-900 dark:text-slate-100 uppercase tracking-tight">
                                 {payment.type === PaymentType.ADVANCE ? 'Аванс' :
                                  payment.type === PaymentType.BONUS ? 'Премия' :
                                  payment.type === PaymentType.SALARY ? 'Зарплата' : 
                                  payment.type === PaymentType.FINE ? 'Штраф' : 'Выплата'}
                               </span>
-                              <span className="text-[10px] font-bold text-slate-400">{format(new Date(payment.date), 'dd.MM.yyyy')}</span>
+                              <span className="text-[10px] font-bold text-slate-400 dark:text-slate-400">{format(new Date(payment.date), 'dd.MM.yyyy')}</span>
                             </div>
-                            {payment.comment && <p className="text-[10px] text-slate-500 font-medium mt-0.5">{payment.comment}</p>}
+                            {payment.comment && <p className="text-[10px] text-slate-500 dark:text-slate-400 font-medium mt-0.5">{payment.comment}</p>}
                           </div>
                         </div>
                         <div className="flex items-center gap-4">
-                          <span className="text-sm font-black text-slate-900">{payment.amount.toLocaleString()} ₽</span>
+                          <span className="text-sm font-black text-slate-900 dark:text-slate-100">{payment.amount.toLocaleString()} ₽</span>
                           <button 
                             onClick={() => {
                               if (isPaid) return;
@@ -865,7 +865,7 @@ export const PayrollView: React.FC<PayrollViewProps> = ({
                               }
                             }}
                             disabled={isPaid}
-                            className={`p-2 rounded-xl transition-all ${isPaid ? 'text-slate-200 cursor-not-allowed' : 'text-slate-300 hover:text-red-500 hover:bg-red-50 opacity-0 group-hover:opacity-100'}`}
+                            className={`p-2 rounded-xl transition-all ${isPaid ? 'text-slate-200 dark:text-slate-700 cursor-not-allowed' : 'text-slate-400 dark:text-slate-300 hover:text-red-500 hover:bg-red-50 dark:hover:bg-red-900/20 opacity-0 group-hover:opacity-100'}`}
                             title={isPaid ? "Финансовый период закрыт" : "Удалить"}
                           >
                             <Trash2 size={16} />
@@ -876,18 +876,18 @@ export const PayrollView: React.FC<PayrollViewProps> = ({
                 </div>
               ) : (
                 <div className="text-center py-12">
-                  <div className="w-16 h-16 bg-slate-50 rounded-full flex items-center justify-center mx-auto mb-4">
-                    <Wallet className="text-slate-300" size={32} />
+                  <div className="w-16 h-16 bg-slate-50 dark:bg-slate-800 rounded-full flex items-center justify-center mx-auto mb-4">
+                    <Wallet className="text-slate-300 dark:text-slate-600" size={32} />
                   </div>
-                  <p className="text-sm font-bold text-slate-400 uppercase tracking-widest">Выплат не найдено</p>
+                  <p className="text-sm font-bold text-slate-400 dark:text-slate-300 uppercase tracking-widest">Выплат не найдено</p>
                 </div>
               )}
             </div>
             
-            <div className="p-6 bg-slate-50 border-t border-slate-100 flex justify-between items-center shrink-0">
+            <div className="p-6 bg-slate-50 dark:bg-slate-800 border-t border-slate-100 dark:border-slate-700 flex justify-between items-center shrink-0">
               <div className="flex flex-col">
-                <span className="text-[10px] font-black text-slate-400 uppercase tracking-widest">Всего выплачено</span>
-                <span className="text-xl font-black text-indigo-600">
+                <span className="text-[10px] font-black text-slate-400 dark:text-slate-400 uppercase tracking-widest">Всего выплачено</span>
+                <span className="text-xl font-black text-indigo-600 dark:text-indigo-400">
                   {payments
                     .filter(p => p.userId === selectedUserForPaymentHistory.id && p.date.startsWith(filterMonth))
                     .reduce((sum, p) => sum + p.amount, 0)
@@ -896,7 +896,7 @@ export const PayrollView: React.FC<PayrollViewProps> = ({
               </div>
               <button 
                 onClick={() => setSelectedUserForPaymentHistory(null)}
-                className="px-8 py-3 bg-slate-900 text-white rounded-2xl font-black text-xs uppercase tracking-widest hover:bg-slate-800 transition-all active:scale-95 shadow-lg shadow-slate-200"
+                className="px-8 py-3 bg-slate-900 dark:bg-slate-700 text-white rounded-2xl font-black text-xs uppercase tracking-widest hover:bg-slate-800 dark:hover:bg-slate-600 transition-all active:scale-95 shadow-xl dark:shadow-slate-900/20 shadow-slate-200 dark:shadow-none"
               >
                 Закрыть
               </button>

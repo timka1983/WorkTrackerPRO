@@ -95,7 +95,7 @@ export const PaymentSuccess: React.FC = () => {
       <div className="min-h-screen bg-slate-50 flex items-center justify-center p-4">
         <div className="text-center">
           <div className="w-16 h-16 border-4 border-blue-600 border-t-transparent rounded-full animate-spin mx-auto mb-4"></div>
-          <p className="text-slate-600 font-bold uppercase tracking-widest text-xs">Обработка платежа...</p>
+          <p className="text-slate-600 dark:text-slate-300 font-bold uppercase tracking-widest text-xs">Обработка платежа...</p>
         </div>
       </div>
     );
@@ -104,16 +104,16 @@ export const PaymentSuccess: React.FC = () => {
   if (status === 'error') {
     return (
       <div className="min-h-screen bg-slate-50 flex items-center justify-center p-4">
-        <div className="bg-white p-8 rounded-[2.5rem] shadow-xl max-w-md w-full text-center border border-slate-200">
-          <div className="w-20 h-20 bg-red-50 text-red-600 rounded-3xl flex items-center justify-center mx-auto mb-6">
+        <div className="bg-white p-8 rounded-[2.5rem] shadow-2xl dark:shadow-slate-900/20 max-w-md w-full text-center border border-slate-200">
+          <div className="w-20 h-20 bg-red-50 text-red-600 dark:text-red-400 rounded-3xl flex items-center justify-center mx-auto mb-6">
             <svg className="w-10 h-10" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={3} d="M6 18L18 6M6 6l12 12"/></svg>
           </div>
-          <h2 className="text-2xl font-black text-slate-900 uppercase tracking-tighter mb-2">Ошибка оплаты</h2>
-          <p className="text-slate-500 text-sm font-medium mb-4">Не удалось подтвердить платеж. Пожалуйста, свяжитесь с поддержкой.</p>
+          <h2 className="text-2xl font-black text-slate-900 dark:text-slate-50 uppercase tracking-tighter mb-2">Ошибка оплаты</h2>
+          <p className="text-slate-500 dark:text-slate-400 text-sm font-medium mb-4">Не удалось подтвердить платеж. Пожалуйста, свяжитесь с поддержкой.</p>
           {errorMessage && (
             <div className="bg-red-50 border border-red-100 rounded-xl p-4 mb-8 text-left">
               <p className="text-[10px] font-black text-red-400 uppercase tracking-widest mb-1">Технические детали:</p>
-              <p className="text-xs font-bold text-red-600 break-words">{errorMessage}</p>
+              <p className="text-xs font-bold text-red-600 dark:text-red-400 break-words">{errorMessage}</p>
             </div>
           )}
           <button 
@@ -127,7 +127,7 @@ export const PaymentSuccess: React.FC = () => {
               setPlan(new URLSearchParams(window.location.search).get('plan') || 'PRO');
               setStatus('success');
             }}
-            className="w-full py-3 bg-white text-slate-400 border border-slate-200 rounded-2xl font-bold uppercase tracking-widest text-[10px] hover:text-slate-600 transition-all"
+            className="w-full py-3 bg-white text-slate-400 border border-slate-200 rounded-2xl font-bold uppercase tracking-widest text-[10px] hover:text-slate-600 dark:text-slate-300 transition-all"
           >
             Пропустить и продолжить (демо)
           </button>
@@ -138,16 +138,16 @@ export const PaymentSuccess: React.FC = () => {
 
   return (
     <div className="min-h-screen bg-slate-50 flex items-center justify-center p-4">
-      <div className="bg-white p-8 rounded-[2.5rem] shadow-xl max-w-md w-full text-center border border-slate-200 relative overflow-hidden">
+      <div className="bg-white p-8 rounded-[2.5rem] shadow-2xl dark:shadow-slate-900/20 max-w-md w-full text-center border border-slate-200 relative overflow-hidden">
         <div className="absolute top-0 left-0 w-full h-2 bg-green-500"></div>
         
-        <div className="w-20 h-20 bg-green-50 text-green-600 rounded-3xl flex items-center justify-center mx-auto mb-6">
+        <div className="w-20 h-20 bg-green-50 text-green-600 dark:text-green-400 rounded-3xl flex items-center justify-center mx-auto mb-6">
           <CheckCircle className="w-10 h-10" />
         </div>
         
-        <h2 className="text-2xl font-black text-slate-900 uppercase tracking-tighter mb-2">Оплата успешна!</h2>
-        <p className="text-slate-500 text-sm font-medium mb-8">
-          Тариф <span className="text-blue-600 font-black uppercase">{plan}</span> активирован на 30 дней. 
+        <h2 className="text-2xl font-black text-slate-900 dark:text-slate-50 uppercase tracking-tighter mb-2">Оплата успешна!</h2>
+        <p className="text-slate-500 dark:text-slate-400 text-sm font-medium mb-8">
+          Тариф <span className="text-blue-600 dark:text-blue-400 font-black uppercase">{plan}</span> активирован на 30 дней. 
           Все функции уже доступны.
         </p>
         

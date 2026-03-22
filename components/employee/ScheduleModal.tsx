@@ -20,11 +20,11 @@ interface ScheduleModalProps {
 type ShiftType = 'Р' | 'В' | 'Д' | 'О' | 'Н';
 
 const SHIFT_COLORS = {
-  'Р': 'bg-blue-100 text-blue-700',
-  'В': 'bg-slate-50 text-slate-300',
-  'Д': 'bg-amber-100 text-amber-700',
-  'О': 'bg-purple-100 text-purple-700',
-  'Н': 'bg-indigo-100 text-indigo-700',
+  'Р': 'bg-blue-100 dark:bg-blue-900/30 text-blue-700 dark:text-blue-400',
+  'В': 'bg-slate-50 dark:bg-slate-800/50 text-slate-300 dark:text-slate-600 dark:text-slate-300',
+  'Д': 'bg-amber-100 dark:bg-amber-900/30 text-amber-700 dark:text-amber-400',
+  'О': 'bg-purple-100 dark:bg-purple-900/30 text-purple-700 dark:text-purple-400',
+  'Н': 'bg-indigo-100 dark:bg-indigo-900/30 text-indigo-700 dark:text-indigo-400',
 };
 
 const SHIFT_LABELS = {
@@ -136,14 +136,14 @@ export const ScheduleModal: React.FC<ScheduleModalProps> = ({
   };
 
   return (
-    <div className="fixed inset-0 bg-slate-900/50 backdrop-blur-sm z-[100] flex items-end sm:items-center justify-center p-0 sm:p-4">
-      <div className="bg-white w-full max-w-md rounded-t-3xl sm:rounded-3xl shadow-2xl flex flex-col max-h-[90vh]">
-        <div className="p-4 border-b border-slate-100 flex items-center justify-between sticky top-0 bg-white/80 backdrop-blur-md z-10 rounded-t-3xl">
-          <h2 className="text-lg font-bold text-slate-900 flex items-center gap-2">
+    <div className="fixed inset-0 bg-slate-900/50 dark:bg-black/70 backdrop-blur-sm z-[100] flex items-end sm:items-center justify-center p-0 sm:p-4 transition-colors">
+      <div className="bg-white dark:bg-slate-900 w-full max-w-md rounded-t-3xl sm:rounded-3xl shadow-2xl dark:shadow-slate-900/40 flex flex-col max-h-[90vh] border border-slate-200 dark:border-slate-800">
+        <div className="p-4 border-b border-slate-100 dark:border-slate-800 flex items-center justify-between sticky top-0 bg-white/80 dark:bg-slate-900/80 backdrop-blur-md z-10 rounded-t-3xl">
+          <h2 className="text-lg font-bold text-slate-900 dark:text-slate-50 dark:text-white flex items-center gap-2">
             <CalendarIcon className="w-5 h-5 text-blue-500" />
             {readOnly ? 'График работы' : 'Составьте график'}
           </h2>
-          <button onClick={onClose} className="p-2 text-slate-400 hover:text-slate-600 hover:bg-slate-100 rounded-full transition-colors">
+          <button onClick={onClose} className="p-2 text-slate-400 hover:text-slate-600 dark:text-slate-300 dark:hover:text-slate-300 hover:bg-slate-100 dark:hover:bg-slate-800 rounded-full transition-colors">
             <X className="w-5 h-5" />
           </button>
         </div>
@@ -152,18 +152,18 @@ export const ScheduleModal: React.FC<ScheduleModalProps> = ({
           {/* Calendar View */}
           <div className="mb-6">
             <div className="flex items-center justify-between mb-4">
-              <button onClick={handlePrevMonth} className="p-1.5 rounded-lg hover:bg-slate-100 text-slate-600 transition-colors">
+              <button onClick={handlePrevMonth} className="p-1.5 rounded-lg hover:bg-slate-100 dark:hover:bg-slate-800 text-slate-600 dark:text-slate-400 transition-colors">
                 <ChevronLeft className="w-5 h-5" />
               </button>
-              <h3 className="font-bold text-slate-700 capitalize">{format(monthStart, 'LLLL yyyy', { locale: ru })}</h3>
-              <button onClick={handleNextMonth} className="p-1.5 rounded-lg hover:bg-slate-100 text-slate-600 transition-colors">
+              <h3 className="font-bold text-slate-700 dark:text-slate-300 capitalize">{format(monthStart, 'LLLL yyyy', { locale: ru })}</h3>
+              <button onClick={handleNextMonth} className="p-1.5 rounded-lg hover:bg-slate-100 dark:hover:bg-slate-800 text-slate-600 dark:text-slate-400 transition-colors">
                 <ChevronRight className="w-5 h-5" />
               </button>
             </div>
             
             <div className="grid grid-cols-7 gap-1 mb-2">
               {['Пн', 'Вт', 'Ср', 'Чт', 'Пт', 'Сб', 'Вс'].map(day => (
-                <div key={day} className="text-center text-[10px] font-bold text-slate-400 uppercase">{day}</div>
+                <div key={day} className="text-center text-[10px] font-bold text-slate-400 dark:text-slate-500 dark:text-slate-400 uppercase">{day}</div>
               ))}
             </div>
             
@@ -195,12 +195,12 @@ export const ScheduleModal: React.FC<ScheduleModalProps> = ({
                     className={`
                       aspect-square rounded-xl flex flex-col items-center justify-center relative transition-all
                       ${!isCurrentMonth ? 'opacity-30' : ''}
-                      ${isSelected ? 'ring-2 ring-blue-500 ring-offset-2' : 'hover:bg-slate-50'}
-                      ${shift ? SHIFT_COLORS[shift] : 'bg-slate-50'}
+                      ${isSelected ? 'ring-2 ring-blue-500 ring-offset-2 dark:ring-offset-slate-900' : 'hover:bg-slate-50 dark:hover:bg-slate-800'}
+                      ${shift ? SHIFT_COLORS[shift] : 'bg-slate-50 dark:bg-slate-800/50'}
                       ${readOnly ? 'cursor-default' : ''}
                     `}
                   >
-                    <span className={`text-sm font-bold ${shift ? '' : 'text-slate-600'}`}>
+                    <span className={`text-sm font-bold ${shift ? '' : 'text-slate-600 dark:text-slate-400'}`}>
                       {format(day, 'd')}
                     </span>
                     {shift && (
@@ -217,8 +217,8 @@ export const ScheduleModal: React.FC<ScheduleModalProps> = ({
           {!readOnly && (
             <>
               {/* Single Day Edit */}
-              <div className="mb-8 bg-slate-50 p-4 rounded-2xl border border-slate-100">
-                <h4 className="text-xs font-bold text-slate-500 uppercase tracking-wider mb-3">
+              <div className="mb-8 bg-slate-50 dark:bg-slate-800/50 p-4 rounded-2xl border border-slate-100 dark:border-slate-800">
+                <h4 className="text-xs font-bold text-slate-500 dark:text-slate-400 uppercase tracking-wider mb-3">
                   Смена на {format(selectedDate, 'd MMMM', { locale: ru })}
                 </h4>
                 <div className="flex flex-wrap gap-2">
@@ -233,7 +233,7 @@ export const ScheduleModal: React.FC<ScheduleModalProps> = ({
                   ))}
                   <button
                     onClick={() => handleSetShift(null)}
-                    className="px-4 py-2 rounded-xl text-sm font-bold bg-white border border-slate-200 text-slate-600 hover:bg-slate-50"
+                    className="px-4 py-2 rounded-xl text-sm font-bold bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 text-slate-600 dark:text-slate-400 hover:bg-slate-50 dark:hover:bg-slate-700 transition-colors"
                   >
                     Очистить
                   </button>
@@ -242,27 +242,27 @@ export const ScheduleModal: React.FC<ScheduleModalProps> = ({
 
               {/* Pattern Builder */}
               <div>
-                <h4 className="text-xs font-bold text-slate-500 uppercase tracking-wider mb-3 flex items-center gap-2">
+                <h4 className="text-xs font-bold text-slate-500 dark:text-slate-400 uppercase tracking-wider mb-3 flex items-center gap-2">
                   <Wand2 className="w-4 h-4" />
                   Автоматическое заполнение
                 </h4>
                 
-                <div className="bg-slate-50 p-4 rounded-2xl border border-slate-100 mb-4">
+                <div className="bg-slate-50 dark:bg-slate-800/50 p-4 rounded-2xl border border-slate-100 dark:border-slate-800 mb-4">
                   <div className="mb-4">
-                    <label className="block text-xs font-bold text-slate-500 mb-2">Начать с даты:</label>
+                    <label className="block text-xs font-bold text-slate-500 dark:text-slate-400 mb-2">Начать с даты:</label>
                     <input 
                       type="date" 
                       value={format(patternStartDate, 'yyyy-MM-dd')}
                       onChange={(e) => setPatternStartDate(new Date(e.target.value))}
-                      className="w-full p-2 rounded-xl border border-slate-200 text-sm font-bold"
+                      className="w-full p-2 rounded-xl border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-800 text-sm font-bold text-slate-900 dark:text-slate-50 dark:text-white focus:ring-2 focus:ring-blue-500 outline-none"
                     />
                   </div>
 
                   <div className="mb-4">
-                    <label className="block text-xs font-bold text-slate-500 mb-2">Шаблон (добавьте смены по порядку):</label>
-                    <div className="flex flex-wrap gap-2 mb-3 min-h-[40px] p-2 bg-white rounded-xl border border-slate-200 items-center">
+                    <label className="block text-xs font-bold text-slate-500 dark:text-slate-400 mb-2">Шаблон (добавьте смены по порядку):</label>
+                    <div className="flex flex-wrap gap-2 mb-3 min-h-[40px] p-2 bg-white dark:bg-slate-800 rounded-xl border border-slate-200 dark:border-slate-700 items-center">
                       {pattern.length === 0 ? (
-                        <span className="text-xs text-slate-400 font-medium px-2">Шаблон пуст</span>
+                        <span className="text-xs text-slate-400 dark:text-slate-500 dark:text-slate-400 font-medium px-2">Шаблон пуст</span>
                       ) : (
                         pattern.map((shift, idx) => (
                           <div key={idx} className={`w-8 h-8 rounded-lg flex items-center justify-center font-bold text-sm ${SHIFT_COLORS[shift]}`}>
@@ -273,7 +273,7 @@ export const ScheduleModal: React.FC<ScheduleModalProps> = ({
                       {pattern.length > 0 && (
                         <button 
                           onClick={() => setPattern([])}
-                          className="ml-auto p-1.5 text-slate-400 hover:text-rose-500 hover:bg-rose-50 rounded-lg transition-colors"
+                          className="ml-auto p-1.5 text-slate-400 hover:text-rose-500 hover:bg-rose-50 dark:hover:bg-rose-900/30 rounded-lg transition-colors"
                           title="Очистить шаблон"
                         >
                           <Trash2 className="w-4 h-4" />
@@ -296,12 +296,12 @@ export const ScheduleModal: React.FC<ScheduleModalProps> = ({
 
                   {/* Predefined patterns */}
                   <div className="mb-4">
-                    <label className="block text-xs font-bold text-slate-500 mb-2">Или выберите готовый:</label>
+                    <label className="block text-xs font-bold text-slate-500 dark:text-slate-400 mb-2">Или выберите готовый:</label>
                     <div className="flex flex-wrap gap-2">
-                      <button onClick={() => setPattern(['Д', 'Д', 'В', 'В'])} className="px-3 py-1.5 bg-white border border-slate-200 rounded-lg text-xs font-bold text-slate-600 hover:bg-slate-50">2/2 (День)</button>
-                      <button onClick={() => setPattern(['Д', 'Н', 'В', 'В'])} className="px-3 py-1.5 bg-white border border-slate-200 rounded-lg text-xs font-bold text-slate-600 hover:bg-slate-50">День/Ночь/2В</button>
-                      <button onClick={() => setPattern(['Д', 'Д', 'Д', 'В', 'В', 'В'])} className="px-3 py-1.5 bg-white border border-slate-200 rounded-lg text-xs font-bold text-slate-600 hover:bg-slate-50">3/3</button>
-                      <button onClick={() => setPattern(['Р', 'Р', 'Р', 'Р', 'Р', 'В', 'В'])} className="px-3 py-1.5 bg-white border border-slate-200 rounded-lg text-xs font-bold text-slate-600 hover:bg-slate-50">5/2</button>
+                      <button onClick={() => setPattern(['Д', 'Д', 'В', 'В'])} className="px-3 py-1.5 bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-lg text-xs font-bold text-slate-600 dark:text-slate-400 hover:bg-slate-50 dark:hover:bg-slate-700 transition-colors">2/2 (День)</button>
+                      <button onClick={() => setPattern(['Д', 'Н', 'В', 'В'])} className="px-3 py-1.5 bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-lg text-xs font-bold text-slate-600 dark:text-slate-400 hover:bg-slate-50 dark:hover:bg-slate-700 transition-colors">День/Ночь/2В</button>
+                      <button onClick={() => setPattern(['Д', 'Д', 'Д', 'В', 'В', 'В'])} className="px-3 py-1.5 bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-lg text-xs font-bold text-slate-600 dark:text-slate-400 hover:bg-slate-50 dark:hover:bg-slate-700 transition-colors">3/3</button>
+                      <button onClick={() => setPattern(['Р', 'Р', 'Р', 'Р', 'Р', 'В', 'В'])} className="px-3 py-1.5 bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-lg text-xs font-bold text-slate-600 dark:text-slate-400 hover:bg-slate-50 dark:hover:bg-slate-700 transition-colors">5/2</button>
                     </div>
                   </div>
 

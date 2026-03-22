@@ -49,16 +49,16 @@ const ResetPinModal: React.FC<ResetPinModalProps> = ({ currentOrg, onClose, onSu
 
   return (
     <div className="fixed inset-0 z-[250] bg-slate-900/80 backdrop-blur-md flex items-center justify-center p-4 animate-fadeIn">
-      <div className="bg-white rounded-[2.5rem] shadow-2xl p-8 w-full max-w-sm border border-slate-200">
+      <div className="bg-white rounded-[2.5rem] shadow-2xl dark:shadow-slate-900/40 p-8 w-full max-w-sm border border-slate-200">
         <div className="flex justify-between items-center mb-6">
-          <h3 className="text-lg font-black text-slate-900 uppercase tracking-tight">Сброс PIN админа</h3>
-          <button onClick={onClose} className="text-slate-400 hover:text-slate-900 text-2xl">&times;</button>
+          <h3 className="text-lg font-black text-slate-900 dark:text-slate-50 uppercase tracking-tight">Сброс PIN админа</h3>
+          <button onClick={onClose} className="text-slate-400 hover:text-slate-900 dark:text-slate-50 text-2xl">&times;</button>
         </div>
         
         <form onSubmit={handleResetRequest} className="space-y-6">
           {resetStep === 'email' ? (
             <div className="space-y-4">
-              <p className="text-xs text-slate-500 font-medium leading-relaxed">
+              <p className="text-xs text-slate-500 dark:text-slate-400 font-medium leading-relaxed">
                 Введите email организации для подтверждения личности.
               </p>
               <div>
@@ -75,7 +75,7 @@ const ResetPinModal: React.FC<ResetPinModalProps> = ({ currentOrg, onClose, onSu
             </div>
           ) : (
             <div className="space-y-4">
-              <p className="text-xs text-slate-500 font-medium leading-relaxed">
+              <p className="text-xs text-slate-500 dark:text-slate-400 font-medium leading-relaxed">
                 Email подтвержден. Введите новый 4-значный PIN.
               </p>
               <div>
@@ -87,21 +87,21 @@ const ResetPinModal: React.FC<ResetPinModalProps> = ({ currentOrg, onClose, onSu
                   value={tempNewPin}
                   onChange={e => setTempNewPin(e.target.value.replace(/[^0-9]/g, ''))}
                   placeholder="0000"
-                  className="w-full bg-slate-50 border-2 border-slate-100 rounded-2xl px-5 py-3 text-lg font-black tracking-[0.5em] text-center text-blue-600"
+                  className="w-full bg-slate-50 border-2 border-slate-100 rounded-2xl px-5 py-3 text-lg font-black tracking-[0.5em] text-center text-blue-600 dark:text-blue-400"
                 />
               </div>
             </div>
           )}
 
           {resetStatus && (
-            <p className={`text-[10px] font-bold text-center uppercase p-2 rounded-lg ${resetStatus.type === 'success' ? 'bg-green-50 text-green-600' : 'bg-red-50 text-red-600'}`}>
+            <p className={`text-[10px] font-bold text-center uppercase p-2 rounded-lg ${resetStatus.type === 'success' ? 'bg-green-50 text-green-600 dark:text-green-400' : 'bg-red-50 text-red-600 dark:text-red-400'}`}>
               {resetStatus.text}
             </p>
           )}
 
           <button 
             type="submit"
-            className="w-full py-4 bg-blue-600 text-white rounded-2xl font-black uppercase tracking-widest text-xs shadow-xl shadow-blue-100 active:scale-95 transition-all"
+            className="w-full py-4 bg-blue-600 text-white rounded-2xl font-black uppercase tracking-widest text-xs shadow-2xl dark:shadow-slate-900/20 shadow-blue-100 active:scale-95 transition-all"
           >
             {resetStep === 'email' ? 'Подтвердить Email' : 'Сбросить пароль'}
           </button>

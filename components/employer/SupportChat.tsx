@@ -177,20 +177,20 @@ export const SupportChat: React.FC<SupportChatProps> = ({ currentUser, orgId, on
   };
 
   return (
-    <div className="bg-white rounded-3xl border border-slate-200 shadow-sm flex flex-col h-[600px]">
-      <div className="p-6 border-b border-slate-100 flex items-center justify-between">
+    <div className="bg-white dark:bg-slate-900 rounded-3xl border border-slate-200 dark:border-slate-800 shadow-md dark:shadow-slate-900/20 flex flex-col h-[600px]">
+      <div className="p-6 border-b border-slate-100 dark:border-slate-800 flex items-center justify-between">
         <div className="flex items-center gap-3">
           {isSuperAdmin && selectedOrgId !== 'all' ? (
             <button 
               onClick={() => setSelectedOrgId('all')}
-              className="p-1.5 bg-slate-100 text-slate-600 rounded-lg hover:bg-slate-200 transition-colors"
+              className="p-1.5 bg-slate-100 text-slate-600 dark:text-slate-300 rounded-lg hover:bg-slate-200 transition-colors"
             >
               <ChevronLeft size={18} />
             </button>
           ) : (
-            <MessageSquare className="text-indigo-600" />
+            <MessageSquare className="text-indigo-600 dark:text-indigo-400" />
           )}
-          <h3 className="font-bold text-slate-900 uppercase text-xs tracking-widest">
+          <h3 className="font-bold text-slate-900 dark:text-slate-50 uppercase text-xs tracking-widest">
             {isSuperAdmin && selectedOrgId !== 'all' 
               ? `Чат: ${orgNames[selectedOrgId] || selectedOrgId}` 
               : 'Чат с техподдержкой'}
@@ -200,7 +200,7 @@ export const SupportChat: React.FC<SupportChatProps> = ({ currentUser, orgId, on
 
       {isSuperAdmin && selectedOrgId === 'all' ? (
         <div className="flex-1 flex flex-col overflow-hidden">
-          <div className="p-4 border-b border-slate-100">
+          <div className="p-4 border-b border-slate-100 dark:border-slate-800">
             <div className="relative">
               <Search className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400" size={16} />
               <input
@@ -208,7 +208,7 @@ export const SupportChat: React.FC<SupportChatProps> = ({ currentUser, orgId, on
                 value={orgSearchTerm}
                 onChange={(e) => setOrgSearchTerm(e.target.value)}
                 placeholder="Поиск организации..."
-                className="w-full pl-9 pr-4 py-2 bg-slate-50 border border-slate-200 rounded-xl text-sm outline-none focus:border-indigo-500 transition-colors"
+                className="w-full pl-9 pr-4 py-2 bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-xl text-sm outline-none focus:border-indigo-500 transition-colors text-slate-900 dark:text-slate-100"
               />
             </div>
           </div>
@@ -225,9 +225,9 @@ export const SupportChat: React.FC<SupportChatProps> = ({ currentUser, orgId, on
                     <button
                       key={id}
                       onClick={() => setSelectedOrgId(id)}
-                      className="w-full flex items-center justify-between p-3 rounded-xl hover:bg-slate-50 transition-colors text-left"
+                      className="w-full flex items-center justify-between p-3 rounded-xl hover:bg-slate-50 dark:hover:bg-slate-800 transition-colors text-left text-slate-900 dark:text-slate-100"
                     >
-                      <span className="text-sm font-medium text-slate-700 truncate pr-4">{name}</span>
+                      <span className="text-sm font-medium text-slate-700 dark:text-slate-200 truncate pr-4">{name}</span>
                       {unreadCount > 0 && (
                         <span className="flex-shrink-0 bg-red-500 text-white text-[10px] font-bold px-2 py-0.5 rounded-full">
                           {unreadCount > 99 ? '99+' : unreadCount}
@@ -268,7 +268,7 @@ export const SupportChat: React.FC<SupportChatProps> = ({ currentUser, orgId, on
                     {m.senderName} {isSuperAdmin && `(${orgNames[m.organizationId] || m.organizationId})`}
                   </span>
                   <div 
-                    className="p-3 rounded-2xl max-w-[80%] transition-all shadow-sm border"
+                    className="p-3 rounded-2xl max-w-[80%] transition-all shadow-md dark:shadow-slate-900/20 border"
                     style={{ 
                       wordBreak: 'break-word',
                       backgroundColor: bgColor,
@@ -283,7 +283,7 @@ export const SupportChat: React.FC<SupportChatProps> = ({ currentUser, orgId, on
             })}
             <div ref={messagesEndRef} />
           </div>
-          <form onSubmit={handleSendMessage} className="p-4 border-t border-slate-100 flex gap-2">
+          <form onSubmit={handleSendMessage} className="p-4 border-t border-slate-100 dark:border-slate-800 flex gap-2">
             <input
               type="text"
               value={newMessage}
@@ -294,7 +294,7 @@ export const SupportChat: React.FC<SupportChatProps> = ({ currentUser, orgId, on
                 "Ваше сообщение..."
               }
               disabled={!currentUser || (!isSuperAdmin && !orgId)}
-              className="flex-1 border-2 border-slate-100 rounded-2xl px-4 py-3 text-sm outline-none focus:border-indigo-500 disabled:bg-slate-50"
+              className="flex-1 border-2 border-slate-100 dark:border-slate-700 rounded-2xl px-4 py-3 text-sm outline-none focus:border-indigo-500 disabled:bg-slate-50 dark:disabled:bg-slate-800 bg-white dark:bg-slate-900 text-slate-900 dark:text-slate-100"
             />
             <button 
               type="submit" 
