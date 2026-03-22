@@ -1,6 +1,6 @@
 
 import React, { useState, useEffect, useMemo, useRef, memo } from 'react';
-import { WorkLog, User, EntryType, Machine, PositionConfig, PlanLimits, Organization, PayrollPeriod, PayrollStatus, PayrollPayment } from '../types';
+import { WorkLog, User, EntryType, Machine, PositionConfig, PlanLimits, Organization, PayrollPeriod, PayrollStatus, PayrollPayment, LocationSettings } from '../types';
 import { formatTime, formatDate, formatDuration, calculateMinutes, getDaysInMonthArray, formatDurationShort, sendNotification, calculateDistance, sendTelegramNotification, applyRounding, getEffectivePayrollConfig, calculateMonthlyPayroll } from '../utils';
 import { STORAGE_KEYS, DEFAULT_PERMISSIONS } from '../constants';
 import { format, isAfter, endOfMonth, eachDayOfInterval, getDay, addMonths, startOfDay, startOfMonth, subMonths } from 'date-fns';
@@ -54,10 +54,10 @@ const EmployeeView: React.FC<EmployeeViewProps> = ({
   const [overtimeAlerts, setOvertimeAlerts] = useState<Record<number, boolean>>({});
   const [overdueStages, setOverdueStages] = useState<Record<number, { stage: number, lastCheck: number }>>({});
 
-  const checkGeoZone = (coords: GeolocationCoordinates, geoZone?: { lat: number, lon: number, radius: number }) => {
-    if (!geoZone) return true;
-    const distance = calculateDistance(coords.latitude, coords.longitude, geoZone.lat, geoZone.lon);
-    return distance <= geoZone.radius;
+  const checkGeoZone = (coords: GeolocationCoordinates, locationSettings?: LocationSettings) => {
+    if (!locationSettings || !locationSettings.enabled) return true;
+    const distance = calculateDistance(coords.latitude, coords.longitude, locationSettings.latitude, locationSettings.longitude);
+    return distance <= locationSettings.radius;
   };
 
   useEffect(() => {
@@ -92,7 +92,7 @@ const EmployeeView: React.FC<EmployeeViewProps> = ({
                   navigator.geolocation.getCurrentPosition(resolve, reject, { enableHighAccuracy: true, timeout: 10000 });
                 });
                 
-                const isInZone = checkGeoZone(position.coords, currentOrg?.geoZone);
+                const isInZone = checkGeoZone(position.coords, currentOrg?.locationSettings);
                 
                 if (!isInZone) {
                   handleForceClose(shift.id, now.toISOString());
@@ -111,7 +111,7 @@ const EmployeeView: React.FC<EmployeeViewProps> = ({
                 const position = await new Promise<GeolocationPosition>((resolve, reject) => {
                   navigator.geolocation.getCurrentPosition(resolve, reject, { enableHighAccuracy: true, timeout: 10000 });
                 });
-                const isInZone = checkGeoZone(position.coords, currentOrg?.geoZone);
+                const isInZone = checkGeoZone(position.coords, currentOrg?.locationSettings);
                 if (!isInZone) {
                   handleForceClose(shift.id, now.toISOString());
                   delete updatedOverdueStages[slot];

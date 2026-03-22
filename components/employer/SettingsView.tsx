@@ -171,9 +171,9 @@ export const SettingsView: React.FC<SettingsViewProps> = ({
         <h3 className="font-black text-slate-900 dark:text-slate-50 mb-6 flex items-center gap-2 underline decoration-blue-500 decoration-4 underline-offset-8 uppercase text-xs tracking-widest">Автоматическое завершение смены</h3>
         <p className="text-xs text-slate-500 dark:text-slate-400 mb-6 leading-relaxed">
           Система автоматически отслеживает просроченные смены. Если смена не закрыта вовремя, включается трехэтапный контроль:
-          <br/><b className="text-white">1-й интервал:</b> При превышении лимита времени на заданное количество минут система проверяет геопозицию. Если сотрудник вне зоны — смена завершается принудительно. Если в зоне — отправляется уведомление.
-          <br/><b className="text-white">2-й интервал:</b> Через указанное время после первого этапа система снова проверяет геопозицию. Если сотрудник вне зоны — смена завершается принудительно.
-          <br/><b className="text-white">3-й интервал:</b> Еще через указанное время система принудительно завершает смену в любом случае.
+          <br/><b className="text-slate-900 dark:text-white">1-й интервал:</b> При превышении лимита времени на заданное количество минут система проверяет геопозицию. Если сотрудник вне зоны — смена завершается принудительно. Если в зоне — отправляется уведомление.
+          <br/><b className="text-slate-900 dark:text-white">2-й интервал:</b> Через указанное время после первого этапа система снова проверяет геопозицию. Если сотрудник вне зоны — смена завершается принудительно.
+          <br/><b className="text-slate-900 dark:text-white">3-й интервал:</b> Еще через указанное время система принудительно завершает смену в любом случае.
         </p>
         <div className="space-y-4">
           <label className="flex items-center justify-between p-3 bg-slate-50 dark:bg-slate-800/50 rounded-xl border border-slate-100 dark:border-slate-700 cursor-pointer hover:bg-white dark:hover:bg-slate-800 transition-all">
@@ -249,7 +249,7 @@ export const SettingsView: React.FC<SettingsViewProps> = ({
                  </div>
               </div>
 
-              <div className="space-y-2 pt-4 border-t border-slate-100">
+              <div className="space-y-2 pt-4 border-t border-slate-100 dark:border-slate-800">
                  <label className="flex items-center justify-between p-3 bg-slate-50 dark:bg-slate-800/50 rounded-xl border border-slate-100 dark:border-slate-700 cursor-pointer hover:bg-white dark:hover:bg-slate-800 transition-all">
                    <div>
                      <p className="text-[11px] font-bold text-slate-800 dark:text-slate-100 uppercase tracking-tight">Округление 15 минут</p>
@@ -376,7 +376,7 @@ export const SettingsView: React.FC<SettingsViewProps> = ({
                            onUpdateOrg({ ...currentOrg, locationSettings: newSettings });
                            db.updateOrganization(currentOrg.id, { locationSettings: newSettings });
                         }}
-                        className="w-full border-2 border-slate-100 rounded-xl px-3 py-2 text-sm font-bold outline-none focus:border-blue-500"
+                        className="w-full border-2 border-slate-100 dark:border-slate-700 bg-white dark:bg-slate-900 rounded-xl px-3 py-2 text-sm font-bold text-slate-900 dark:text-slate-100 outline-none focus:border-blue-500"
                      />
                   </div>
                   <div>
@@ -390,7 +390,7 @@ export const SettingsView: React.FC<SettingsViewProps> = ({
                            onUpdateOrg({ ...currentOrg, locationSettings: newSettings });
                            db.updateOrganization(currentOrg.id, { locationSettings: newSettings });
                         }}
-                        className="w-full border-2 border-slate-100 rounded-xl px-3 py-2 text-sm font-bold outline-none focus:border-blue-500"
+                        className="w-full border-2 border-slate-100 dark:border-slate-700 bg-white dark:bg-slate-900 rounded-xl px-3 py-2 text-sm font-bold text-slate-900 dark:text-slate-100 outline-none focus:border-blue-500"
                      />
                   </div>
                   <div>
@@ -403,7 +403,7 @@ export const SettingsView: React.FC<SettingsViewProps> = ({
                            onUpdateOrg({ ...currentOrg, locationSettings: newSettings });
                            db.updateOrganization(currentOrg.id, { locationSettings: newSettings });
                         }}
-                        className="w-full border-2 border-slate-100 rounded-xl px-3 py-2 text-sm font-bold outline-none focus:border-blue-500"
+                        className="w-full border-2 border-slate-100 dark:border-slate-700 bg-white dark:bg-slate-900 rounded-xl px-3 py-2 text-sm font-bold text-slate-900 dark:text-slate-100 outline-none focus:border-blue-500"
                      />
                   </div>
                   
@@ -428,7 +428,7 @@ export const SettingsView: React.FC<SettingsViewProps> = ({
                               alert('Геолокация не поддерживается');
                            }
                         }}
-                        className="w-full py-3 bg-blue-50 text-blue-600 dark:text-blue-400 rounded-xl text-xs font-black uppercase tracking-widest hover:bg-blue-100 transition-all flex items-center justify-center gap-2"
+                        className="w-full py-3 bg-blue-50 dark:bg-blue-900/20 text-blue-600 dark:text-blue-400 rounded-xl text-xs font-black uppercase tracking-widest hover:bg-blue-100 dark:hover:bg-blue-900/40 transition-all flex items-center justify-center gap-2"
                      >
                         <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M17.657 16.657L13.414 20.9a1.998 1.998 0 01-2.827 0l-4.244-4.243a8 8 0 1111.314 0z" /><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 11a3 3 0 11-6 0 3 3 0 016 0z" /></svg>
                         Установить текущее местоположение как рабочую зону
@@ -481,7 +481,7 @@ export const SettingsView: React.FC<SettingsViewProps> = ({
                            db.updateOrganization(currentOrg.id, { telegramSettings: newSettings });
                         }}
                         placeholder="123456789:ABCdefGHIjklMNOpqrsTUVwxyz"
-                        className="w-full border-2 border-slate-100 rounded-xl px-3 py-2 text-sm font-bold outline-none focus:border-blue-500"
+                        className="w-full border-2 border-slate-100 dark:border-slate-700 bg-white dark:bg-slate-900 rounded-xl px-3 py-2 text-sm font-bold text-slate-900 dark:text-slate-100 outline-none focus:border-blue-500"
                      />
                      <p className="text-[10px] text-slate-400 mt-1">Создайте бота через @BotFather и скопируйте токен</p>
                   </div>
@@ -497,7 +497,7 @@ export const SettingsView: React.FC<SettingsViewProps> = ({
                               db.updateOrganization(currentOrg.id, { telegramSettings: newSettings });
                            }}
                            placeholder="-100123456789"
-                           className="w-full border-2 border-slate-100 rounded-xl px-3 py-2 text-sm font-bold outline-none focus:border-blue-500"
+                           className="w-full border-2 border-slate-100 dark:border-slate-700 bg-white dark:bg-slate-900 rounded-xl px-3 py-2 text-sm font-bold text-slate-900 dark:text-slate-100 outline-none focus:border-blue-500"
                         />
                         <button 
                            onClick={async () => {
@@ -526,7 +526,7 @@ export const SettingsView: React.FC<SettingsViewProps> = ({
                                  alert('Ошибка при запросе к Telegram API');
                               }
                            }}
-                           className="px-4 py-2 bg-slate-100 text-slate-600 dark:text-slate-300 rounded-xl text-xs font-black uppercase hover:bg-slate-200"
+                           className="px-4 py-2 bg-slate-100 dark:bg-slate-800 text-slate-600 dark:text-slate-300 rounded-xl text-xs font-black uppercase hover:bg-slate-200 dark:hover:bg-slate-700"
                         >
                            Найти ID
                         </button>
@@ -534,7 +534,7 @@ export const SettingsView: React.FC<SettingsViewProps> = ({
                      <p className="text-[10px] text-slate-400 mt-1">ID чата или группы, куда бот будет слать уведомления. Добавьте бота в группу и сделайте админом.</p>
                   </div>
                   
-                  <div className="pt-4 border-t border-slate-100 space-y-4">
+                  <div className="pt-4 border-t border-slate-100 dark:border-slate-800 space-y-4">
                      <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest">Типы уведомлений</p>
                      
                      {[
@@ -590,7 +590,7 @@ export const SettingsView: React.FC<SettingsViewProps> = ({
                               alert('Ошибка сети');
                            }
                         }}
-                        className="w-full py-3 bg-blue-50 text-blue-600 dark:text-blue-400 rounded-xl text-xs font-black uppercase tracking-widest hover:bg-blue-100 transition-all flex items-center justify-center gap-2"
+                        className="w-full py-3 bg-blue-50 dark:bg-blue-900/20 text-blue-600 dark:text-blue-400 rounded-xl text-xs font-black uppercase tracking-widest hover:bg-blue-100 dark:hover:bg-blue-900/40 transition-all flex items-center justify-center gap-2"
                      >
                         <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 19l9 2-9-18-9 18 9-2zm0 0v-8" /></svg>
                         Отправить тестовое сообщение
@@ -608,12 +608,12 @@ export const SettingsView: React.FC<SettingsViewProps> = ({
             <div className="flex items-center gap-3">
               <button 
                 onClick={() => setIsArchiveViewOpen(true)}
-                className="flex items-center gap-2 px-3 py-1.5 bg-slate-100 text-slate-500 dark:text-slate-400 rounded-xl hover:bg-slate-200 hover:text-slate-700 dark:text-slate-200 transition-all text-[9px] font-black uppercase tracking-widest"
+                className="flex items-center gap-2 px-3 py-1.5 bg-slate-100 dark:bg-slate-800 text-slate-500 dark:text-slate-400 rounded-xl hover:bg-slate-200 dark:hover:bg-slate-700 hover:text-slate-700 dark:hover:text-slate-200 transition-all text-[9px] font-black uppercase tracking-widest"
               >
                 <Archive size={12} />
                 Архив
               </button>
-              <span className={`text-[10px] font-black px-2 py-0.5 rounded-full ${isMachineLimitReached ? 'bg-red-100 text-red-600 dark:text-red-400' : 'bg-slate-100 text-slate-400'}`}>
+              <span className={`text-[10px] font-black px-2 py-0.5 rounded-full ${isMachineLimitReached ? 'bg-red-100 dark:bg-red-900/30 text-red-600 dark:text-red-400' : 'bg-slate-100 dark:bg-slate-800 text-slate-400 dark:text-slate-500'}`}>
                  {machines.length} / {planLimits.maxMachines}
               </span>
             </div>
@@ -626,14 +626,14 @@ export const SettingsView: React.FC<SettingsViewProps> = ({
                value={newMachineName} 
                onChange={e => setNewMachineName(e.target.value)} 
                placeholder={isMachineLimitReached ? "Лимит тарифа исчерпан" : "Название станка"} 
-               className="flex-1 border-2 border-slate-100 rounded-2xl px-4 py-3 text-sm outline-none focus:border-blue-500 transition-all disabled:bg-slate-50" 
+               className="flex-1 border-2 border-slate-100 dark:border-slate-700 bg-white dark:bg-slate-900 rounded-2xl px-4 py-3 text-sm text-slate-900 dark:text-slate-100 outline-none focus:border-blue-500 transition-all disabled:bg-slate-50 dark:disabled:bg-slate-800" 
             />
             {branches.length > 0 && setNewMachineBranchId && (
               <select
                 disabled={isMachineLimitReached}
                 value={newMachineBranchId}
                 onChange={e => setNewMachineBranchId(e.target.value)}
-                className="border-2 border-slate-100 rounded-2xl px-4 py-3 text-sm font-bold bg-white outline-none focus:border-blue-500 transition-all disabled:bg-slate-50"
+                className="border-2 border-slate-100 dark:border-slate-700 rounded-2xl px-4 py-3 text-sm font-bold bg-white dark:bg-slate-900 text-slate-900 dark:text-slate-100 outline-none focus:border-blue-500 transition-all disabled:bg-slate-50 dark:disabled:bg-slate-800"
               >
                 <option value="">Без филиала</option>
                 {branches.map(b => <option key={b.id} value={b.id}>{b.name}</option>)}
@@ -657,7 +657,7 @@ export const SettingsView: React.FC<SettingsViewProps> = ({
                   <div className="flex-1 flex gap-2">
                      <input 
                        autoFocus 
-                       className="flex-1 border-2 border-blue-200 rounded-xl px-3 py-1 text-sm outline-none" 
+                       className="flex-1 border-2 border-blue-200 dark:border-blue-900/50 bg-white dark:bg-slate-900 text-slate-900 dark:text-slate-100 rounded-xl px-3 py-1 text-sm outline-none" 
                        value={editValue} 
                        onChange={e => setEditValue(e.target.value)}
                        onKeyDown={e => e.key === 'Enter' && saveMachineEdit(m.id)}
@@ -666,7 +666,7 @@ export const SettingsView: React.FC<SettingsViewProps> = ({
                        <select
                          value={editingMachineBranchId || ''}
                          onChange={e => setEditingMachineBranchId(e.target.value || undefined)}
-                         className="border-2 border-blue-200 rounded-xl px-2 py-1 text-xs font-bold bg-white outline-none"
+                         className="border-2 border-blue-200 dark:border-blue-900/50 rounded-xl px-2 py-1 text-xs font-bold bg-white dark:bg-slate-900 text-slate-900 dark:text-slate-100 outline-none"
                        >
                          <option value="">Без филиала</option>
                          {branches.map(b => <option key={b.id} value={b.id}>{b.name}</option>)}
@@ -680,7 +680,7 @@ export const SettingsView: React.FC<SettingsViewProps> = ({
                     <div className="flex items-center gap-2">
                       <span className="text-sm font-bold text-slate-700 dark:text-slate-200">{m.name}</span>
                       {m.branchId && branches.find(b => b.id === m.branchId) && (
-                        <span className="px-2 py-0.5 bg-slate-100 text-slate-500 dark:text-slate-400 text-[9px] font-bold rounded-full border border-slate-200">
+                        <span className="px-2 py-0.5 bg-slate-100 dark:bg-slate-800 text-slate-500 dark:text-slate-400 text-[9px] font-bold rounded-full border border-slate-200 dark:border-slate-700">
                           {branches.find(b => b.id === m.branchId)?.name}
                         </span>
                       )}
@@ -707,7 +707,7 @@ export const SettingsView: React.FC<SettingsViewProps> = ({
         <section className="bg-white dark:bg-slate-900 p-8 rounded-[2.5rem] border border-slate-200 dark:border-slate-800 shadow-md dark:shadow-slate-900/20">
           <h3 className="font-bold text-slate-900 dark:text-slate-50 mb-6 underline decoration-blue-500 decoration-4 underline-offset-8 uppercase text-xs tracking-widest">Должности и Функции</h3>
           <div className="flex gap-2 mb-6">
-            <input type="text" value={newPositionName} onChange={e => setNewPositionName(e.target.value)} placeholder="Новая роль" className="flex-1 border-2 border-slate-100 rounded-2xl px-4 py-3 text-sm outline-none focus:border-blue-500 transition-all" />
+            <input type="text" value={newPositionName} onChange={e => setNewPositionName(e.target.value)} placeholder="Новая роль" className="flex-1 border-2 border-slate-100 dark:border-slate-700 bg-white dark:bg-slate-900 text-slate-900 dark:text-slate-100 rounded-2xl px-4 py-3 text-sm outline-none focus:border-blue-500 transition-all" />
             <button onClick={() => {
               if (newPositionName.trim()) {
                 if (positions.some(p => p.name.toLowerCase() === newPositionName.trim().toLowerCase())) {
@@ -726,7 +726,7 @@ export const SettingsView: React.FC<SettingsViewProps> = ({
                   <div className="flex-1 flex gap-2">
                      <input 
                        autoFocus 
-                       className="flex-1 border-2 border-blue-200 rounded-xl px-3 py-1 text-sm outline-none" 
+                       className="flex-1 border-2 border-blue-200 dark:border-blue-900/50 bg-white dark:bg-slate-900 text-slate-900 dark:text-slate-100 rounded-xl px-3 py-1 text-sm outline-none" 
                        value={editValue} 
                        onChange={e => setEditValue(e.target.value)}
                        onKeyDown={e => e.key === 'Enter' && savePositionEdit(p.name)}
