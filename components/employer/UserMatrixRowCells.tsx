@@ -87,7 +87,7 @@ export const UserMatrixRowCells = memo(({
            const isPending = workEntries.some(l => !l.checkOut);
            content = (
              <div className="flex flex-col items-center justify-center">
-                <span className={`text-[11px] font-black ${isPending ? 'text-blue-500 italic' : 'text-slate-900 dark:text-slate-100'}`}>
+                <span className={`text-[11px] print:text-[8px] font-black ${isPending ? 'text-blue-500 italic' : 'text-slate-900 dark:text-slate-100'}`}>
                   {workMins > 0 ? formatDurationShort(workMins) : (isPending ? '--:--' : '0:00')}{(isPending || anyCorrected) && '*'}
                 </span>
                 {anyNight && <svg className="w-2 h-2 text-slate-400 mt-0.5" fill="currentColor" viewBox="0 0 20 20"><path d="M17.293 13.293A8 8 0 016.707 2.707a8.001 8.001 0 1010.586 10.586z"/></svg>}
@@ -103,7 +103,7 @@ export const UserMatrixRowCells = memo(({
           </td>
         );
       })}
-      <td className="sticky right-0 z-10 px-4 py-3 text-center font-black text-slate-900 dark:text-slate-100 text-xs bg-slate-50 dark:bg-slate-800 border-l border-slate-300 dark:border-slate-700">{formatDuration(totalMinutes)}</td>
+      <td className="sticky right-0 z-10 px-4 py-3 text-center font-black text-slate-900 dark:text-slate-100 text-xs print:text-[8px] bg-slate-50 dark:bg-slate-800 border-l border-slate-300 dark:border-slate-700">{formatDuration(totalMinutes)}</td>
     </React.Fragment>
   );
 });

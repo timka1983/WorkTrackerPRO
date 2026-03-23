@@ -126,6 +126,9 @@ body {
     width: 100px !important;
     min-width: 100px !important;
     max-width: 100px !important;
+    word-wrap: break-word !important;
+    white-space: normal !important;
+    line-height: 1.1 !important;
   }
 
   th:last-child, td:last-child {

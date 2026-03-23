@@ -104,7 +104,14 @@ export const MatrixView: React.FC<MatrixViewProps> = ({
                     <td className="sticky left-0 z-10 bg-white dark:bg-slate-900 border-r dark:border-slate-800 px-3 py-3 font-black text-slate-900 dark:text-slate-100 text-[11px] w-[140px] min-w-[140px] max-w-[140px]">
                       <div className="flex items-center justify-between group/name overflow-hidden">
                         <div className="flex items-center min-w-0 cursor-pointer hover:text-blue-600 dark:hover:text-blue-400" onClick={() => setSelectedEmployee(row.emp)}>
-                          <span className="truncate">{row.emp.name}</span>
+                          <div className="flex flex-col leading-tight min-w-0">
+                            <span className="truncate print:whitespace-normal">{row.emp.name.split(' ')[0]}</span>
+                            {row.emp.name.split(' ').length > 1 && (
+                              <span className="truncate print:whitespace-normal text-[9px] font-normal opacity-70 mt-0.5">
+                                {row.emp.name.split(' ').slice(1).join(' ')}
+                              </span>
+                            )}
+                          </div>
                           {row.emp.isArchived && <span className="flex-shrink-0 text-[8px] bg-slate-200 dark:bg-slate-800 text-slate-600 dark:text-slate-400 px-1.5 py-0.5 rounded-full ml-1">Архив</span>}
                         </div>
 
@@ -151,7 +158,7 @@ export const MatrixView: React.FC<MatrixViewProps> = ({
                 
                 return (
                   <tr key={`mach-${row.emp.id}-${row.mId}`} className={rowClassName}>
-                    <td className="sticky left-0 z-10 bg-slate-50/80 dark:bg-slate-800/80 border-r dark:border-slate-800 px-3 py-2 text-[10px] font-bold text-slate-500 dark:text-slate-400 italic pl-6 truncate w-[140px] min-w-[140px] max-w-[140px]">
+                    <td className="sticky left-0 z-10 bg-slate-50/80 dark:bg-slate-800/80 border-r dark:border-slate-800 px-3 py-2 print:pl-2 text-[10px] font-bold text-slate-500 dark:text-slate-400 italic pl-6 truncate w-[140px] min-w-[140px] max-w-[140px]">
                       ↳ {machineName}
                     </td>
                     {days.map(day => {
@@ -162,12 +169,12 @@ export const MatrixView: React.FC<MatrixViewProps> = ({
                       const roundedMins = applyRounding(mMins, currentOrg?.roundShiftMinutes);
                       const hasMLogs = mLogs.length > 0;
                       return (
-                        <td key={dateStr} className="border-r dark:border-slate-800 p-1 text-center h-8 text-[9px] font-bold text-slate-400 tabular-nums italic">
+                        <td key={dateStr} className="border-r dark:border-slate-800 p-1 text-center h-8 text-[9px] print:text-[7px] font-bold text-slate-400 tabular-nums italic">
                           {hasMLogs ? formatDurationShort(roundedMins) : ''}
                         </td>
                       );
                     })}
-                    <td className="sticky right-0 z-10 px-4 py-2 text-center font-bold text-slate-400 text-[10px] bg-slate-50 dark:bg-slate-800 border-l border-slate-200 dark:border-slate-700 italic">
+                    <td className="sticky right-0 z-10 px-4 py-2 text-center font-bold text-slate-400 text-[10px] print:text-[8px] bg-slate-50 dark:bg-slate-800 border-l border-slate-200 dark:border-slate-700 italic">
                       {formatDurationShort(mMinsTotal)}
                     </td>
                   </tr>
