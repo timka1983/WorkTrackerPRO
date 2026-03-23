@@ -310,7 +310,9 @@ export const useAppData = (currentUser: User | null) => {
       const fetched = await db.getPositions(orgId);
       
       if (fetched === null) {
-        console.error('Failed to fetch positions from DB');
+        if (db.isConfigured()) {
+          console.error('Failed to fetch positions from DB');
+        }
         const cached = localStorage.getItem(STORAGE_KEYS.POSITIONS_LIST);
         return cached ? JSON.parse(cached) : INITIAL_POSITIONS;
       }

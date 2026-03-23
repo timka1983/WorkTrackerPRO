@@ -2,8 +2,9 @@
 import React, { useState, useMemo, useEffect } from 'react';
 import * as XLSX from 'xlsx';
 import { WorkLog, User, EntryType, UserRole, Machine, FIXED_POSITION_TURNER, PositionConfig, PositionPermissions, Organization, PlanType, Plan, PayrollConfig, PlanLimits, Branch, PayrollPeriod, PayrollStatus, PayrollSnapshot } from '../types';
-import { getDaysInMonthArray, formatTime, calculateMinutes, calculateMonthlyPayroll, getEffectivePayrollConfig } from '../utils';
-import { format, startOfDay, subDays } from 'date-fns';
+import { getDaysInMonthArray, formatTime, calculateMinutes, calculateMonthlyPayroll, getEffectivePayrollConfig, formatDurationShort } from '../utils';
+import { format, startOfDay, subDays, parseISO } from 'date-fns';
+import { ru } from 'date-fns/locale/ru';
 import { DEFAULT_PERMISSIONS, STORAGE_KEYS, PLAN_LIMITS, DEFAULT_PAYROLL_CONFIG } from '../constants';
 import { db } from '../lib/supabase';
 import { SettingsView } from './employer/SettingsView';
@@ -260,37 +261,78 @@ const EmployerView: React.FC<EmployerViewProps> = ({
     const wsDetailed = XLSX.utils.json_to_sheet(detailedData);
     XLSX.utils.book_append_sheet(wb, wsDetailed, "Детально");
 
-    // Sheet 2: Matrix (Timesheet)
-    const matrixData: any[] = [];
+    // Sheet 2: Matrix (Timesheet) - FORM STYLE
+    const aoa: any[][] = [];
     
+    // Header Section
+    aoa.push([currentOrg?.name || 'Организация']);
+    aoa.push(['ТАБЕЛЬ УЧЕТА РАБОЧЕГО ВРЕМЕНИ']);
+    aoa.push([`Отчетный период: ${filterMonth}`]);
+    aoa.push([]); // Spacer
+
+    // Table Header - Row 1: Dates
+    const headerRow1 = ['Сотрудник / Ресурс'];
+    days.forEach(day => headerRow1.push(format(day, 'd')));
+    headerRow1.push('ИТОГО');
+    aoa.push(headerRow1);
+
+    // Table Header - Row 2: Day Names
+    const headerRow2 = [''];
+    days.forEach(day => headerRow2.push(format(day, 'eeeeee', { locale: ru })));
+    headerRow2.push('');
+    aoa.push(headerRow2);
+
+    // Data Rows
     employees.forEach(emp => {
-       const row: any = { 'Сотрудник': emp.name };
-       let totalMinutes = 0;
-       
-       days.forEach(day => {
-         const dateStr = format(day, 'yyyy-MM-dd');
-         const dayLogs = logsLookup[emp.id]?.[dateStr] || [];
-         const dayMinutes = dayLogs.reduce((acc, l) => acc + l.durationMinutes, 0);
-         totalMinutes += dayMinutes;
-         
-         // Format cell value
-         let cellValue: string | number = '';
-         if (dayMinutes > 0) {
-           cellValue = Number((dayMinutes / 60).toFixed(1));
-         } else {
-            const nonWork = dayLogs.find(l => l.entryType !== EntryType.WORK);
-            if (nonWork) {
-               cellValue = nonWork.entryType === EntryType.SICK ? 'Б' : 'О';
-            }
-         }
-         row[day.getDate().toString()] = cellValue;
-       });
-       
-       row['Итого (ч)'] = Number((totalMinutes / 60).toFixed(1));
-       matrixData.push(row);
+      const row: any[] = [emp.name];
+      let totalMinutes = 0;
+      
+      days.forEach(day => {
+        const dateStr = format(day, 'yyyy-MM-dd');
+        const dayLogs = logsLookup[emp.id]?.[dateStr] || [];
+        const dayMinutes = dayLogs.reduce((acc, l) => acc + l.durationMinutes, 0);
+        totalMinutes += dayMinutes;
+        
+        let cellValue: string = '';
+        if (dayMinutes > 0) {
+          cellValue = formatDurationShort(dayMinutes);
+        } else {
+          const nonWork = dayLogs.find(l => l.entryType !== EntryType.WORK);
+          if (nonWork) {
+            cellValue = nonWork.entryType === EntryType.SICK ? 'Б' : (nonWork.entryType === EntryType.VACATION ? 'О' : 'В');
+          } else {
+            cellValue = 'В';
+          }
+        }
+        row.push(cellValue);
+      });
+      
+      row.push(formatDurationShort(totalMinutes));
+      aoa.push(row);
     });
-    
-    const wsMatrix = XLSX.utils.json_to_sheet(matrixData);
+
+    // Footer Section
+    aoa.push([]);
+    aoa.push([]);
+    aoa.push(['Руководитель подразделения', '', '', '', '', 'Ответственный за табель']);
+    aoa.push(['__________________________', '', '', '', '', '__________________________']);
+    aoa.push(['(подпись, ФИО)', '', '', '', '', '(подпись, ФИО)']);
+
+    const wsMatrix = XLSX.utils.aoa_to_sheet(aoa);
+
+    // Column Widths
+    const colWidths = [{ wch: 25 }]; // Employee column
+    days.forEach(() => colWidths.push({ wch: 4 })); // Day columns
+    colWidths.push({ wch: 10 }); // Total column
+    wsMatrix['!cols'] = colWidths;
+
+    // Merges for Header
+    wsMatrix['!merges'] = [
+      { s: { r: 0, c: 0 }, e: { r: 0, c: days.length + 1 } }, // Org Name
+      { s: { r: 1, c: 0 }, e: { r: 1, c: days.length + 1 } }, // Title
+      { s: { r: 2, c: 0 }, e: { r: 2, c: days.length + 1 } }  // Period
+    ];
+
     XLSX.utils.book_append_sheet(wb, wsMatrix, "Табель");
 
     XLSX.writeFile(wb, `timesheet_${filterMonth}.xlsx`);
@@ -1245,9 +1287,6 @@ const EmployerView: React.FC<EmployerViewProps> = ({
             )}
            <button onClick={downloadExcel} className="p-2.5 bg-green-600 text-white rounded-xl hover:bg-green-700 transition-colors" title="Скачать Excel">
               <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 17v-2m3 2v-4m3 4v-6m2 10H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" /></svg>
-           </button>
-           <button onClick={downloadPDF} className="p-2.5 bg-slate-900 dark:bg-blue-600 text-white rounded-xl hover:bg-slate-800 dark:hover:bg-blue-700 transition-colors" title="Скачать PDF">
-              <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 10v6m0 0l-3-3m3 3l3-3m2 8H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" /></svg>
            </button>
            <button onClick={handlePrint} className="p-2.5 bg-blue-600 text-white rounded-xl hover:bg-blue-700 transition-colors" title="Печать">
               <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M17 17h2a2 2 0 002-2v-4a2 2 0 00-2-2H5a2 2 0 00-2 2v4a2 2 0 00-2 2h2m2 4h6a2 2 0 002-2v-4a2 2 0 00-2-2H9a2 2 0 00-2 2v4a2 2 0 002 2zm8-12V5a2 2 0 00-2-2H9a2 2 0 00-2 2v4h10z" /></svg>

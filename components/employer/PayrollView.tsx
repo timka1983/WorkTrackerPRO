@@ -279,7 +279,6 @@ export const PayrollView: React.FC<PayrollViewProps> = ({
                   </button>
                 </div>
               </th>
-              <th className="p-4">Должность</th>
               <th className="p-4 text-center w-16"></th>
               <th className="p-4 text-center">Ставка</th>
               <th className="p-4 text-center">Часы</th>
@@ -324,12 +323,15 @@ export const PayrollView: React.FC<PayrollViewProps> = ({
                      <td className={`p-4 text-sm font-bold text-slate-900 dark:text-slate-50 sticky left-0 z-10 border-r border-slate-100 dark:border-slate-800 bg-white dark:bg-slate-900 group-hover:bg-slate-50 dark:group-hover:bg-slate-800 transition-colors`}>
                         <div className="flex items-center justify-between gap-2">
                           <div className="flex flex-col cursor-pointer hover:text-blue-600 dark:hover:text-blue-400 transition-colors" onClick={() => setSelectedUserForSchedule(emp)}>
-                            <div className="flex items-center gap-1">
-                              <span>{emp.name}</span>
-                              {emp.isArchived && <span className="text-[10px] bg-slate-200 dark:bg-slate-800 text-slate-600 dark:text-slate-400 px-2 py-0.5 rounded-full ml-1">Архив</span>}
+                            <div className="flex flex-col leading-tight">
+                              <span className="truncate font-bold">{emp.name.split(' ')[0]}</span>
+                              {emp.name.split(' ').length > 1 && (
+                                <span className="truncate font-normal">{emp.name.split(' ').slice(1).join(' ')}</span>
+                              )}
+                              <span className="text-[10px] text-slate-500 dark:text-slate-400 font-black uppercase mt-1">{emp.position}</span>
                             </div>
                             {emp.branchId && branches.find(b => b.id === emp.branchId) && (
-                              <span className="text-[8px] text-slate-400 font-black uppercase tracking-tighter">
+                              <span className="text-[8px] text-slate-400 font-black uppercase tracking-tighter mt-1">
                                 {branches.find(b => b.id === emp.branchId)?.name}
                               </span>
                             )}
@@ -355,7 +357,6 @@ export const PayrollView: React.FC<PayrollViewProps> = ({
                           </div>
                         </div>
                      </td>
-                     <td className="p-4 text-xs font-bold text-slate-500 dark:text-slate-400">{emp.position}</td>
                      <td className="p-4 text-center">
                         <div className="flex items-center justify-center gap-1">
                           <button 
@@ -429,24 +430,24 @@ export const PayrollView: React.FC<PayrollViewProps> = ({
 
                      return (
                         <tr key={`${emp.id}-${mId}`} className="group bg-white dark:bg-slate-900 border-b border-slate-100 dark:border-slate-800">
-                          <td className="p-3 pl-12 text-xs font-bold text-slate-500 dark:text-slate-400 italic sticky left-0 z-10 bg-white dark:bg-slate-900 border-r border-slate-100 dark:border-slate-800" colSpan={3}>↳ {machineName}</td>
-                          <td className="p-3 text-center text-xs font-mono text-slate-500 dark:text-slate-400">{mRate} ₽/час</td>
-                          <td className="p-3 text-center text-xs font-mono text-slate-500 dark:text-slate-400 font-bold">{mHours}</td>
+                          <td className="p-1.5 pl-12 text-xs font-bold text-slate-500 dark:text-slate-400 italic sticky left-0 z-10 bg-white dark:bg-slate-900 border-r border-slate-100 dark:border-slate-800" colSpan={2}>↳ {machineName}</td>
+                          <td className="p-1.5 text-center text-xs font-mono text-slate-500 dark:text-slate-400">{mRate} ₽/час</td>
+                          <td className="p-1.5 text-center text-xs font-mono text-slate-500 dark:text-slate-400 font-bold">{mHours}</td>
                           <td colSpan={planLimits.features.payments ? 6 : 5}></td>
-                          <td className="p-3 text-center text-xs font-mono text-slate-300 dark:text-slate-600">-</td>
-                          <td className="p-3 text-right text-xs font-bold text-slate-600 dark:text-slate-400">{mPay.toLocaleString('ru-RU')} ₽</td>
+                          <td className="p-1.5 text-center text-xs font-mono text-slate-300 dark:text-slate-600">-</td>
+                          <td className="p-1.5 text-right text-xs font-bold text-slate-600 dark:text-slate-400">{mPay.toLocaleString('ru-RU')} ₽</td>
                           {planLimits.features.payments && <td></td>}
                         </tr>
                      );
                    })}
                    {isExpanded && userPayments.length > 0 && userPayments.map((p, idx) => (
                      <tr key={`${emp.id}-pay-${idx}`} className="group bg-white dark:bg-slate-900 border-b border-slate-100 dark:border-slate-800">
-                       <td className="p-3 pl-12 text-[10px] font-bold text-indigo-500 dark:text-indigo-400 italic sticky left-0 z-10 bg-white dark:bg-slate-900 border-r border-slate-100 dark:border-slate-800" colSpan={3}>
+                       <td className="p-1.5 pl-12 text-[10px] font-bold text-indigo-500 dark:text-indigo-400 italic sticky left-0 z-10 bg-white dark:bg-slate-900 border-r border-slate-100 dark:border-slate-800" colSpan={2}>
                          ↳ {p.type === 'advance' ? 'Аванс' : p.type === 'salary' ? 'Зарплата' : 'Выплата'} ({format(new Date(p.date), 'dd.MM')})
                          {p.comment && <span className="ml-2 font-normal text-slate-400 dark:text-slate-400">({p.comment})</span>}
                        </td>
                        <td colSpan={planLimits.features.payments ? 7 : 6}></td>
-                       <td className="p-3 text-right text-[10px] font-bold text-indigo-600 dark:text-indigo-400">-{p.amount.toLocaleString('ru-RU')} ₽</td>
+                       <td className="p-1.5 text-right text-[10px] font-bold text-indigo-600 dark:text-indigo-400">-{p.amount.toLocaleString('ru-RU')} ₽</td>
                        {planLimits.features.payments && <td></td>}
                      </tr>
                    ))}

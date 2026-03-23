@@ -101,13 +101,13 @@ export const MatrixView: React.FC<MatrixViewProps> = ({
                 const isExpanded = expandedTurnerRows.has(row.emp.id);
                 return (
                   <tr key={`emp-${row.emp.id}`} className={rowClassName}>
-                    <td className="sticky left-0 z-10 bg-white dark:bg-slate-900 border-r dark:border-slate-800 px-3 py-3 font-black text-slate-900 dark:text-slate-100 text-[11px] w-[140px] min-w-[140px] max-w-[140px]">
+                    <td className="sticky left-0 z-10 bg-white dark:bg-slate-900 border-r dark:border-slate-800 px-3 py-3 font-black text-slate-900 dark:text-slate-100 text-[13px] w-[140px] min-w-[140px] max-w-[140px]">
                       <div className="flex items-center justify-between group/name overflow-hidden">
                         <div className="flex items-center min-w-0 cursor-pointer hover:text-blue-600 dark:hover:text-blue-400" onClick={() => setSelectedEmployee(row.emp)}>
                           <div className="flex flex-col leading-tight min-w-0">
                             <span className="truncate print:whitespace-normal">{row.emp.name.split(' ')[0]}</span>
                             {row.emp.name.split(' ').length > 1 && (
-                              <span className="truncate print:whitespace-normal text-[9px] font-normal opacity-70 mt-0.5">
+                              <span className="truncate print:whitespace-normal text-[11px] font-normal opacity-70 mt-0.5">
                                 {row.emp.name.split(' ').slice(1).join(' ')}
                               </span>
                             )}
