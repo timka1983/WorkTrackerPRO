@@ -49,7 +49,7 @@ const ResetPinModal: React.FC<ResetPinModalProps> = ({ currentOrg, onClose, onSu
 
   return (
     <div className="fixed inset-0 z-[250] bg-slate-900/80 backdrop-blur-md flex items-center justify-center p-4 animate-fadeIn">
-      <div className="bg-white rounded-[2.5rem] shadow-2xl dark:shadow-slate-900/40 p-8 w-full max-w-sm border border-slate-200">
+      <div className="bg-white dark:bg-slate-900 rounded-[2.5rem] shadow-2xl dark:shadow-slate-900/40 p-8 w-full max-w-sm border border-slate-200 dark:border-slate-800">
         <div className="flex justify-between items-center mb-6">
           <h3 className="text-lg font-black text-slate-900 dark:text-slate-50 uppercase tracking-tight">Сброс PIN админа</h3>
           <button onClick={onClose} className="text-slate-400 hover:text-slate-900 dark:text-slate-50 text-2xl">&times;</button>
@@ -69,7 +69,7 @@ const ResetPinModal: React.FC<ResetPinModalProps> = ({ currentOrg, onClose, onSu
                   value={resetEmailInput}
                   onChange={e => setResetEmailInput(e.target.value)}
                   placeholder="admin@company.com"
-                  className="w-full bg-slate-50 border-2 border-slate-100 rounded-2xl px-5 py-3 text-sm font-bold"
+                  className="w-full bg-slate-50 dark:bg-slate-800 border-2 border-slate-100 dark:border-slate-700 rounded-2xl px-5 py-3 text-sm font-bold text-slate-900 dark:text-slate-50"
                 />
               </div>
             </div>
@@ -87,14 +87,14 @@ const ResetPinModal: React.FC<ResetPinModalProps> = ({ currentOrg, onClose, onSu
                   value={tempNewPin}
                   onChange={e => setTempNewPin(e.target.value.replace(/[^0-9]/g, ''))}
                   placeholder="0000"
-                  className="w-full bg-slate-50 border-2 border-slate-100 rounded-2xl px-5 py-3 text-lg font-black tracking-[0.5em] text-center text-blue-600 dark:text-blue-400"
+                  className="w-full bg-slate-50 dark:bg-slate-800 border-2 border-slate-100 dark:border-slate-700 rounded-2xl px-5 py-3 text-lg font-black tracking-[0.5em] text-center text-blue-600 dark:text-blue-400"
                 />
               </div>
             </div>
           )}
 
           {resetStatus && (
-            <p className={`text-[10px] font-bold text-center uppercase p-2 rounded-lg ${resetStatus.type === 'success' ? 'bg-green-50 text-green-600 dark:text-green-400' : 'bg-red-50 text-red-600 dark:text-red-400'}`}>
+            <p className={`text-[10px] font-bold text-center uppercase p-2 rounded-lg ${resetStatus.type === 'success' ? 'bg-green-50 dark:bg-green-900/20 text-green-600 dark:text-green-400' : 'bg-red-50 dark:bg-red-900/20 text-red-600 dark:text-red-400'}`}>
               {resetStatus.text}
             </p>
           )}

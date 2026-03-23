@@ -877,7 +877,7 @@ const SuperAdminView: React.FC<SuperAdminViewProps> = ({
         ) : activeTab === ('system' as any) ? (
           <div className="max-w-2xl mx-auto space-y-8 animate-fadeIn">
             <div className="bg-white rounded-[2.5rem] shadow-md dark:shadow-slate-900/20 border border-slate-200 overflow-hidden">
-              <div className="p-8 border-b border-slate-100 bg-slate-50/50">
+              <div className="p-8 border-b border-slate-100 dark:border-slate-800 bg-slate-50/50 dark:bg-slate-800/50">
                 <h3 className="text-xl font-black text-slate-900 dark:text-slate-50 uppercase tracking-tight">Безопасность системы</h3>
                 <p className="text-sm text-slate-500 dark:text-slate-400">Настройки доступа к панели Супер-Администратора</p>
               </div>
@@ -890,7 +890,7 @@ const SuperAdminView: React.FC<SuperAdminViewProps> = ({
                       maxLength={4}
                       value={newSuperAdminPin}
                       onChange={(e) => setNewSuperAdminPin(e.target.value.replace(/\D/g, ''))}
-                      className="flex-1 bg-slate-50 border-2 border-slate-100 rounded-2xl px-6 py-4 text-2xl font-black text-indigo-600 dark:text-indigo-400 tracking-[0.5em] outline-none focus:border-indigo-500 transition-all"
+                      className="flex-1 bg-slate-50 dark:bg-slate-800 border-2 border-slate-100 dark:border-slate-700 rounded-2xl px-6 py-4 text-2xl font-black text-indigo-600 dark:text-indigo-400 tracking-[0.5em] outline-none focus:border-indigo-500 transition-all"
                       placeholder="7777"
                     />
                     <button 
@@ -906,7 +906,7 @@ const SuperAdminView: React.FC<SuperAdminViewProps> = ({
                   </p>
                 </div>
 
-                <div className="pt-6 border-t border-slate-100">
+                <div className="pt-6 border-t border-slate-100 dark:border-slate-800">
                   <label className="block text-[10px] font-black text-slate-400 uppercase tracking-widest mb-3 ml-1">Глобальный PIN Администратора</label>
                   <div className="flex gap-4">
                     <input 
@@ -914,7 +914,7 @@ const SuperAdminView: React.FC<SuperAdminViewProps> = ({
                       maxLength={4}
                       value={newGlobalAdminPin}
                       onChange={(e) => setNewGlobalAdminPin(e.target.value.replace(/\D/g, ''))}
-                      className="flex-1 bg-slate-50 border-2 border-slate-100 rounded-2xl px-6 py-4 text-2xl font-black text-emerald-600 dark:text-emerald-400 tracking-[0.5em] outline-none focus:border-emerald-500 transition-all"
+                      className="flex-1 bg-slate-50 dark:bg-slate-800 border-2 border-slate-100 dark:border-slate-700 rounded-2xl px-6 py-4 text-2xl font-black text-emerald-600 dark:text-emerald-400 tracking-[0.5em] outline-none focus:border-emerald-500 transition-all"
                       placeholder="0000"
                     />
                     <div className="w-[140px]"></div> {/* Spacer to align with button above if needed, or just leave empty */}

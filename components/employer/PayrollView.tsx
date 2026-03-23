@@ -266,8 +266,8 @@ export const PayrollView: React.FC<PayrollViewProps> = ({
       <div className="overflow-x-auto hidden md:block">
         <table className="w-full text-left border-collapse">
           <thead>
-            <tr className="bg-slate-50 dark:bg-slate-800 border-b border-slate-200 dark:border-slate-700 text-[10px] font-black text-slate-400 dark:text-slate-400 uppercase tracking-wider">
-              <th className="p-4">
+            <tr className="bg-white dark:bg-slate-900 border-b border-slate-200 dark:border-slate-700 text-[10px] font-black text-slate-400 dark:text-slate-400 uppercase tracking-wider">
+              <th className="p-4 sticky left-0 z-20 bg-white dark:bg-slate-900 border-r border-slate-200 dark:border-slate-700">
                 <div className="flex items-center gap-2">
                   <span>Сотрудник</span>
                   <button 
@@ -283,12 +283,12 @@ export const PayrollView: React.FC<PayrollViewProps> = ({
               <th className="p-4 text-center w-16"></th>
               <th className="p-4 text-center">Ставка</th>
               <th className="p-4 text-center">Часы</th>
-              <th className="p-4 text-center">Часы (Сверхуроч.)</th>
-              <th className="p-4 text-center">Ночные смены</th>
-              <th className="p-4 text-center">Больничные</th>
-              <th className="p-4 text-center">Премии</th>
-              <th className="p-4 text-center">Штрафы</th>
-              {planLimits.features.payments && <th className="p-4 text-center">Выплаты</th>}
+              <th className="px-2 py-4 text-center">Сверхуроч.</th>
+              <th className="px-2 py-4 text-center">Ночные</th>
+              <th className="px-2 py-4 text-center">Б/Л</th>
+              <th className="px-2 py-4 text-center">Премии</th>
+              <th className="px-2 py-4 text-center">Штрафы</th>
+              {planLimits.features.payments && <th className="px-2 py-4 text-center">Выплаты</th>}
               <th className="p-4 text-center">Итого часов</th>
               <th className="p-4 text-right">Начислено</th>
               {planLimits.features.payments && <th className="p-4 text-right">К выплате</th>}
@@ -320,18 +320,13 @@ export const PayrollView: React.FC<PayrollViewProps> = ({
 
                return (
                  <React.Fragment key={emp.id}>
-                   <tr className={`border-b border-slate-100 dark:border-slate-800 hover:bg-slate-50/50 dark:hover:bg-slate-800/50 transition-colors ${snapshot ? 'bg-indigo-50/20 dark:bg-indigo-900/10' : ''}`}>
-                     <td className="p-4 text-sm font-bold text-slate-900 dark:text-slate-50">
-                        <div className="flex items-center gap-2">
+                   <tr className={`group border-b border-slate-100 dark:border-slate-800 hover:bg-slate-50/50 dark:hover:bg-slate-800/50 transition-colors bg-white dark:bg-slate-900`}>
+                     <td className={`p-4 text-sm font-bold text-slate-900 dark:text-slate-50 sticky left-0 z-10 border-r border-slate-100 dark:border-slate-800 bg-white dark:bg-slate-900 group-hover:bg-slate-50 dark:group-hover:bg-slate-800 transition-colors`}>
+                        <div className="flex items-center justify-between gap-2">
                           <div className="flex flex-col cursor-pointer hover:text-blue-600 dark:hover:text-blue-400 transition-colors" onClick={() => setSelectedUserForSchedule(emp)}>
                             <div className="flex items-center gap-1">
                               <span>{emp.name}</span>
                               {emp.isArchived && <span className="text-[10px] bg-slate-200 dark:bg-slate-800 text-slate-600 dark:text-slate-400 px-2 py-0.5 rounded-full ml-1">Архив</span>}
-                              {snapshot && (
-                                <span title={`Сохранено: ${format(new Date(snapshot.calculatedAt), 'dd.MM HH:mm')}`}>
-                                  <CheckCircle2 size={12} className="text-indigo-500" />
-                                </span>
-                              )}
                             </div>
                             {emp.branchId && branches.find(b => b.id === emp.branchId) && (
                               <span className="text-[8px] text-slate-400 font-black uppercase tracking-tighter">
@@ -339,14 +334,25 @@ export const PayrollView: React.FC<PayrollViewProps> = ({
                               </span>
                             )}
                           </div>
-                          {hasSubRows && (
-                            <button 
-                              onClick={() => toggleRow(emp.id)}
-                              className={`flex-shrink-0 p-1 rounded-md transition-all ${isExpanded ? 'bg-blue-600 text-white' : 'text-blue-500 hover:bg-blue-100 dark:hover:bg-blue-900/20'}`}
-                            >
-                              <svg className={`w-3 h-3 transition-transform ${isExpanded ? 'rotate-180' : ''}`} fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={3} d="M19 9l-7 7-7-7" /></svg>
-                            </button>
-                          )}
+                          <div className="flex items-center justify-end gap-2 w-[60px] shrink-0">
+                            <div className="w-4 flex justify-center">
+                              {snapshot && (
+                                <span title={`Сохранено: ${format(new Date(snapshot.calculatedAt), 'dd.MM HH:mm')}`}>
+                                  <CheckCircle2 size={14} className="text-indigo-500" />
+                                </span>
+                              )}
+                            </div>
+                            <div className="w-7 flex justify-center">
+                              {hasSubRows && (
+                                <button 
+                                  onClick={() => toggleRow(emp.id)}
+                                  className={`flex-shrink-0 p-1.5 rounded-md transition-all ${isExpanded ? 'bg-blue-600 text-white shadow-lg shadow-blue-200 dark:shadow-none' : 'text-blue-500 hover:bg-blue-100 dark:hover:bg-blue-900/20'}`}
+                                >
+                                  <svg className={`w-3.5 h-3.5 transition-transform ${isExpanded ? 'rotate-180' : ''}`} fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={3} d="M19 9l-7 7-7-7" /></svg>
+                                </button>
+                              )}
+                            </div>
+                          </div>
                         </div>
                      </td>
                      <td className="p-4 text-xs font-bold text-slate-500 dark:text-slate-400">{emp.position}</td>
@@ -395,18 +401,18 @@ export const PayrollView: React.FC<PayrollViewProps> = ({
                       <td className="p-4 text-center text-xs font-mono text-slate-600 dark:text-slate-300">
                         {formatMinsToHHMM(empLogs.filter(l => !l.machineId && l.entryType === EntryType.WORK).reduce((sum, l) => sum + l.durationMinutes, 0))}
                       </td>
-                      <td className="p-4 text-center text-xs font-mono text-amber-600 dark:text-amber-400">{payroll.details.overtimeHours > 0 ? payroll.details.overtimeHours.toFixed(2) : '-'}</td>
-                      <td className="p-4 text-center text-xs font-mono text-indigo-600 dark:text-indigo-400">{payroll.details.nightShiftCount > 0 ? payroll.details.nightShiftCount : '-'}</td>
-                      <td className="p-4 text-center text-xs font-mono text-teal-600 dark:text-teal-400">{payroll.details.sickDays > 0 ? payroll.details.sickDays : '-'}</td>
-                      <td className="p-4 text-center text-xs font-mono text-green-600 dark:text-green-400">{payroll.bonuses > 0 ? payroll.bonuses : '-'}</td>
-                      <td className="p-4 text-center text-xs font-mono text-red-600 dark:text-red-400">{payroll.fines > 0 ? payroll.fines : '-'}</td>
-                      {planLimits.features.payments && <td className="p-4 text-center text-xs font-mono text-indigo-600 dark:text-indigo-400">{totalPaid > 0 ? totalPaid : '-'}</td>}
+                      <td className="px-2 py-4 text-center text-xs font-mono text-amber-600 dark:text-amber-400">{payroll.details.overtimeHours > 0 ? payroll.details.overtimeHours.toFixed(2) : '-'}</td>
+                      <td className="px-2 py-4 text-center text-xs font-mono text-indigo-600 dark:text-indigo-400">{payroll.details.nightShiftCount > 0 ? payroll.details.nightShiftCount : '-'}</td>
+                      <td className="px-2 py-4 text-center text-xs font-mono text-teal-600 dark:text-teal-400">{payroll.details.sickDays > 0 ? payroll.details.sickDays : '-'}</td>
+                      <td className="px-2 py-4 text-center text-xs font-mono text-green-600 dark:text-green-400">{payroll.bonuses > 0 ? payroll.bonuses : '-'}</td>
+                      <td className="px-2 py-4 text-center text-xs font-mono text-red-600 dark:text-red-400">{payroll.fines > 0 ? payroll.fines : '-'}</td>
+                      {planLimits.features.payments && <td className="px-2 py-4 text-center text-xs font-mono text-indigo-600 dark:text-indigo-400">{totalPaid > 0 ? totalPaid : '-'}</td>}
                       <td className="p-4 text-center text-xs font-mono text-slate-900 dark:text-slate-100 font-bold">
                         {formatMinsToHHMM(empLogs.filter(l => l.entryType === EntryType.WORK).reduce((sum, l) => sum + l.durationMinutes, 0))}
                       </td>
                       <td className="p-4 text-right font-bold text-slate-500 dark:text-slate-400 text-xs">{payroll.totalSalary.toLocaleString('ru-RU')} ₽</td>
                       {planLimits.features.payments && (
-                        <td className={`p-4 text-right font-black text-sm ${balance > 0 ? 'text-slate-900 dark:text-slate-100' : balance < 0 ? 'text-red-600 dark:text-red-400' : 'text-slate-400 dark:text-slate-400'}`}>
+                        <td className={`p-4 text-right font-black text-xs ${balance > 0 ? 'text-slate-900 dark:text-slate-100' : balance < 0 ? 'text-red-600 dark:text-red-400' : 'text-slate-400 dark:text-slate-400'}`}>
                           {balance.toLocaleString('ru-RU')} ₽
                         </td>
                       )}
@@ -422,8 +428,8 @@ export const PayrollView: React.FC<PayrollViewProps> = ({
                      const mPay = Math.round((mMins / 60) * mRate);
 
                      return (
-                        <tr key={`${emp.id}-${mId}`} className="bg-slate-50/80 dark:bg-slate-800/50 border-b border-slate-100 dark:border-slate-800">
-                          <td className="p-3 pl-12 text-xs font-bold text-slate-500 dark:text-slate-400 italic" colSpan={3}>↳ {machineName}</td>
+                        <tr key={`${emp.id}-${mId}`} className="group bg-white dark:bg-slate-900 border-b border-slate-100 dark:border-slate-800">
+                          <td className="p-3 pl-12 text-xs font-bold text-slate-500 dark:text-slate-400 italic sticky left-0 z-10 bg-white dark:bg-slate-900 border-r border-slate-100 dark:border-slate-800" colSpan={3}>↳ {machineName}</td>
                           <td className="p-3 text-center text-xs font-mono text-slate-500 dark:text-slate-400">{mRate} ₽/час</td>
                           <td className="p-3 text-center text-xs font-mono text-slate-500 dark:text-slate-400 font-bold">{mHours}</td>
                           <td colSpan={planLimits.features.payments ? 6 : 5}></td>
@@ -434,8 +440,8 @@ export const PayrollView: React.FC<PayrollViewProps> = ({
                      );
                    })}
                    {isExpanded && userPayments.length > 0 && userPayments.map((p, idx) => (
-                     <tr key={`${emp.id}-pay-${idx}`} className="bg-indigo-50/30 dark:bg-indigo-900/10 border-b border-slate-100 dark:border-slate-800">
-                       <td className="p-3 pl-12 text-[10px] font-bold text-indigo-500 dark:text-indigo-400 italic" colSpan={3}>
+                     <tr key={`${emp.id}-pay-${idx}`} className="group bg-white dark:bg-slate-900 border-b border-slate-100 dark:border-slate-800">
+                       <td className="p-3 pl-12 text-[10px] font-bold text-indigo-500 dark:text-indigo-400 italic sticky left-0 z-10 bg-white dark:bg-slate-900 border-r border-slate-100 dark:border-slate-800" colSpan={3}>
                          ↳ {p.type === 'advance' ? 'Аванс' : p.type === 'salary' ? 'Зарплата' : 'Выплата'} ({format(new Date(p.date), 'dd.MM')})
                          {p.comment && <span className="ml-2 font-normal text-slate-400 dark:text-slate-400">({p.comment})</span>}
                        </td>

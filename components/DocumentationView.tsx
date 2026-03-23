@@ -1,6 +1,6 @@
 
 import React, { useState } from 'react';
-import { HelpCircle, ChevronRight, Shield, Users, Clock, CreditCard, Settings, Activity, Archive, MapPin, Bell } from 'lucide-react';
+import { HelpCircle, ChevronRight, ChevronDown, Shield, Users, Clock, CreditCard, Settings, Activity, Archive, MapPin, Bell } from 'lucide-react';
 
 interface DocSection {
   id: string;
@@ -11,6 +11,7 @@ interface DocSection {
 
 export const DocumentationView: React.FC = () => {
   const [activeSection, setActiveSection] = useState('overview');
+  const [isDropdownOpen, setIsDropdownOpen] = useState(false);
 
   const sections: DocSection[] = [
     {
@@ -110,6 +111,10 @@ export const DocumentationView: React.FC = () => {
                 <li>
                   <b className="text-slate-900 dark:text-slate-50">Расчетные листки</b>: 
                   Возможность генерации PDF-документа для сотрудника со всеми деталями начислений и удержаний.
+                </li>
+                <li>
+                  <b className="text-slate-900 dark:text-slate-50">Иконка «Сохранено» (Синяя галочка)</b>: 
+                  Означает, что расчет для сотрудника зафиксирован (создан снимок). Это защищает данные от случайных изменений при редактировании старых логов. Для обновления данных используйте кнопку «Пересчитать».
                 </li>
               </ul>
             </div>
@@ -296,18 +301,64 @@ export const DocumentationView: React.FC = () => {
     }
   ];
 
+  const activeSectionData = sections.find(s => s.id === activeSection);
+
   return (
-    <div className="flex h-full bg-white rounded-[2.5rem] border border-slate-200 overflow-hidden shadow-md dark:shadow-slate-900/20 no-print">
-      {/* Sidebar */}
-      <div className="w-72 border-r border-slate-100 bg-slate-50/50 flex flex-col">
-        <div className="p-6 border-b border-slate-100">
-          <h2 className="text-lg font-black text-slate-900 dark:text-slate-50 flex items-center gap-2">
+    <div className="flex flex-col md:flex-row h-full bg-white rounded-3xl md:rounded-[2.5rem] border border-slate-200 overflow-hidden shadow-md dark:shadow-slate-900/20 no-print">
+      {/* Sidebar / Top Navigation on Mobile */}
+      <div className="w-full md:w-72 border-b md:border-b-0 md:border-r border-slate-100 bg-slate-50/50 flex flex-col shrink-0">
+        <div className="p-4 md:p-6 border-b border-slate-100">
+          <h2 className="text-base md:text-lg font-black text-slate-900 dark:text-slate-50 flex items-center gap-2">
             <HelpCircle className="w-5 h-5 text-blue-600 dark:text-blue-400" />
             Инструкция
           </h2>
-          <p className="text-[10px] text-slate-400 font-bold uppercase tracking-widest mt-1">Документация системы</p>
+          <p className="text-[9px] md:text-[10px] text-slate-400 font-bold uppercase tracking-widest mt-1">Документация системы</p>
         </div>
-        <nav className="flex-1 p-4 space-y-1 overflow-y-auto custom-scrollbar">
+
+        {/* Mobile Dropdown */}
+        <div className="md:hidden p-4">
+          <div className="relative">
+            <button
+              onClick={() => setIsDropdownOpen(!isDropdownOpen)}
+              className="w-full flex items-center justify-between px-4 py-3 bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-2xl text-sm font-bold text-slate-900 dark:text-slate-50 shadow-sm"
+            >
+              <div className="flex items-center gap-3">
+                <span className="text-blue-600 dark:text-blue-400">{activeSectionData?.icon}</span>
+                {activeSectionData?.title}
+              </div>
+              <ChevronDown className={`w-4 h-4 transition-transform ${isDropdownOpen ? 'rotate-180' : ''}`} />
+            </button>
+
+            {isDropdownOpen && (
+              <div className="absolute top-full left-0 right-0 mt-2 bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-2xl shadow-xl z-50 overflow-hidden animate-in fade-in slide-in-from-top-2 duration-200">
+                <div className="max-h-[60vh] overflow-y-auto p-2 space-y-1">
+                  {sections.map((section) => (
+                    <button
+                      key={section.id}
+                      onClick={() => {
+                        setActiveSection(section.id);
+                        setIsDropdownOpen(false);
+                      }}
+                      className={`w-full flex items-center gap-3 px-4 py-3 rounded-xl text-sm font-bold transition-all ${
+                        activeSection === section.id
+                          ? 'bg-blue-600 text-white'
+                          : 'text-slate-600 dark:text-slate-400 hover:bg-slate-50 dark:hover:bg-slate-800'
+                      }`}
+                    >
+                      <span className={activeSection === section.id ? 'text-white' : 'text-slate-400'}>
+                        {section.icon}
+                      </span>
+                      {section.title}
+                    </button>
+                  ))}
+                </div>
+              </div>
+            )}
+          </div>
+        </div>
+
+        {/* Desktop Sidebar Nav */}
+        <nav className="hidden md:flex flex-col p-4 space-y-1 overflow-y-auto custom-scrollbar">
           {sections.map((section) => (
             <button
               key={section.id}
@@ -327,18 +378,25 @@ export const DocumentationView: React.FC = () => {
       </div>
 
       {/* Content */}
-      <div className="flex-1 overflow-y-auto p-10 custom-scrollbar">
-        <div className="max-w-3xl">
-          {sections.find(s => s.id === activeSection)?.content}
+      <div className="flex-1 overflow-y-auto p-4 md:p-10 custom-scrollbar">
+        <div className="max-w-3xl mx-auto">
+          <div className="hidden md:block mb-6 pb-4 border-b border-slate-100">
+            <h3 className="text-xl font-black text-slate-900 dark:text-slate-50 flex items-center gap-3">
+              {activeSectionData?.icon}
+              {activeSectionData?.title}
+            </h3>
+          </div>
           
-          <div className="mt-12 pt-8 border-t border-slate-100">
-            <div className="flex items-center gap-4 p-6 bg-blue-50 rounded-[2rem] border border-blue-100">
-              <div className="p-3 bg-white rounded-2xl shadow-md dark:shadow-slate-900/20">
+          {activeSectionData?.content}
+          
+          <div className="mt-8 md:mt-12 pt-6 md:pt-8 border-t border-slate-100">
+            <div className="flex flex-col sm:flex-row items-start sm:items-center gap-4 p-4 md:p-6 bg-blue-50 rounded-2xl md:rounded-[2rem] border border-blue-100">
+              <div className="p-3 bg-white rounded-2xl shadow-md dark:shadow-slate-900/20 shrink-0">
                 <Bell className="w-6 h-6 text-blue-600 dark:text-blue-400" />
               </div>
               <div>
-                <h5 className="font-bold text-blue-900">Нужна помощь?</h5>
-                <p className="text-xs text-blue-700 dark:text-blue-300">Если вы не нашли ответ на свой вопрос, обратитесь в чат поддержки или к вашему персональному менеджеру.</p>
+                <h5 className="font-bold text-blue-900 text-sm md:text-base">Нужна помощь?</h5>
+                <p className="text-[11px] md:text-xs text-blue-700 dark:text-blue-300">Если вы не нашли ответ на свой вопрос, обратитесь в чат поддержки или к вашему персональному менеджеру.</p>
               </div>
             </div>
           </div>

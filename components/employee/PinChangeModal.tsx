@@ -41,7 +41,7 @@ export const PinChangeModal = memo<PinChangeModalProps>(({
                   required
                   value={pinState.old}
                   onChange={e => setPinState({...pinState, old: e.target.value.replace(/[^0-9]/g, '')})}
-                  className="w-full bg-slate-50 border-2 border-slate-100 rounded-2xl px-5 py-3 text-lg font-black tracking-[0.5em] text-center"
+                  className="w-full bg-slate-50 dark:bg-slate-800 border-2 border-slate-100 dark:border-slate-700 rounded-2xl px-5 py-3 text-lg font-black tracking-[0.5em] text-center text-slate-900 dark:text-slate-50"
                />
             </div>
             <div className="space-y-1">
@@ -54,7 +54,7 @@ export const PinChangeModal = memo<PinChangeModalProps>(({
                   required
                   value={pinState.new}
                   onChange={e => setPinState({...pinState, new: e.target.value.replace(/[^0-9]/g, '')})}
-                  className="w-full bg-slate-50 border-2 border-slate-100 rounded-2xl px-5 py-3 text-lg font-black tracking-[0.5em] text-center text-blue-600 dark:text-blue-400"
+                  className="w-full bg-slate-50 dark:bg-slate-800 border-2 border-slate-100 dark:border-slate-700 rounded-2xl px-5 py-3 text-lg font-black tracking-[0.5em] text-center text-blue-600 dark:text-blue-400"
                />
             </div>
             <div className="space-y-1">
@@ -67,7 +67,7 @@ export const PinChangeModal = memo<PinChangeModalProps>(({
                   required
                   value={pinState.confirm}
                   onChange={e => setPinState({...pinState, confirm: e.target.value.replace(/[^0-9]/g, '')})}
-                  className="w-full bg-slate-50 border-2 border-slate-100 rounded-2xl px-5 py-3 text-lg font-black tracking-[0.5em] text-center text-blue-600 dark:text-blue-400"
+                  className="w-full bg-slate-50 dark:bg-slate-800 border-2 border-slate-100 dark:border-slate-700 rounded-2xl px-5 py-3 text-lg font-black tracking-[0.5em] text-center text-blue-600 dark:text-blue-400"
                />
             </div>
             {pinError && <p className="text-red-500 text-[10px] font-black text-center uppercase">{pinError}</p>}

@@ -38,8 +38,8 @@ const LoginScreen: React.FC<LoginScreenProps> = ({
   isSelectedUserAdmin
 }) => {
   return (
-    <div className="min-h-screen bg-slate-50 flex items-center justify-center p-4">
-      <div className="bg-white rounded-[2.5rem] shadow-2xl dark:shadow-slate-900/40 border border-slate-200 p-8 w-full max-w-md relative overflow-hidden">
+    <div className="min-h-screen bg-slate-50 dark:bg-slate-950 flex items-center justify-center p-4">
+      <div className="bg-white dark:bg-slate-900 rounded-[2.5rem] shadow-2xl dark:shadow-slate-900/40 border border-slate-200 dark:border-slate-800 p-8 w-full max-w-md relative overflow-hidden">
         <button 
           onClick={() => setShowLanding(true)}
           className="absolute top-4 left-4 text-slate-400 hover:text-slate-900 dark:text-slate-50 transition-colors"
@@ -92,7 +92,7 @@ const LoginScreen: React.FC<LoginScreenProps> = ({
                     localStorage.setItem(STORAGE_KEYS.LAST_USER_ID, user.id);
                   }
                 }}
-                className="w-full bg-slate-50 border-2 border-slate-100 rounded-3xl px-6 py-4 text-sm font-bold text-slate-700 dark:text-slate-200 outline-none focus:border-blue-500 transition-all appearance-none cursor-pointer"
+                className="w-full bg-slate-50 dark:bg-slate-800 border-2 border-slate-100 dark:border-slate-700 rounded-3xl px-6 py-4 text-sm font-bold text-slate-700 dark:text-slate-200 outline-none focus:border-blue-500 transition-all appearance-none cursor-pointer"
                 defaultValue=""
               >
                 <option value="" disabled>Выберите себя в списке...</option>
@@ -101,8 +101,8 @@ const LoginScreen: React.FC<LoginScreenProps> = ({
                 ))}
               </select>
             </div>
-            <div className="p-5 bg-blue-50 rounded-[2rem] border border-blue-100">
-              <p className="text-[11px] text-blue-800 font-semibold leading-relaxed">
+            <div className="p-5 bg-blue-50 dark:bg-blue-900/20 rounded-[2rem] border border-blue-100 dark:border-blue-800">
+              <p className="text-[11px] text-blue-800 dark:text-blue-300 font-semibold leading-relaxed">
                  <span className="font-black uppercase block mb-1">Важно:</span> 
                  Используйте ваш PIN-код для входа в систему.
               </p>
@@ -110,7 +110,7 @@ const LoginScreen: React.FC<LoginScreenProps> = ({
           </div>
         ) : (
           <div className="space-y-6 animate-fadeIn">
-            <div className="flex items-center gap-4 p-4 bg-blue-50 rounded-[2rem] mb-4 border border-blue-100">
+            <div className="flex items-center gap-4 p-4 bg-blue-50 dark:bg-blue-900/20 rounded-[2rem] mb-4 border border-blue-100 dark:border-blue-800">
               <div className="w-12 h-12 bg-blue-600 text-white rounded-2xl flex items-center justify-center font-black text-xl">
                 {selectedLoginUser.name.charAt(0)}
               </div>
@@ -124,7 +124,7 @@ const LoginScreen: React.FC<LoginScreenProps> = ({
             <div>
               <div className="flex justify-center gap-6 mb-8">
                 {[...Array(4)].map((_, i) => (
-                  <div key={i} className={`w-4 h-4 rounded-full border-2 transition-all ${pinInput.length > i ? 'bg-blue-600 border-blue-600 scale-125 shadow-2xl dark:shadow-slate-900/20' : 'border-slate-300'}`}></div>
+                  <div key={i} className={`w-4 h-4 rounded-full border-2 transition-all ${pinInput.length > i ? 'bg-blue-600 border-blue-600 scale-125 shadow-2xl dark:shadow-slate-900/20' : 'border-slate-300 dark:border-slate-700'}`}></div>
                 ))}
               </div>
               <input 
@@ -156,7 +156,7 @@ const LoginScreen: React.FC<LoginScreenProps> = ({
                       }
                     }
                   }}
-                  className={`h-16 rounded-[1.5rem] font-black flex items-center justify-center transition-all active:scale-95 ${n === '' ? 'pointer-events-none' : 'bg-slate-50 hover:bg-white border-2 border-slate-100 text-slate-800 dark:text-slate-100 text-xl'}`}
+                  className={`h-16 rounded-[1.5rem] font-black flex items-center justify-center transition-all active:scale-95 ${n === '' ? 'pointer-events-none' : 'bg-slate-50 dark:bg-slate-800 hover:bg-white dark:hover:bg-slate-700 border-2 border-slate-100 dark:border-slate-700 text-slate-800 dark:text-slate-100 text-xl'}`}
                 >
                   {n === 'del' ? '←' : n}
                 </button>
@@ -176,7 +176,7 @@ const LoginScreen: React.FC<LoginScreenProps> = ({
           </div>
         )}
 
-        <div className="pt-4 mt-4 border-t border-slate-100 flex justify-center">
+        <div className="pt-4 mt-4 border-t border-slate-100 dark:border-slate-800 flex justify-center">
           <button 
             onClick={() => {
               const pin = prompt('Введите мастер-ключ для входа в Back-office:');
