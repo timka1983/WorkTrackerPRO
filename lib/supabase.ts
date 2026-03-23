@@ -855,6 +855,23 @@ export const db = {
     
     const { data, error } = await query.order('name');
     if (error) {
+      // Fallback for missing organization_id column
+      if (error.code === '42703' || error.code === 'PGRST204' || error.message?.includes('column')) {
+        console.warn('organization_id column missing in positions, fetching all positions');
+        const { data: allData, error: allError } = await supabase
+          .from('positions')
+          .select('*')
+          .order('name');
+        if (allError) {
+          console.error('Error fetching positions:', allError);
+          return null;
+        }
+        return (allData || []).map(p => ({
+          name: p.name,
+          permissions: p.permissions || {},
+          payroll: p.payroll
+        }));
+      }
       console.error('Error fetching positions:', error);
       return null;
     }

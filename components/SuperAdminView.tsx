@@ -561,6 +561,7 @@ const SuperAdminView: React.FC<SuperAdminViewProps> = ({
   const totalUsers = Object.values(stats).reduce((acc, curr) => acc + curr, 0);
 
   const [isSidebarCollapsed, setIsSidebarCollapsed] = useState(false);
+  const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
 
   const menuItems = [
     { id: 'orgs', name: 'Организации', icon: Building2 },
@@ -575,17 +576,30 @@ const SuperAdminView: React.FC<SuperAdminViewProps> = ({
 
   return (
     <div className="flex h-screen bg-slate-50 dark:bg-slate-950">
-      <aside className={`bg-slate-900 text-white transition-all duration-300 flex flex-col ${isSidebarCollapsed ? 'w-20' : 'w-64'}`}>
-        <div className="p-6 flex items-center gap-3">
-          <div className="bg-indigo-600 p-2 rounded-lg">
-            <ShieldCheck className="w-6 h-6" />
-          </div>
-          {!isSidebarCollapsed && (
-            <div>
-              <h1 className="text-lg font-bold tracking-tight">SaaS Back-office</h1>
-              <p className="text-[10px] text-indigo-300 font-medium uppercase tracking-wider">Super Admin</p>
+      {/* Mobile Overlay */}
+      {isMobileMenuOpen && (
+        <div 
+          className="fixed inset-0 bg-black/50 z-40 md:hidden"
+          onClick={() => setIsMobileMenuOpen(false)}
+        />
+      )}
+
+      <aside className={`bg-slate-900 text-white transition-all duration-300 flex flex-col fixed inset-y-0 left-0 z-50 md:static ${isMobileMenuOpen ? 'translate-x-0' : '-translate-x-full'} md:translate-x-0 ${isSidebarCollapsed ? 'w-20' : 'w-64'}`}>
+        <div className="p-6 flex items-center justify-between gap-3">
+          <div className="flex items-center gap-3">
+            <div className="bg-indigo-600 p-2 rounded-lg">
+              <ShieldCheck className="w-6 h-6" />
             </div>
-          )}
+            {!isSidebarCollapsed && (
+              <div>
+                <h1 className="text-lg font-bold tracking-tight">SaaS Back-office</h1>
+                <p className="text-[10px] text-indigo-300 font-medium uppercase tracking-wider">Super Admin</p>
+              </div>
+            )}
+          </div>
+          <button onClick={() => setIsMobileMenuOpen(false)} className="md:hidden p-2 text-slate-400">
+            <X className="w-6 h-6" />
+          </button>
         </div>
 
         <nav className="flex-1 px-4 py-6 space-y-2">
@@ -595,7 +609,7 @@ const SuperAdminView: React.FC<SuperAdminViewProps> = ({
               <button
                 key={item.id}
                 onClick={() => setActiveTab(item.id as any)}
-                className={`w-full flex items-center gap-3 px-4 py-3 rounded-xl transition-all relative ${
+                className={`w-full flex items-center ${isSidebarCollapsed ? 'justify-center' : 'justify-start'} gap-3 px-4 py-3 rounded-xl transition-all relative ${
                   activeTab === item.id ? 'bg-indigo-600 text-white' : 'text-slate-400 hover:bg-slate-800 hover:text-white'
                 }`}
                 title={isSidebarCollapsed ? item.name : undefined}
@@ -617,12 +631,14 @@ const SuperAdminView: React.FC<SuperAdminViewProps> = ({
           <button
             onClick={() => setIsSidebarCollapsed(!isSidebarCollapsed)}
             className="w-full flex items-center justify-center p-3 text-slate-400 hover:text-white hover:bg-slate-800 rounded-xl transition-all"
+            title={isSidebarCollapsed ? 'Развернуть меню' : 'Свернуть меню'}
           >
             {isSidebarCollapsed ? <LayoutGrid className="w-5 h-5" /> : <div className="flex items-center gap-2"><LayoutGrid className="w-5 h-5" /><span>Свернуть</span></div>}
           </button>
           <button 
             onClick={onLogout}
-            className="w-full flex items-center gap-3 px-4 py-3 text-rose-400 hover:bg-rose-900/20 rounded-xl transition-all mt-2"
+            className={`w-full flex items-center ${isSidebarCollapsed ? 'justify-center' : 'justify-start'} gap-3 px-4 py-3 text-rose-400 hover:bg-rose-900/20 rounded-xl transition-all mt-2`}
+            title={isSidebarCollapsed ? 'Выйти' : undefined}
           >
             <X className="w-5 h-5" />
             {!isSidebarCollapsed && <span className="font-medium text-sm">Выйти</span>}
@@ -633,7 +649,14 @@ const SuperAdminView: React.FC<SuperAdminViewProps> = ({
       {/* Main Content */}
       <main className="flex-1 overflow-y-auto">
         <header className="bg-white dark:bg-slate-900 border-b border-slate-200 dark:border-slate-800 sticky top-0 z-10 shadow-md dark:shadow-slate-900/20">
-          <div className="max-w-7xl mx-auto px-8 h-16 flex items-center justify-between">
+          <div className="max-w-7xl mx-auto px-4 sm:px-8 h-16 flex items-center justify-between">
+            <button onClick={() => setIsMobileMenuOpen(true)} className="md:hidden p-2 text-slate-900 dark:text-slate-50">
+              <div className="space-y-1.5">
+                <div className="w-6 h-0.5 bg-current"></div>
+                <div className="w-6 h-0.5 bg-current"></div>
+                <div className="w-6 h-0.5 bg-current"></div>
+              </div>
+            </button>
             <h2 className="text-lg font-bold text-slate-900 dark:text-slate-50 uppercase tracking-tight">
               {menuItems.find(i => i.id === activeTab)?.name}
             </h2>

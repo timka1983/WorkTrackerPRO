@@ -3,8 +3,8 @@ import { User, WorkLog, PositionConfig, UserRole, Machine, EntryType, Branch, Or
 import { calculateMonthlyPayroll, getEffectivePayrollConfig, formatDurationShort, calculateMinutes } from '../../utils';
 import { format } from 'date-fns';
 import { ScheduleModal } from '../employee/ScheduleModal';
-import { generatePayslipPDF } from '../../utils/pdfGenerator';
-import { ChevronDown, ChevronUp, RefreshCw, Save, CheckCircle2, Plus, Trash2, Wallet, Coins, Calendar, FileText, History } from 'lucide-react';
+import { generatePayslipPDF, generatePayrollReportPDF } from '../../utils/pdfGenerator';
+import { ChevronDown, ChevronUp, RefreshCw, Save, CheckCircle2, Plus, Trash2, Wallet, Coins, Calendar, FileText, History, Printer } from 'lucide-react';
 import { db } from '../../lib/supabase';
 import { DEFAULT_PAYROLL_CONFIG } from '../../constants';
 
@@ -246,6 +246,31 @@ export const PayrollView: React.FC<PayrollViewProps> = ({
           <button onClick={handleExportAll} className="px-3 py-3 md:px-6 md:py-3 bg-slate-900 dark:bg-slate-700 text-white rounded-2xl font-black text-xs uppercase tracking-widest hover:bg-blue-600 transition-all shadow-xl dark:shadow-slate-900/20 shadow-slate-200 dark:shadow-none hover:shadow-blue-200 active:scale-95">
             <span className="hidden md:inline">Экспорт</span>
             <FileText className="w-5 h-5 md:hidden" />
+          </button>
+          <button onClick={() => {
+            const payrollData = users.map(emp => {
+              const empLogs = Object.values(logsLookup[emp.id] || {}).flat().filter(l => l.date.startsWith(filterMonth));
+              const payroll = calculateMonthlyPayroll(emp, empLogs, positions, currentOrg || undefined);
+              const totalPaid = payments.filter(p => p.userId === emp.id && p.date.startsWith(filterMonth)).reduce((sum, p) => sum + p.amount, 0);
+              const advance = payments.filter(p => p.userId === emp.id && p.date.startsWith(filterMonth) && p.type === 'advance').reduce((sum, p) => sum + p.amount, 0);
+              const bonus = payments.filter(p => p.userId === emp.id && p.date.startsWith(filterMonth) && p.type === 'bonus').reduce((sum, p) => sum + p.amount, 0);
+              const totalHours = Math.round((payroll.details?.regularHours || 0) + (payroll.details?.overtimeHours || 0));
+              const sickDays = payroll.details?.sickDays || 0;
+              return {
+                employeeName: emp.name,
+                position: emp.position,
+                totalSalary: payroll.totalSalary,
+                totalPaid: totalPaid,
+                totalHours,
+                sickDays,
+                advance,
+                bonus
+              };
+            });
+            generatePayrollReportPDF(payrollData, filterMonth);
+          }} className="px-3 py-3 md:px-6 md:py-3 bg-emerald-600 text-white rounded-2xl font-black text-xs uppercase tracking-widest hover:bg-emerald-700 transition-all shadow-xl dark:shadow-slate-900/20 shadow-emerald-200 dark:shadow-none hover:shadow-emerald-200 active:scale-95">
+            <span className="hidden md:inline">Печать ведомости</span>
+            <Printer className="w-5 h-5 md:hidden" />
           </button>
          </div>
       </div>
