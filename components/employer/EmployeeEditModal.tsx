@@ -68,15 +68,6 @@ export const EmployeeEditModal: React.FC<EmployeeEditModalProps> = ({
          <div className="overflow-y-auto custom-scrollbar">
            <form onSubmit={saveEmployeeEdit} className="p-8 space-y-4">
               <div className="space-y-1">
-                  <label className="text-[10px] font-black text-slate-400 uppercase ml-1">Дата рождения</label>
-                  <input 
-                    type="date" 
-                    value={editingEmployee.birthday || ''} 
-                    onChange={e => setEditingEmployee({...editingEmployee, birthday: e.target.value})} 
-                    className="w-full border-2 border-slate-100 dark:border-slate-800 rounded-2xl px-4 py-3 text-sm font-bold bg-white dark:bg-slate-900 dark:text-slate-100 shadow-sm dark:shadow-none" 
-                  />
-               </div>
-              <div className="space-y-1">
                  <label className="text-[10px] font-black text-slate-400 uppercase ml-1">ФИО</label>
                  <input 
                    required 
@@ -85,6 +76,18 @@ export const EmployeeEditModal: React.FC<EmployeeEditModalProps> = ({
                    onChange={e => setEditingEmployee({...editingEmployee, name: e.target.value})} 
                    className="w-full border-2 border-slate-100 dark:border-slate-800 rounded-2xl px-4 py-3 text-sm font-bold outline-none focus:border-blue-500 bg-white dark:bg-slate-900 dark:text-slate-100 shadow-sm dark:shadow-none" 
                  />
+              </div>
+              <div className="space-y-1">
+                 <label className="text-[10px] font-black text-slate-400 uppercase ml-1">Дата рождения</label>
+                 <input 
+                   type="date" 
+                   value={editingEmployee.birthday || ''} 
+                   onChange={e => setEditingEmployee({...editingEmployee, birthday: e.target.value})} 
+                   className="w-full border-2 border-slate-100 dark:border-slate-800 rounded-2xl px-4 py-3 text-sm font-bold bg-white dark:bg-slate-900 dark:text-slate-100 shadow-sm dark:shadow-none" 
+                 />
+                 <p className="text-[10px] text-slate-400 ml-1 italic">
+                   * Используется для праздничного оформления кабинета и уведомлений руководства.
+                 </p>
               </div>
               <div className="space-y-1">
                  <label className="text-[10px] font-black text-slate-400 uppercase ml-1">Должность</label>

@@ -41,6 +41,24 @@ interface EmployeeViewProps {
   payments?: PayrollPayment[];
 }
 
+const BIRTHDAY_GREETINGS = [
+  "Желаем крепкого здоровья, успехов в работе и отличного настроения! Пусть каждый день приносит только радость! 🥳✨",
+  "Пусть этот год станет для вас временем новых достижений, ярких побед и исполнения самых заветных желаний! 🚀🎂",
+  "Желаем неиссякаемой энергии, вдохновения и благополучия во всём! С праздником! 🎈🌟",
+  "Пусть в жизни будет больше поводов для улыбок, а каждый рабочий день приносит удовлетворение и успех! 💼🎉",
+  "Желаем, чтобы каждый новый день был лучше предыдущего, а удача всегда была на вашей стороне! 🍀🎁",
+  "Пусть работа будет в радость, а дома всегда ждут тепло, уют и близкие люди! С днём рождения! 🏠❤️",
+  "Желаем финансового процветания, карьерного роста и личного счастья! Ура! 💰📈",
+  "Пусть этот день будет полон сюрпризов, цветов и добрых слов! Вы — важная часть нашей команды! 💐🤝",
+  "Желаем всегда оставаться таким же энергичным и целеустремленным человеком! Только вперед! 🏃‍♂️🔥",
+  "Пусть жизнь играет яркими красками, а сердце всегда будет наполнено любовью и добротой! 🌈💖",
+  "Желаем стального здоровья, железного терпения и золотых успехов! С днём рождения! 🛠️🥇",
+  "Пусть мечты сбываются, а цели достигаются легко и непринужденно! Поздравляем! 🎯🎊",
+  "Желаем гармонии в душе, мира в семье и процветания в делах! 🕊️✨",
+  "Пусть каждый миг будет наполнен смыслом и радостью! Счастья и удачи! ⏳🎈",
+  "Желаем, чтобы ваша жизнь была похожа на сказку, полную чудес и приятных событий! 🪄🏰"
+];
+
 const EmployeeView: React.FC<EmployeeViewProps> = ({ 
   user, logs, logsLookup = {}, onLogsUpsert, activeShifts, activeShiftsMap = {}, onActiveShiftsUpdate, onOvertime, machines, positions, onUpdateUser, nightShiftBonusMinutes, onRefresh, planLimits, currentOrg, onMonthChange, getNow, viewMode, setViewMode, payments = []
 }) => {
@@ -257,6 +275,14 @@ const EmployeeView: React.FC<EmployeeViewProps> = ({
     const birthday = new Date(user.birthday);
     return today.getDate() === birthday.getDate() && today.getMonth() === birthday.getMonth();
   }, [user.birthday, getNow]);
+
+  const birthdayGreeting = useMemo(() => {
+    if (!isBirthday) return "";
+    // Use user.id and current year as a seed for stable randomness
+    const year = getNow().getFullYear();
+    const seed = user.id.split('').reduce((acc, char) => acc + char.charCodeAt(0), 0) + year;
+    return BIRTHDAY_GREETINGS[seed % BIRTHDAY_GREETINGS.length];
+  }, [isBirthday, user.id, getNow]);
 
   const isAbsentToday = useMemo(() => {
     return logs.some(l => l.userId === user.id && l.date === todayStr && l.entryType !== EntryType.WORK);
@@ -809,7 +835,7 @@ const EmployeeView: React.FC<EmployeeViewProps> = ({
               С Днём рождения! УРА!!!
             </h2>
             <p className="text-lg font-bold opacity-90 max-w-md">
-              Желаем крепкого здоровья, успехов в работе и отличного настроения! Пусть каждый день приносит только радость! 🥳✨
+              {birthdayGreeting}
             </p>
             <div className="flex gap-2">
               <span className="px-4 py-2 bg-white/20 backdrop-blur-md rounded-full text-xs font-black uppercase tracking-widest">Праздник</span>

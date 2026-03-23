@@ -50,6 +50,8 @@ export const MatrixView: React.FC<MatrixViewProps> = ({
           user={selectedEmployee} 
           onClose={() => setSelectedEmployee(null)} 
           days={days} 
+          userLogs={logsLookup[String(selectedEmployee.id).trim()]}
+          roundShiftMinutes={currentOrg?.roundShiftMinutes}
         />
       )}
       <div className="p-4 border-b border-slate-100 dark:border-slate-800 flex justify-between items-center bg-slate-50/50 dark:bg-slate-800/50 no-print">
@@ -67,16 +69,18 @@ export const MatrixView: React.FC<MatrixViewProps> = ({
         </button>
       </div>
 
-      <div className="hidden print:block p-8 text-center border-b border-slate-900 print-monochrome">
-         <h1 className="text-3xl font-black uppercase tracking-tighter">Сводный Табель ({filterMonth})</h1>
+      <div className="hidden print:block p-4 text-center border-b-2 border-slate-900 mb-4">
+         <div className="text-xs font-bold uppercase tracking-widest mb-1">{currentOrg?.name}</div>
+         <h1 className="text-2xl font-black uppercase tracking-tighter">Табель учета рабочего времени</h1>
+         <div className="text-sm font-bold text-slate-600 uppercase tracking-widest mt-1">Отчетный период: {filterMonth}</div>
       </div>
-      <div className="flex-1 overflow-auto print-monochrome custom-scrollbar">
+      <div className="flex-1 overflow-auto print-monochrome custom-scrollbar print:overflow-visible print:h-auto">
         <table className="w-full border-collapse">
           <thead className="sticky top-0 z-40">
             <tr className="bg-slate-50 dark:bg-slate-800 border-b border-slate-200 dark:border-slate-700">
               <th className="sticky left-0 z-50 bg-slate-50 dark:bg-slate-800 px-3 py-4 text-left text-[10px] font-bold text-slate-600 dark:text-slate-400 uppercase border-r dark:border-slate-700 w-[140px] min-w-[140px] max-w-[140px]">Сотрудник / Ресурс</th>
               {days.map(day => (
-                <th key={day.toString()} className={`px-0.5 py-2 text-center text-[9px] font-bold border-r dark:border-slate-700 min-w-[32px] ${[0, 6].includes(day.getDay()) ? 'bg-red-50/50 dark:bg-red-900/20 text-red-600 dark:text-red-400' : 'text-slate-500 dark:text-slate-400'}`}>
+                <th key={day.toString()} className={`px-0.5 py-2 text-center text-[10px] font-bold border-r dark:border-slate-700 min-w-[32px] ${[0, 6].includes(day.getDay()) ? 'bg-red-50/50 dark:bg-red-900/20 text-red-600 dark:text-red-400' : 'text-slate-500 dark:text-slate-400'}`}>
                   <div className="flex flex-col items-center">
                     <span>{format(day, 'd')}</span>
                     <span className="text-[7px] uppercase opacity-60 font-medium">{format(day, 'eeeeee', { locale: ru })}</span>
@@ -173,6 +177,19 @@ export const MatrixView: React.FC<MatrixViewProps> = ({
             })}
           </tbody>
         </table>
+      </div>
+
+      <div className="hidden print:grid grid-cols-2 gap-12 mt-12 p-8">
+        <div className="border-t border-black pt-2">
+          <div className="text-[10px] font-bold uppercase">Руководитель подразделения</div>
+          <div className="mt-4 border-b border-black w-full h-8"></div>
+          <div className="text-[8px] text-slate-500 mt-1">(подпись, ФИО)</div>
+        </div>
+        <div className="border-t border-black pt-2">
+          <div className="text-[10px] font-bold uppercase">Ответственный за табель</div>
+          <div className="mt-4 border-b border-black w-full h-8"></div>
+          <div className="text-[8px] text-slate-500 mt-1">(подпись, ФИО)</div>
+        </div>
       </div>
     </section>
   );
