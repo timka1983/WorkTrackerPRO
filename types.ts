@@ -167,6 +167,7 @@ export interface User {
   department?: string;
   position: string;
   pin: string; // 4-digit pin
+  birthday?: string; // ISO Date YYYY-MM-DD
   requirePhoto?: boolean; // Mandatory photo capture
   isAdmin?: boolean; // Admin privileges
   forcePinChange?: boolean; // Mandatory PIN change on next login

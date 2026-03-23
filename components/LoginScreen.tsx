@@ -92,12 +92,12 @@ const LoginScreen: React.FC<LoginScreenProps> = ({
                     localStorage.setItem(STORAGE_KEYS.LAST_USER_ID, user.id);
                   }
                 }}
-                className="w-full bg-slate-50 dark:bg-slate-800 border-2 border-slate-100 dark:border-slate-700 rounded-3xl px-6 py-4 text-sm font-bold text-slate-700 dark:text-slate-200 outline-none focus:border-blue-500 transition-all appearance-none cursor-pointer"
+                className="w-full bg-slate-50 dark:bg-slate-800 border-2 border-slate-100 dark:border-slate-700 rounded-3xl px-6 py-4 text-sm font-bold text-slate-700 dark:text-slate-200 outline-none focus:border-blue-500 dark:focus:border-blue-400 transition-all appearance-none cursor-pointer"
                 defaultValue=""
               >
-                <option value="" disabled>Выберите себя в списке...</option>
+                <option value="" disabled className="dark:bg-slate-800">Выберите себя в списке...</option>
                 {users.filter(u => !u.isArchived).map(u => (
-                  <option key={u.id} value={u.id}>{u.name} — {u.position}</option>
+                  <option key={u.id} value={u.id} className="dark:bg-slate-800">{u.name} — {u.position}</option>
                 ))}
               </select>
             </div>
@@ -156,7 +156,7 @@ const LoginScreen: React.FC<LoginScreenProps> = ({
                       }
                     }
                   }}
-                  className={`h-16 rounded-[1.5rem] font-black flex items-center justify-center transition-all active:scale-95 ${n === '' ? 'pointer-events-none' : 'bg-slate-50 dark:bg-slate-800 hover:bg-white dark:hover:bg-slate-700 border-2 border-slate-100 dark:border-slate-700 text-slate-800 dark:text-slate-100 text-xl'}`}
+                  className={`h-16 rounded-[1.5rem] font-black flex items-center justify-center transition-all active:scale-95 ${n === '' ? 'pointer-events-none' : 'bg-slate-50 dark:bg-slate-800 hover:bg-white dark:hover:bg-slate-700 border-2 border-slate-100 dark:border-slate-700 text-slate-800 dark:text-slate-100 text-xl shadow-sm dark:shadow-none'}`}
                 >
                   {n === 'del' ? '←' : n}
                 </button>

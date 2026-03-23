@@ -251,6 +251,13 @@ const EmployeeView: React.FC<EmployeeViewProps> = ({
   }, [activeShiftsMap]);
 
   const todayStr = format(getNow(), 'yyyy-MM-dd');
+  const isBirthday = useMemo(() => {
+    if (!user.birthday) return false;
+    const today = getNow();
+    const birthday = new Date(user.birthday);
+    return today.getDate() === birthday.getDate() && today.getMonth() === birthday.getMonth();
+  }, [user.birthday, getNow]);
+
   const isAbsentToday = useMemo(() => {
     return logs.some(l => l.userId === user.id && l.date === todayStr && l.entryType !== EntryType.WORK);
   }, [logs, user.id, todayStr]);
@@ -786,6 +793,52 @@ const EmployeeView: React.FC<EmployeeViewProps> = ({
 
   return (
     <div className="space-y-6 animate-fadeIn dark:text-slate-100">
+      {isBirthday && (
+        <div className="relative overflow-hidden bg-gradient-to-r from-pink-500 via-purple-500 to-indigo-500 rounded-[2.5rem] p-8 text-white shadow-2xl dark:shadow-slate-900/40 animate-fadeIn mb-6">
+          <div className="absolute inset-0 opacity-20">
+            <div className="absolute top-[-10%] left-[10%] animate-bounce delay-100">🎈</div>
+            <div className="absolute top-[20%] right-[15%] animate-bounce delay-300">🎈</div>
+            <div className="absolute bottom-[10%] left-[20%] animate-bounce delay-500">🎈</div>
+            <div className="absolute top-[40%] left-[5%] animate-bounce delay-200">🎈</div>
+            <div className="absolute bottom-[20%] right-[5%] animate-bounce delay-400">🎈</div>
+          </div>
+          
+          <div className="relative z-10 flex flex-col items-center text-center space-y-4">
+            <div className="text-6xl animate-bounce">🎂</div>
+            <h2 className="text-4xl md:text-5xl font-black uppercase tracking-tighter drop-shadow-lg">
+              С Днём рождения! УРА!!!
+            </h2>
+            <p className="text-lg font-bold opacity-90 max-w-md">
+              Желаем крепкого здоровья, успехов в работе и отличного настроения! Пусть каждый день приносит только радость! 🥳✨
+            </p>
+            <div className="flex gap-2">
+              <span className="px-4 py-2 bg-white/20 backdrop-blur-md rounded-full text-xs font-black uppercase tracking-widest">Праздник</span>
+              <span className="px-4 py-2 bg-white/20 backdrop-blur-md rounded-full text-xs font-black uppercase tracking-widest">Радость</span>
+              <span className="px-4 py-2 bg-white/20 backdrop-blur-md rounded-full text-xs font-black uppercase tracking-widest">Успех</span>
+            </div>
+          </div>
+
+          {/* Decorative elements */}
+          <div className="absolute top-0 left-0 w-full h-full pointer-events-none">
+            {[...Array(20)].map((_, i) => (
+              <div 
+                key={i}
+                className="absolute animate-float"
+                style={{
+                  left: `${Math.random() * 100}%`,
+                  top: `${Math.random() * 100}%`,
+                  animationDelay: `${Math.random() * 5}s`,
+                  fontSize: `${Math.random() * 20 + 10}px`,
+                  opacity: 0.3
+                }}
+              >
+                ✨
+              </div>
+            ))}
+          </div>
+        </div>
+      )}
+
       {Object.values(activeShifts).map(shift => shift && (
         <ShiftMonitor 
           key={shift.id}

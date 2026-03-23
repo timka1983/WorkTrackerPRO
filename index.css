@@ -35,3 +35,13 @@ body {
 .dark .custom-scrollbar::-webkit-scrollbar-thumb:hover {
   background: #334155;
 }
+
+@keyframes float {
+  0% { transform: translateY(0) rotate(0deg); opacity: 0; }
+  50% { opacity: 0.5; }
+  100% { transform: translateY(-100px) rotate(360deg); opacity: 0; }
+}
+
+.animate-float {
+  animation: float 5s linear infinite;
+}

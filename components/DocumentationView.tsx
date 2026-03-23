@@ -25,13 +25,13 @@ export const DocumentationView: React.FC = () => {
             Система построена на стеке React + Supabase и работает по модели SaaS.
           </p>
           <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mt-6">
-            <div className="p-4 bg-blue-50 rounded-2xl border border-blue-100">
-              <h4 className="font-bold text-blue-900 mb-2">Для сотрудников</h4>
+            <div className="p-4 bg-blue-50 dark:bg-blue-900/20 rounded-2xl border border-blue-100 dark:border-blue-800/30">
+              <h4 className="font-bold text-blue-900 dark:text-blue-100 mb-2">Для сотрудников</h4>
               <p className="text-xs text-blue-700 dark:text-blue-300">Простая регистрация смен через смартфон, фотофиксация, просмотр своей статистики и начислений.</p>
             </div>
-            <div className="p-4 bg-indigo-50 rounded-2xl border border-indigo-100">
-              <h4 className="font-bold text-indigo-900 mb-2">Для работодателей</h4>
-              <p className="text-xs text-indigo-700">Мониторинг в реальном времени, управление филиалами, автоматический расчет зарплат и аналитика.</p>
+            <div className="p-4 bg-indigo-50 dark:bg-indigo-900/20 rounded-2xl border border-indigo-100 dark:border-indigo-800/30">
+              <h4 className="font-bold text-indigo-900 dark:text-indigo-100 mb-2">Для работодателей</h4>
+              <p className="text-xs text-indigo-700 dark:text-indigo-300">Мониторинг в реальном времени, управление филиалами, автоматический расчет зарплат и аналитика.</p>
             </div>
           </div>
         </div>
@@ -65,7 +65,7 @@ export const DocumentationView: React.FC = () => {
           <p className="text-sm text-slate-600 dark:text-slate-300">
             Модуль «Монитор» отображает всех сотрудников, находящихся на смене в данный момент.
           </p>
-          <div className="p-4 bg-slate-50 rounded-2xl border border-slate-200">
+          <div className="p-4 bg-slate-50 dark:bg-slate-800/50 rounded-2xl border border-slate-200 dark:border-slate-700">
             <h5 className="text-xs font-black uppercase tracking-widest text-slate-400 mb-3">Технические особенности:</h5>
             <ul className="text-xs space-y-2 text-slate-600 dark:text-slate-300">
               <li>• <b className="text-slate-900 dark:text-slate-50">Авто-завершение</b>: Если сотрудник забыл закрыть смену, система автоматически закроет её через заданные интервалы (настраивается в Настройках).</li>
@@ -88,7 +88,7 @@ export const DocumentationView: React.FC = () => {
           </p>
           
           <div className="space-y-4">
-            <div className="p-4 bg-slate-50 rounded-2xl border border-slate-200">
+            <div className="p-4 bg-slate-50 dark:bg-slate-800/50 rounded-2xl border border-slate-200 dark:border-slate-700">
               <h5 className="text-xs font-black uppercase tracking-widest text-slate-400 mb-3">Как работают взаиморасчеты:</h5>
               <ul className="text-xs space-y-3 text-slate-600 dark:text-slate-300">
                 <li>
@@ -119,15 +119,15 @@ export const DocumentationView: React.FC = () => {
               </ul>
             </div>
 
-            <div className="p-4 bg-blue-50 rounded-2xl border border-blue-100">
-              <p className="text-xs text-blue-800 leading-relaxed">
-                <b className="text-blue-900">Важно:</b> Модуль авансов и детальной истории выплат доступен в тарифе <b className="text-blue-900">BUSINESS</b>. 
+            <div className="p-4 bg-blue-50 dark:bg-blue-900/20 rounded-2xl border border-blue-100 dark:border-blue-800/30">
+              <p className="text-xs text-blue-800 dark:text-blue-200 leading-relaxed">
+                <b className="text-blue-900 dark:text-blue-100">Важно:</b> Модуль авансов и детальной истории выплат доступен в тарифе <b className="text-blue-900 dark:text-blue-100">BUSINESS</b>. 
                 В базовых тарифах доступен только расчет начислений.
               </p>
             </div>
           </div>
 
-          <div className="p-4 bg-slate-50 rounded-2xl border border-slate-200">
+          <div className="p-4 bg-slate-50 dark:bg-slate-800/50 rounded-2xl border border-slate-200 dark:border-slate-700">
             <h5 className="text-xs font-black uppercase tracking-widest text-slate-400 mb-3">Правила начислений:</h5>
             <ul className="text-xs space-y-2 text-slate-600 dark:text-slate-300">
               <li>• <b className="text-slate-900 dark:text-slate-50">Ночные смены</b>: Автоматическое добавление бонусных минут (процент настраивается).</li>
@@ -145,9 +145,9 @@ export const DocumentationView: React.FC = () => {
       content: (
         <div className="space-y-4">
           <h4 className="font-bold text-slate-900 dark:text-slate-50">Сохранность данных</h4>
-          <div className="p-4 bg-amber-50 rounded-2xl border border-amber-100">
-            <p className="text-sm text-amber-900 font-bold mb-2">Важное правило оборудования:</p>
-            <p className="text-xs text-amber-800 leading-relaxed">
+          <div className="p-4 bg-amber-50 dark:bg-amber-900/20 rounded-2xl border border-amber-100 dark:border-amber-800/30">
+            <p className="text-sm text-amber-900 dark:text-amber-100 font-bold mb-2">Важное правило оборудования:</p>
+            <p className="text-xs text-amber-800 dark:text-amber-200 leading-relaxed">
               При перемещении оборудования (станков) в архив, **вся информация о работе на нем сохраняется**. 
               В исторических отчетах и табелях за прошлые периоды вы по-прежнему будете видеть название этого оборудования. 
               Связь между логами смен и ID оборудования не разрывается, даже если станок больше не используется.
@@ -166,17 +166,17 @@ export const DocumentationView: React.FC = () => {
       content: (
         <div className="space-y-4">
           <div className="grid grid-cols-1 gap-4">
-            <div className="flex gap-4 p-4 bg-slate-50 rounded-2xl">
+            <div className="flex gap-4 p-4 bg-slate-50 dark:bg-slate-800/50 rounded-2xl">
               <MapPin className="w-8 h-8 text-blue-600 dark:text-blue-400 shrink-0" />
               <div>
-                <h5 className="font-bold text-sm">Геолокация (Анти-фрод)</h5>
+                <h5 className="font-bold text-sm text-slate-900 dark:text-slate-100">Геолокация (Анти-фрод)</h5>
                 <p className="text-xs text-slate-500 dark:text-slate-400">Настройка координат и радиуса допустимой зоны работы. Блокирует вход в смену, если сотрудник вне зоны.</p>
               </div>
             </div>
-            <div className="flex gap-4 p-4 bg-slate-50 rounded-2xl">
+            <div className="flex gap-4 p-4 bg-slate-50 dark:bg-slate-800/50 rounded-2xl">
               <Bell className="w-8 h-8 text-indigo-600 dark:text-indigo-400 shrink-0" />
               <div>
-                <h5 className="font-bold text-sm">Telegram Уведомления</h5>
+                <h5 className="font-bold text-sm text-slate-900 dark:text-slate-100">Telegram Уведомления</h5>
                 <p className="text-xs text-slate-500 dark:text-slate-400">Интеграция через Bot API. Позволяет получать мгновенные отчеты о начале/конце смен и переработках в групповой чат.</p>
               </div>
             </div>
@@ -196,39 +196,39 @@ export const DocumentationView: React.FC = () => {
           </p>
           
           <div className="space-y-4">
-            <div className="p-4 bg-slate-900 rounded-2xl border border-slate-800">
+            <div className="p-4 bg-slate-900 dark:bg-slate-950 rounded-2xl border border-slate-800 dark:border-slate-800">
               <h5 className="text-xs font-black uppercase tracking-widest text-blue-400 mb-3">Интерфейс и возможности:</h5>
-              <ul className="text-xs space-y-3 text-slate-400">
+              <ul className="text-xs space-y-3 text-slate-400 dark:text-slate-400">
                 <li>
-                  <b className="text-slate-100">ID Организации и Пользователя</b>: 
+                  <b className="text-slate-100 dark:text-slate-100">ID Организации и Пользователя</b>: 
                   Отображает уникальные UUID текущей сессии. Полезно для поиска логов в базе данных Supabase.
                 </li>
                 <li>
-                  <b className="text-slate-100">Кнопка «Copy»</b>: 
+                  <b className="text-slate-100 dark:text-slate-100">Кнопка «Copy»</b>: 
                   Копирует технический отчет (JSON) со всеми текущими состояниями приложения для отправки в техподдержку.
                 </li>
                 <li>
-                  <b className="text-slate-100">Кнопка «Clear Cache»</b>: 
+                  <b className="text-slate-100 dark:text-slate-100">Кнопка «Clear Cache»</b>: 
                   Полностью очищает локальное хранилище (localStorage). Помогает, если приложение «зависло» из-за некорректных локальных данных.
                 </li>
                 <li>
-                  <b className="text-slate-100">Диагностика БД</b>: 
+                  <b className="text-slate-100 dark:text-slate-100">Диагностика БД</b>: 
                   Проверяет целостность связей между сотрудниками, должностями и филиалами. Выявляет «сиротские» записи.
                 </li>
                 <li>
-                  <b className="text-slate-100">Очистка битых логов</b>: 
+                  <b className="text-slate-100 dark:text-slate-100">Очистка битых логов</b>: 
                   Автоматически удаляет записи о сменах, которые не имеют привязки к существующим пользователям (защита от мусора).
                 </li>
                 <li>
-                  <b className="text-slate-100">Принудительная очистка $</b>: 
+                  <b className="text-slate-100 dark:text-slate-100">Принудительная очистка $</b>: 
                   Сбрасывает кэшированные расчеты зарплат, заставляя систему пересчитать всё на основе актуальных логов смен.
                 </li>
               </ul>
             </div>
 
-            <div className="p-4 bg-amber-50 rounded-2xl border border-amber-100">
-              <h5 className="text-sm font-bold text-amber-900 mb-2">Как пользоваться:</h5>
-              <p className="text-xs text-amber-800 leading-relaxed">
+            <div className="p-4 bg-amber-50 dark:bg-amber-900/20 rounded-2xl border border-amber-100 dark:border-amber-800/30">
+              <h5 className="text-sm font-bold text-amber-900 dark:text-amber-100 mb-2">Как пользоваться:</h5>
+              <p className="text-xs text-amber-800 dark:text-amber-200 leading-relaxed">
                 Используйте инструменты отладки только при возникновении явных несоответствий в данных. 
                 Перед использованием «Очистки» рекомендуется скопировать технический отчет кнопкой «Copy».
               </p>
@@ -247,7 +247,7 @@ export const DocumentationView: React.FC = () => {
           <p className="text-sm text-slate-600 dark:text-slate-300">
             Система фиксирует каждое значимое действие администратора для обеспечения прозрачности и безопасности.
           </p>
-          <div className="p-4 bg-slate-50 rounded-2xl border border-slate-200">
+          <div className="p-4 bg-slate-50 dark:bg-slate-800/50 rounded-2xl border border-slate-200 dark:border-slate-700">
             <h5 className="text-xs font-black uppercase tracking-widest text-slate-400 mb-3">Что записывается:</h5>
             <ul className="text-xs space-y-2 text-slate-600 dark:text-slate-300">
               <li>• <b className="text-slate-900 dark:text-slate-50">Изменение зарплат</b>: Кто, когда и на сколько изменил ставку или сумму выплаты.</li>
@@ -273,7 +273,7 @@ export const DocumentationView: React.FC = () => {
             Приложение использует гибридную модель хранения данных (IndexedDB + Supabase Realtime).
           </p>
           <div className="space-y-4">
-            <div className="p-4 bg-slate-50 rounded-2xl border border-slate-200">
+            <div className="p-4 bg-slate-50 dark:bg-slate-800/50 rounded-2xl border border-slate-200 dark:border-slate-700">
               <h5 className="text-xs font-black uppercase tracking-widest text-slate-400 mb-3">Механизмы работы:</h5>
               <ul className="text-xs space-y-3 text-slate-600 dark:text-slate-300">
                 <li>
@@ -304,10 +304,10 @@ export const DocumentationView: React.FC = () => {
   const activeSectionData = sections.find(s => s.id === activeSection);
 
   return (
-    <div className="flex flex-col md:flex-row h-full bg-white rounded-3xl md:rounded-[2.5rem] border border-slate-200 overflow-hidden shadow-md dark:shadow-slate-900/20 no-print">
+    <div className="flex flex-col md:flex-row h-full bg-white dark:bg-slate-900 rounded-3xl md:rounded-[2.5rem] border border-slate-200 dark:border-slate-800 overflow-hidden shadow-md dark:shadow-slate-900/20 no-print">
       {/* Sidebar / Top Navigation on Mobile */}
-      <div className="w-full md:w-72 border-b md:border-b-0 md:border-r border-slate-100 bg-slate-50/50 flex flex-col shrink-0">
-        <div className="p-4 md:p-6 border-b border-slate-100">
+      <div className="w-full md:w-72 border-b md:border-b-0 md:border-r border-slate-100 dark:border-slate-800 bg-slate-50/50 dark:bg-slate-900/40 flex flex-col shrink-0">
+        <div className="p-4 md:p-6 border-b border-slate-100 dark:border-slate-800">
           <h2 className="text-base md:text-lg font-black text-slate-900 dark:text-slate-50 flex items-center gap-2">
             <HelpCircle className="w-5 h-5 text-blue-600 dark:text-blue-400" />
             Инструкция
@@ -345,7 +345,7 @@ export const DocumentationView: React.FC = () => {
                           : 'text-slate-600 dark:text-slate-400 hover:bg-slate-50 dark:hover:bg-slate-800'
                       }`}
                     >
-                      <span className={activeSection === section.id ? 'text-white' : 'text-slate-400'}>
+                      <span className={activeSection === section.id ? 'text-white' : 'text-slate-400 dark:text-slate-500'}>
                         {section.icon}
                       </span>
                       {section.title}
@@ -366,7 +366,7 @@ export const DocumentationView: React.FC = () => {
               className={`w-full flex items-center gap-3 px-4 py-3 rounded-2xl text-sm font-bold transition-all ${
                 activeSection === section.id
                   ? 'bg-blue-600 text-white shadow-xl dark:shadow-slate-900/20 shadow-blue-100'
-                  : 'text-slate-500 dark:text-slate-400 hover:bg-white hover:text-slate-900 dark:text-slate-50'
+                  : 'text-slate-500 dark:text-slate-400 hover:bg-white dark:hover:bg-slate-800 hover:text-slate-900 dark:hover:text-slate-50'
               }`}
             >
               {section.icon}
@@ -380,7 +380,7 @@ export const DocumentationView: React.FC = () => {
       {/* Content */}
       <div className="flex-1 overflow-y-auto p-4 md:p-10 custom-scrollbar">
         <div className="max-w-3xl mx-auto">
-          <div className="hidden md:block mb-6 pb-4 border-b border-slate-100">
+          <div className="hidden md:block mb-6 pb-4 border-b border-slate-100 dark:border-slate-800">
             <h3 className="text-xl font-black text-slate-900 dark:text-slate-50 flex items-center gap-3">
               {activeSectionData?.icon}
               {activeSectionData?.title}
@@ -389,13 +389,13 @@ export const DocumentationView: React.FC = () => {
           
           {activeSectionData?.content}
           
-          <div className="mt-8 md:mt-12 pt-6 md:pt-8 border-t border-slate-100">
-            <div className="flex flex-col sm:flex-row items-start sm:items-center gap-4 p-4 md:p-6 bg-blue-50 rounded-2xl md:rounded-[2rem] border border-blue-100">
-              <div className="p-3 bg-white rounded-2xl shadow-md dark:shadow-slate-900/20 shrink-0">
+          <div className="mt-8 md:mt-12 pt-6 md:pt-8 border-t border-slate-100 dark:border-slate-800">
+            <div className="flex flex-col sm:flex-row items-start sm:items-center gap-4 p-4 md:p-6 bg-blue-50 dark:bg-blue-900/20 rounded-2xl md:rounded-[2rem] border border-blue-100 dark:border-blue-800/30">
+              <div className="p-3 bg-white dark:bg-slate-800 rounded-2xl shadow-md dark:shadow-slate-900/20 shrink-0">
                 <Bell className="w-6 h-6 text-blue-600 dark:text-blue-400" />
               </div>
               <div>
-                <h5 className="font-bold text-blue-900 text-sm md:text-base">Нужна помощь?</h5>
+                <h5 className="font-bold text-blue-900 dark:text-blue-100 text-sm md:text-base">Нужна помощь?</h5>
                 <p className="text-[11px] md:text-xs text-blue-700 dark:text-blue-300">Если вы не нашли ответ на свой вопрос, обратитесь в чат поддержки или к вашему персональному менеджеру.</p>
               </div>
             </div>

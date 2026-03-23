@@ -20,7 +20,7 @@ import { PhotoPreviewModal } from './employer/PhotoPreviewModal';
 import { SupportChat } from './employer/SupportChat';
 import { DocumentationView } from './DocumentationView';
 import { logAuditAction } from '../lib/audit';
-import { MessageSquare } from 'lucide-react';
+import { MessageSquare, X } from 'lucide-react';
 
 interface EmployerViewProps {
   logs: WorkLog[];
@@ -94,8 +94,18 @@ const EmployerView: React.FC<EmployerViewProps> = ({
   const [promoCode, setPromoCode] = useState('');
   const [isApplyingPromo, setIsApplyingPromo] = useState(false);
   const [promoMessage, setPromoMessage] = useState<{ text: string, type: 'success' | 'error' } | null>(null);
+  const [showBirthdayNotification, setShowBirthdayNotification] = useState(true);
 
-  const [newUser, setNewUser] = useState<{ name: string; position: string; department: string; pin: string; requirePhoto: boolean; branchId?: string }>({ name: '', position: positions[0]?.name || '', department: '', pin: '0000', requirePhoto: false, branchId: '' });
+  const birthdayEmployees = useMemo(() => {
+    const today = getNow();
+    return users.filter(u => {
+      if (!u.birthday || u.isArchived) return false;
+      const bday = new Date(u.birthday);
+      return bday.getDate() === today.getDate() && bday.getMonth() === today.getMonth();
+    });
+  }, [users, getNow]);
+
+  const [newUser, setNewUser] = useState<{ name: string; position: string; department: string; pin: string; birthday: string; requirePhoto: boolean; branchId?: string }>({ name: '', position: positions[0]?.name || '', department: '', pin: '0000', birthday: '', requirePhoto: false, branchId: '' });
   const [newMachineName, setNewMachineName] = useState('');
   const [newMachineBranchId, setNewMachineBranchId] = useState('');
   const [newPositionName, setNewPositionName] = useState('');
@@ -519,6 +529,7 @@ const EmployerView: React.FC<EmployerViewProps> = ({
       position: newUser.position,
       department: newUser.department,
       pin: newUser.pin,
+      birthday: newUser.birthday,
       role: UserRole.EMPLOYEE,
       requirePhoto: newUser.requirePhoto,
       forcePinChange: false
@@ -536,7 +547,7 @@ const EmployerView: React.FC<EmployerViewProps> = ({
         `Имя: ${user.name}, Должность: ${user.position}, Отдел: ${user.department || 'Нет'}, PIN: ${user.pin}, Фотофиксация: ${user.requirePhoto}`
       );
     }
-    setNewUser({ name: '', position: positions[0]?.name || '', department: '', pin: '0000', requirePhoto: false, branchId: '' });
+    setNewUser({ name: '', position: positions[0]?.name || '', department: '', pin: '0000', birthday: '', requirePhoto: false, branchId: '' });
   };
 
   const deleteLogItem = (logId: string) => {
@@ -1066,6 +1077,35 @@ const EmployerView: React.FC<EmployerViewProps> = ({
 
   return (
     <div className="space-y-6 animate-fadeIn pb-20">
+      {birthdayEmployees.length > 0 && showBirthdayNotification && (
+        <div className="bg-gradient-to-r from-indigo-600 to-purple-600 p-4 rounded-3xl flex items-center gap-4 animate-fadeIn no-print shadow-xl shadow-indigo-200 dark:shadow-none relative overflow-hidden">
+          <div className="absolute top-0 right-0 p-2">
+            <button onClick={() => setShowBirthdayNotification(false)} className="text-white/50 hover:text-white transition-colors">
+              <X size={16} />
+            </button>
+          </div>
+          <div className="bg-white/20 p-3 rounded-2xl backdrop-blur-md">
+            <span className="text-2xl">🎉</span>
+          </div>
+          <div className="flex-1">
+            <p className="text-sm font-black text-white uppercase tracking-tight">Сегодня день рождения!</p>
+            <p className="text-xs text-indigo-100 font-bold">
+              {birthdayEmployees.length === 1 
+                ? `Поздравьте сотрудника: ${birthdayEmployees[0].name}` 
+                : `Сегодня празднуют: ${birthdayEmployees.map(e => e.name).join(', ')}`}
+            </p>
+          </div>
+          <div className="flex gap-2">
+            <button 
+              onClick={() => setViewMode('team')}
+              className="px-4 py-2 bg-white text-indigo-600 rounded-xl text-[10px] font-black uppercase hover:bg-indigo-50 transition-colors shadow-lg"
+            >
+              В команду
+            </button>
+          </div>
+        </div>
+      )}
+
       {dashboardStats.orphanedActiveShifts.length > 0 && (
         <div className="bg-amber-50 dark:bg-amber-900/20 border border-amber-200 dark:border-amber-800 p-4 rounded-3xl flex items-center gap-3 animate-fadeIn no-print">
           <div className="bg-amber-100 dark:bg-amber-900/30 p-2 rounded-xl">

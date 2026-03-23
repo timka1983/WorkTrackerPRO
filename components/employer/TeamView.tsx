@@ -11,8 +11,8 @@ interface TeamViewProps {
   planLimits: PlanLimits;
   currentOrg: Organization | null;
   isUserLimitReached: boolean;
-  newUser: { name: string; pin: string; position: string; department: string; requirePhoto: boolean; branchId?: string };
-  setNewUser: (user: { name: string; pin: string; position: string; department: string; requirePhoto: boolean; branchId?: string }) => void;
+  newUser: { name: string; pin: string; position: string; department: string; birthday: string; requirePhoto: boolean; branchId?: string };
+  setNewUser: (user: { name: string; pin: string; position: string; department: string; birthday: string; requirePhoto: boolean; branchId?: string }) => void;
   handleAddUser: (e: React.FormEvent) => void;
   dashboardStats: any;
   machines: Machine[];
@@ -116,6 +116,17 @@ export const TeamView: React.FC<TeamViewProps> = ({
                 </select>
               )}
               <input type="text" maxLength={4} value={newUser.pin} onChange={e => setNewUser({...newUser, pin: e.target.value.replace(/[^0-9]/g, '')})} placeholder="PIN (0000)" className="w-full border-2 border-slate-100 dark:border-slate-800 rounded-2xl px-4 py-3 text-sm font-mono bg-white dark:bg-slate-900 dark:text-slate-100 shadow-sm dark:shadow-none" />
+              
+              <div className="space-y-1">
+                <label className="text-[10px] font-black text-slate-400 uppercase ml-1">Дата рождения</label>
+                <input 
+                  type="date" 
+                  value={newUser.birthday} 
+                  onChange={e => setNewUser({...newUser, birthday: e.target.value})} 
+                  className="w-full border-2 border-slate-100 dark:border-slate-800 rounded-2xl px-4 py-3 text-sm font-bold bg-white dark:bg-slate-900 dark:text-slate-100 shadow-sm dark:shadow-none" 
+                />
+              </div>
+
               <div className={`flex items-center gap-3 p-4 bg-slate-50 dark:bg-slate-800/50 rounded-2xl border-2 border-slate-100 dark:border-slate-800 ${!planLimits.features.photoCapture ? 'opacity-50' : ''}`}>
                 <input 
                   disabled={!planLimits.features.photoCapture}
