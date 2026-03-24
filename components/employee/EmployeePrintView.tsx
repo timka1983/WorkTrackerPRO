@@ -45,8 +45,8 @@ export const EmployeePrintView = memo<EmployeePrintViewProps>(({
       <table className="w-full border-collapse border-2 border-black">
         <thead>
           <tr>
-            {['Пн', 'Вт', 'Ср', 'Чт', 'Пт', 'Сб', 'Вс'].map(d => (
-              <th key={d} className="border border-black p-1 text-[10px] font-bold uppercase tracking-widest bg-slate-50">{d}</th>
+            {['Понедельник', 'Вторник', 'Среда', 'Четверг', 'Пятница', 'Суббота', 'Воскресенье'].map(d => (
+              <th key={d} className="border border-black p-1 text-[7px] font-bold uppercase tracking-widest bg-slate-50">{d}</th>
             ))}
           </tr>
         </thead>
@@ -73,22 +73,22 @@ export const EmployeePrintView = memo<EmployeePrintViewProps>(({
               const absence = dayLogs.find(l => l.entryType !== EntryType.WORK);
 
               return (
-                <td key={colIdx} className="border border-black h-24 p-2 relative vertical-align-top">
-                  <span className="text-2xl font-black absolute top-1 left-2">{format(date, 'd')}</span>
-                  <div className="h-full flex flex-col justify-end items-center text-center pb-2">
+                <td key={colIdx} className="border border-black h-28 p-1 relative vertical-align-top">
+                  <span className="text-lg font-black absolute top-0.5 left-1">{format(date, 'd')}</span>
+                  <div className="h-full flex flex-col justify-end items-center text-center pb-0.5">
                      {absence ? (
-                       <div className="bg-slate-900 text-white px-3 py-1 rounded-md text-xs font-black uppercase">
+                       <div className="bg-slate-900 text-white px-1 py-0.5 rounded-sm text-[6px] font-black uppercase">
                          {absence.entryType === EntryType.SICK ? 'БОЛЬНИЧНЫЙ' : absence.entryType === EntryType.VACATION ? 'ОТПУСК' : 'ВЫХОДНОЙ'}
                        </div>
                      ) : hasWork ? (
                        <div className="flex flex-col items-center">
-                          <span className={`text-xl font-black tabular-nums ${workEntries.some(l => !l.checkOut) ? 'text-blue-600 italic' : ''}`}>
+                          <span className={`text-sm font-black tabular-nums ${workEntries.some(l => !l.checkOut) ? 'text-blue-600 italic' : ''}`}>
                             {workMins > 0 ? formatDurationShort(workMins) : (workEntries.some(l => !l.checkOut) ? '--:--' : '0:00')}
                           </span>
-                          <span className="text-[7px] font-bold text-slate-500 uppercase tracking-tighter">ОТРАБОТАНО</span>
+                          <span className="text-[6px] font-bold text-slate-500 uppercase tracking-tighter">ОТРАБОТАНО</span>
                        </div>
                      ) : (
-                       <span className="text-[10px] text-slate-200 font-bold italic">--:--</span>
+                       <span className="text-[8px] text-slate-200 font-bold italic">--:--</span>
                      )}
                   </div>
                 </td>
