@@ -56,7 +56,7 @@ body {
     visibility: hidden;
   }
 
-  #employer-matrix-report, #employer-matrix-report * {
+  #employer-matrix-report, #employer-matrix-report *, #employee-calendar-print, #employee-calendar-print * {
     visibility: visible;
   }
 
