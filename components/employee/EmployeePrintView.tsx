@@ -45,8 +45,8 @@ export const EmployeePrintView = memo<EmployeePrintViewProps>(({
       <table className="w-full border-collapse border-2 border-black">
         <thead>
           <tr>
-            {['Понедельник', 'Вторник', 'Среда', 'Четверг', 'Пятница', 'Суббота', 'Воскресенье'].map(d => (
-              <th key={d} className="border border-black p-2 text-xs font-bold uppercase tracking-widest bg-slate-50">{d}</th>
+            {['Пн', 'Вт', 'Ср', 'Чт', 'Пт', 'Сб', 'Вс'].map(d => (
+              <th key={d} className="border border-black p-1 text-[10px] font-bold uppercase tracking-widest bg-slate-50">{d}</th>
             ))}
           </tr>
         </thead>
